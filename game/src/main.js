@@ -101,14 +101,14 @@ function screen(name) {
 
 function pause() {
   if (state.mode !== 'run') return;
-  state.mode = 'paused'; $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
+  state.mode = 'paused'; sound.pause(); $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
 }
 function openSettings() { $('panelTitle').textContent = 'Settings'; $('resume').textContent = 'Done'; $('quit').hidden = true; screen('panel'); }
-function resume() { if (state.mode === 'paused') { state.mode = 'run'; last = performance.now(); screen(null); } else screen('menu'); }
+function resume() { if (state.mode === 'paused') { state.mode = 'run'; sound.resume(); last = performance.now(); screen(null); } else screen('menu'); }
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); hero.reset();
+  world.reset(); hero.reset(); sound.stop();
   Object.assign(state, { mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
@@ -121,7 +121,7 @@ function result(title, thirdLabel, third) {
   // caught beyond the first stretch: the next run takes up from the start of the place he had reached
   if (state.dist >= END_AT) { state.from = 0; state.kept = null; }
   $('again').textContent = state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = state.from === 0;
-  state.mode = 'ready'; screen('result');
+  state.mode = 'ready'; sound.stop(); screen('result');
 }
 
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
@@ -137,7 +137,7 @@ function start(from = 0) {
   queued = null; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
   hero.play('fast_run', { fade: 0.15 });
-  sound.chant();      // the chant as he sets off
+  sound.start();      // the chant as he sets off, then the song
 }
 
 function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = false; state.alertT = secs; }
@@ -265,6 +265,8 @@ const SHOTS = {
   drone: (p, k, u) => [[p.x * 0.3 + 2 - u * 4, 15 + u * 5, p.z + 12], [0, 1, p.z - 16], 52],                               // high above the street
   under: (p, k, u) => [[p.x + (p.x > 0.5 ? -2.2 : 2.2), 0.42, p.z - 3.0], [p.x, 0.6, p.z + 0.4], 56],                                              // low on the road ahead, as he slides toward it
   hero:  (p, k, u) => [[p.x + (1.5 - u * 0.5) * k, (0.75 + u * 0.25) * k, p.z - (3.3 - u * 0.5) * k], [p.x, 1.3 * k, p.z], 46],                 // slow push-in on him from the front, low
+  wing:  (p, k, u) => { const tall = camera.aspect < 1, a = 2.5 - ease(u) * 2.1, R = (tall ? 4.4 : 3.0) - u * 0.5, side = p.x > 0.5 ? -1 : 1;      // as he takes wing: from in front of him, past his side, to behind
+    return [[p.x + Math.sin(a) * R * side, 1.0 + hero.y * 0.75 + u * 1.1, p.z + Math.cos(a) * R], [p.x, hero.y + 0.85 - u * 0.25, p.z - 0.2 - u * 1.0], tall ? 62 : 50]; },
   orbit: (p, k, u) => [[p.x + Math.sin(u * 2.4 + 0.5) * 5.5 * k, hero.y + (1.0 + u) * k, p.z + Math.cos(u * 2.4 + 0.5) * 5.5 * k], [p.x, hero.y + 0.8 * k, p.z - 0.6], 58],      // swings round him from behind to the side
 };
 function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs }; }
@@ -273,7 +275,7 @@ function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs
 function useFlight() {
   if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return false;
   state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight();
-  slowMotion(0.4, 0.5);      // no swing round him here: in flight the road ahead stays in view
+  slowMotion(1.0, 0.4); shot('wing', 1.5);      // as he rises the camera sweeps round him once, then settles behind with the road ahead in view
   return true;
 }
 
