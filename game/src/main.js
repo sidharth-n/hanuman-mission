@@ -14,7 +14,8 @@ import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
 const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
-const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 1;   // lamps that fill the strength meter; how long he stays giant
+const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 3, WIND_SECS = 60, OPEN_FLIGHT = 3.6;      // gusts that charge a flight; seconds for it to charge by itself; the flight every run opens with
+//   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
 const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d1208);      // inside the palace: lamplit dark instead of night sky
@@ -137,8 +138,9 @@ function start(from = 0) {
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false;
   queued = null; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
-  hero.play('fast_run', { fade: 0.15 });
   sound.start();      // the chant as he sets off, then the song
+  // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
+  state.opening = true; state.flight = OPEN_FLIGHT; hero.startFlight(); slowMotion(1.4, 0.45); sound.fx('wing');
 }
 
 function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = false; state.alertT = secs; }
@@ -181,7 +183,8 @@ function rules(dt) {
   state.dist = -p.z;
   if (state.giant > 0) state.giant -= dt;
   if (state.safe > 0) state.safe -= dt;
-  if (state.flight > 0) { state.flight -= dt; if (state.flight <= 0) { hero.endFlight(); state.safe = 1.1; } }
+  if (state.flight > 0) { state.flight -= dt; if (state.flight <= 0) { hero.endFlight(); state.safe = 1.1; if (state.opening) { state.opening = false; state.wind = 1; } } }
+  else if (state.wind < 1 && !state.fire) { state.wind = Math.min(1, state.wind + dt / WIND_SECS); if (state.wind >= 1) say(LINES.wind, 2.4); }      // the wind gathers by itself, slowly
   state.big += ((state.giant > 0 ? 1 : 0) - state.big) * Math.min(1, dt * 4);
   // each new place along the route is named as he enters it, and becomes where the next run takes up from
   const sec = SECTIONS.findLastIndex(s => state.dist >= s.from);
@@ -254,7 +257,7 @@ function rules(dt) {
 }
 
 const look = new THREE.Vector3(), want = new THREE.Vector3(), tip = new THREE.Vector3();
-const INTRO = 1.7;      // seconds for the opening sweep from in front of him to the chase view
+const INTRO = 2.6;      // seconds for the opening sweep from in front of him to the chase view
 const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
 // The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
 const flyCam = { back: 2.3, up: 1.5, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close, then closer twice
@@ -263,7 +266,9 @@ function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; soun
 
 // Cinematic shots: for a few seconds the camera leaves the chase view. He keeps running and the player keeps control.
 const SHOTS = {
-  side:  (p, k, u) => [[p.x + (p.x > 0.5 ? -3.6 : 3.6), 1.25 * k + hero.y * 0.85, p.z - 0.6], [p.x, 1.15 * k + hero.y, p.z - 0.9], 62],            // alongside him, like a runner filmed from the roadside
+  side:  (p, k, u) => camera.aspect < 1
+    ? [[p.x + (p.x > 0.5 ? -2.6 : 2.6), 1.5 * k + hero.y * 0.6, p.z - 5.2], [p.x, 1.2 * k + hero.y * 0.9, p.z - 0.4], 66]      // phone upright: from ahead and to one side, so the whole leap stays inside the tall frame
+    : [[p.x + (p.x > 0.5 ? -3.6 : 3.6), 1.25 * k + hero.y * 0.85, p.z - 0.6], [p.x, 1.15 * k + hero.y, p.z - 0.9], 62],            // alongside him, like a runner filmed from the roadside
   front: (p, k, u) => [[p.x * 0.4 + 1.1, 1.35 * k + hero.y * 0.7, p.z - 6.5 * k], [p.x, 1.3 * k + hero.y, p.z], 50],                               // ahead of him, looking back at his face
   low:   (p, k, u) => [[p.x + 1.6, 0.35, p.z - 4.2 * k], [p.x, 1.7 * k + hero.y, p.z], 58],                                         // near the ground, looking up
   drone: (p, k, u) => [[p.x * 0.3 + 2 - u * 4, 15 + u * 5, p.z + 12], [0, 1, p.z - 16], 52],                               // high above the street
@@ -277,7 +282,7 @@ function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs
 function useFlight() {
   if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return false;
   state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight(); sound.fx('wing');
-  slowMotion(2.3, 0.32); state.shot = null; state.orbit = { t: 0, secs: 3.0, dir: hero.root.position.x > 0.5 ? -1 : 1 };      // as he rises the view is carried once round him, in slow motion, and home again
+  slowMotion(3.4, 0.32); state.shot = null; state.orbit = { t: 0, secs: 4.2, dir: hero.root.position.x > 0.5 ? -1 : 1 };      // as he rises the view is carried once round him, in slow motion, and home again
   return true;
 }
 
@@ -291,17 +296,17 @@ function usePower() {
 
 // Taking wing: the chase view itself is carried once round him and back. It leaves from exactly where it was and arrives exactly
 // where it belongs, so there is no cut at either end; it comes in closer and lower as it passes his side and his face.
-const base = new THREE.Vector3(), pivot = new THREE.Vector3(), SIDE = 3.9;      // SIDE: how far from the middle of the road the view may swing
+const base = new THREE.Vector3(), pivot = new THREE.Vector3(), SIDE = 5.2;      // SIDE: how far from the middle of the road the view may swing
 function sweep(dt, p, G) {
   const o = state.orbit; if (state.mode !== 'paused') o.t += dt;
   const u = Math.min(1, o.t / o.secs), e = u * u * u * (u * (u * 6 - 15) + 10), w = Math.sin(Math.PI * u) ** 2;      // e: slow away, quicker through the middle, slow home; w: how far into the sweep it is
-  const a = e * Math.PI * 2 * o.dir, cs = Math.cos(a), sn = Math.sin(a), near = 1 + 0.1 * w;
+  const a = e * Math.PI * 2 * o.dir, cs = Math.cos(a), sn = Math.sin(a), near = camera.aspect < 1 ? 1 + 0.35 * w : 1 + 0.1 * w;      // swings wider as it passes his side, more so on an upright phone, so all of him stays in the narrow frame
   const eye = ease(Math.min(1, u / 0.18)) * ease(Math.min(1, (1 - u) / 0.18));      // the view turns onto him early and lets go of him late, so he is never out of frame
   base.copy(camera.position); view.swept = true;
   pivot.set(p.x, G + hero.y + 0.75, p.z - 0.2);
   const dx = base.x - pivot.x, dy = base.y - pivot.y, dz = base.z - pivot.z;
   camera.position.set(pivot.x + (dx * cs + dz * sn) * near, pivot.y + dy * (1 - 0.6 * w), pivot.z + (dz * cs - dx * sn) * near);
-  camera.position.x = Math.max(-SIDE, Math.min(SIDE, camera.position.x));
+  camera.position.x += (SIDE * Math.tanh(camera.position.x / SIDE) - camera.position.x) * eye;      // eased in toward the road's edge, never stopped dead against it
   camera.position.y = Math.max(camera.position.y, groundAt(camera.position.z) + 0.7);
   look.lerp(pivot, eye);
   if (u >= 1) state.orbit = null;
@@ -338,8 +343,9 @@ function placeCamera(dt, snap) {
     // title: a slow drift in front of him. On Run the camera sweeps round behind as he takes off.
     const e = state.mode === 'ready' ? 0 : ease(1 - state.intro / INTRO);
     const a = (2.5 + Math.sin(performance.now() * 0.0004) * 0.16) * (1 - e), R = 4.0 * k + (back - 4.0 * k) * e, y0 = (tall ? 0.95 : 0.75) * k;
-    camera.position.set(p.x + Math.sin(a) * R, G + 1.3 * k + (height - 1.3 * k) * e, p.z + Math.cos(a) * R);
-    look.set(p.x * (1 - 0.15 * e), G + y0 + (lookY - y0) * e + slope * 0.5 * e, p.z - 9 * e);
+    const lift = hero.y * (1 - e);      // while the view is still in front of him it rises with him as he takes wing
+    camera.position.set(p.x + Math.sin(a) * R, G + 1.3 * k + lift * 0.7 + (height - 1.3 * k) * e, p.z + Math.cos(a) * R);
+    look.set(p.x * (1 - 0.15 * e), G + y0 + lift + (lookY - y0) * e + slope * 0.5 * e, p.z - 9 * e * e * e);      // the view stays on him until it is nearly behind him, then looks down the road
     view.back = back;
   } else {
     if (view.swept) { camera.position.copy(base); view.swept = false; }      // last frame's sweep is set aside before the chase view eases on
