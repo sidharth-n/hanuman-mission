@@ -127,7 +127,7 @@ export function stairsModule(dir = 1) {
       b.face([[xi, a - 0.3, -s0], [xi, c - 0.3, -s1], [xi, c + 1.0, -s1], [xi, a + 1.0, -s0]], 'stone', [-s, 0, 0], { ...o, along: [0, 0, s], tile: [2, 2], shade: 0.75 });
       b.face([[xi, a + 1.0, -s0], [xi, c + 1.0, -s1], [x, c + 1.0, -s1], [x, a + 1.0, -s0]], 'lotus', [0, 1, 0], { ...o, along: [0, 0, s], tile: [2, 0.28] });
     }
-    for (const sz of [1.5, 13]) lit(lights, s * 4.45, level(sz) + 2.9, -sz, 3.0, 0.7);       // where the braziers stand
+    lit(lights, s * 4.45, level(13) + 2.9, -13, 3.2, 0.8);       // where the braziers stand
   }
   return b.geometry(lights);
 }
@@ -187,10 +187,12 @@ export function bell() {
 }
 
 // ── The pillared halls ──────────────────────────────────────────────────────────────────────────────────────────
-export const HALL_HALF = 8, HALL_PX = 5.6, HALL_TOP = 9, HALL_PILLARS = [-3, -9, -15, -21];
+// Wide and high, with little in them: a polished floor, one long carpet, a row of great columns down each side,
+// tall doors between the columns, and rings of lamps hung from a coffered ceiling.
+export const HALL_HALF = 9.6, HALL_PX = 6.3, HALL_TOP = 11.6, HALL_PILLARS = [-4, -12, -20], HALL_LAMPS = [-8, -16, -24], LAMP_AT = 7.4;
 export function hallModule() {
   const b = new Builder(), o = { ground: false }, HW = HALL_HALF, PX = HALL_PX, TOP = HALL_TOP, lights = [];
-  b.box(-HW, HW, -0.3, 0, -LEN, 0, 'pfloor', { ...o, faces: 't', shade: 0.95 });
+  b.box(-HW, HW, -0.3, 0, -LEN, 0, 'pfloor', { ...o, faces: 't', shade: 1.05 });
   // the long carpet down the middle, edged in gold
   b.box(-3.72, 3.72, 0, 0.022, -LEN, 0, 'carpet', { ...o, faces: 't', shade: 0.42 });
   for (const s of [-1, 1]) b.box(Math.min(s * 3.72, s * 3.9), Math.max(s * 3.72, s * 3.9), 0, 0.03, -LEN, 0, 'lotus', { ...o, faces: 't', along: [0, 0, 1], tile: [2, 0.18] });
@@ -198,24 +200,35 @@ export function hallModule() {
     const x = s * HW, inner = s > 0 ? 'l' : 'r';
     b.face([[x, 0, 0], [x, 0, -LEN], [x, TOP, -LEN], [x, TOP, 0]], 'pwall', [-s, 0, 0], { along: [0, 0, s], tile: [4, 4], shade: 0.8 });
     b.box(Math.min(x, x - s * 0.22), Math.max(x, x - s * 0.22), 0, 0.9, -LEN, 0, 'stone', { faces: inner + 't', tile: [1.8, 1.8], top: 'dark' });
-    b.box(Math.min(x, x - s * 0.16), Math.max(x, x - s * 0.16), 5.2, 5.8, -LEN, 0, 'frieze', { ...o, faces: inner + 'td', tile: [2.4, 0.6], top: 'dark' });
-    sideDoor(b, x - s * 0.05, s, -12);
-    for (const z of HALL_PILLARS) { column(b, s * PX, z, 0, 8.2, 1.1); wallLamp(b, lights, s * (PX - 0.56), 4.0, z, -s, 3.0, 0.55); }
-    b.box(s * PX - 0.6, s * PX + 0.6, 8.2, TOP, -LEN, 0, 'frieze', { ...o, faces: 'lrd', tile: [3.2, 0.8] });
+    b.box(Math.min(x, x - s * 0.16), Math.max(x, x - s * 0.16), 7.4, 8.1, -LEN, 0, 'frieze', { ...o, faces: inner + 'td', tile: [2.8, 0.7], top: 'dark' });
+    for (const z of HALL_LAMPS) if (z > -LEN + 1) { sideDoor(b, x - s * 0.05, s, z, 3.6, 6.4); lit(lights, x - s * 1.2, 3.4, z, 3.4, 0.35); }      // a great door in every bay
+    for (const z of HALL_PILLARS) { column(b, s * PX, z, 0, 10.6, 1.3); wallLamp(b, lights, s * (PX - 0.66), 4.6, z, -s, 3.2, 0.5); }
+    b.box(s * PX - 0.7, s * PX + 0.7, 10.6, TOP, -LEN, 0, 'frieze', { ...o, faces: 'lrd', tile: [4, 1] });
   }
-  for (const z of HALL_PILLARS) {
-    b.box(-PX + 0.6, PX - 0.6, 8.3, TOP, z - 0.4, z + 0.4, 'frieze', { ...o, faces: 'fbd', tile: [2.8, 0.7] });
-    for (const x of [-2.4, 0, 2.4]) { hangLamp(b, x, z, 8.3, 6.0, 1.3); lit(lights, x, 6.2, z, 2.8, 0.35); }
+  for (const z of HALL_PILLARS) b.box(-PX + 0.7, PX - 0.7, 10.75, TOP, z - 0.45, z + 0.45, 'frieze', { ...o, faces: 'fbd', tile: [3.4, 0.85] });
+  // a ring of lamps over the middle of every bay
+  for (const z of HALL_LAMPS) {
+    const y = LAMP_AT, R = 1.5;
+    b.lathe(0, z, y, [[R - 0.1, 0], [R + 0.1, 0.05], [R + 0.1, 0.2], [R - 0.1, 0.25]], 'gold', 16, 1.5);
+    b.lathe(0, z, y - 0.5, [[0.05, 0], [0.4, 0.2], [0.45, 0.42]], 'bronze', 10, 1.3);
+    b.lathe(0, z, y - 0.14, [[0.2, 0], [0.15, 0.25], [0, 0.7]], 'lamp', 6);
+    for (let i = 0; i < 8; i++) {
+      const a = i / 8 * Math.PI * 2, x = Math.cos(a) * R, zz = z + Math.sin(a) * R;
+      b.lathe(x, zz, y + 0.22, [[0.1, 0], [0.08, 0.14], [0, 0.4]], 'lamp', 5);
+      if (i % 2 === 0) for (const way of [-1, 1]) b.face([[x - 0.03, y + 0.2, zz], [x + 0.03, y + 0.2, zz], [0.03, TOP - 0.9, z], [-0.03, TOP - 0.9, z]], 'dark', [0, 0, way], o);
+    }
+    b.box(-0.04, 0.04, TOP - 0.9, TOP, z - 0.04, z + 0.04, 'dark', { ...o, faces: 'fblr' });
+    lit(lights, 0, y - 1.2, z, 5.5, 0.55); lit(lights, 0, y + 1.6, z, 4.5, 0.5);
   }
-  b.face([[-HW, TOP, 0], [HW, TOP, 0], [HW, TOP, -LEN], [-HW, TOP, -LEN]], 'pceil', [0, -1, 0], { ...o, along: [1, 0, 0], shade: 0.75 });
+  b.face([[-HW, TOP, 0], [HW, TOP, 0], [HW, TOP, -LEN], [-HW, TOP, -LEN]], 'pceil', [0, -1, 0], { ...o, along: [1, 0, 0], shade: 0.8 });
   return b.geometry(lights);
 }
 
 // The front of the palace, with its great doorway and the doors standing open. Also used for the walls that
 // divide one hall from the next. It stands on z = 0 and is 1.2 m thick; the leaves open away from the court.
-export const DOOR_HALF = 4.1, DOOR_HIGH = 7.2;
+export const DOOR_HALF = 4.1, DOOR_HIGH = 8.2;
 export function hallFront() {
-  const b = new Builder(), o = { ground: false }, W = COURT_HALF, D = DOOR_HALF, H = DOOR_HIGH, T = 13.2, z0 = -1.2, lights = [];
+  const b = new Builder(), o = { ground: false }, W = COURT_HALF, D = DOOR_HALF, H = DOOR_HIGH, T = 14.4, z0 = -1.2, lights = [];
   for (const s of [-1, 1]) {
     b.box(Math.min(s * D, s * W), Math.max(s * D, s * W), 0, T, z0, 0, 'pwall', { faces: 'fb' + (s > 0 ? 'l' : 'r'), tile: [4, 4] });
     for (const [za, zb, f] of [[0, 0.16, 'f'], [z0 - 0.16, z0, 'b']]) {
@@ -231,7 +244,7 @@ export function hallFront() {
   }
   b.box(-D, D, H, T, z0, 0, 'pwall', { ...o, faces: 'fbd', tile: [4, 4] });
   for (const [za, zb, f] of [[0, 0.2, 'f'], [z0 - 0.2, z0, 'b']]) b.box(-D - 0.8, D + 0.8, H, H + 0.9, za, zb, 'frieze', { ...o, faces: f + 'd', tile: [3.6, 0.9] });
-  for (const x of [-9, -6, -3, 0, 3, 6, 9]) b.panel(x - 0.5, x + 0.5, 9.9, 11.5, 0.03, 'window');
+  for (const x of [-9, -6, -3, 0, 3, 6, 9]) b.panel(x - 0.5, x + 0.5, 11.0, 12.6, 0.03, 'window');
   b.box(-W, W, T, T + 0.5, z0 - 0.2, 0.2, 'lotus', { ...o, faces: 'fbtd', tile: [4, 0.5], top: 'dark' });
   return b.geometry(lights);
 }
@@ -264,11 +277,11 @@ export function lampChain() {
 export function drum() {
   const b = new Builder(), o = { ground: false };
   b.box(-0.72, 0.72, 0, 0.5, -0.72, 0.72, 'stone', { faces: 'fblrt', tile: [1.5, 1.5], top: 'dark' });
-  b.box(-0.5, 0.5, 0.5, 2.0, -0.5, 0.5, 'ppillar', { faces: 'fblr', tile: [1, 2] });
-  b.face([[-0.5, 2.0, 0.5], [0.5, 2.0, 0.5], [0.5, 2.55, -0.5], [-0.5, 2.55, -0.5]], 'dark', [0, 1, 0.2], { ...o, shade: 1.6 });      // the broken top
-  b.face([[0.5, 2.0, 0.5], [0.5, 2.0, -0.5], [0.5, 2.55, -0.5]], 'ppillar', [1, 0, 0], { ...o, fit: true, shade: 0.8 });
-  b.face([[-0.5, 2.0, -0.5], [-0.5, 2.0, 0.5], [-0.5, 2.55, -0.5]], 'ppillar', [-1, 0, 0], { ...o, fit: true, shade: 0.8 });
-  b.face([[0.5, 2.0, -0.5], [-0.5, 2.0, -0.5], [-0.5, 2.55, -0.5], [0.5, 2.55, -0.5]], 'ppillar', [0, 0, -1], { ...o, fit: true });
+  b.box(-0.5, 0.5, 0.5, 1.2, -0.5, 0.5, 'ppillar', { faces: 'fblr', tile: [1, 2] });
+  b.face([[-0.5, 1.2, 0.5], [0.5, 1.2, 0.5], [0.5, 1.6, -0.5], [-0.5, 1.6, -0.5]], 'dark', [0, 1, 0.2], { ...o, shade: 1.6 });      // the broken top
+  b.face([[0.5, 1.2, 0.5], [0.5, 1.2, -0.5], [0.5, 1.6, -0.5]], 'ppillar', [1, 0, 0], { ...o, fit: true, shade: 0.8 });
+  b.face([[-0.5, 1.2, -0.5], [-0.5, 1.2, 0.5], [-0.5, 1.6, -0.5]], 'ppillar', [-1, 0, 0], { ...o, fit: true, shade: 0.8 });
+  b.face([[0.5, 1.2, -0.5], [-0.5, 1.2, -0.5], [-0.5, 1.6, -0.5], [0.5, 1.6, -0.5]], 'ppillar', [0, 0, -1], { ...o, fit: true });
   b.box(0.6, 1.05, 0, 0.4, 0.5, 0.95, 'ppillar', { faces: 'fblrt', tile: [0.5, 1], top: 'dark' });         // a fallen piece beside it
   return b.geometry();
 }
@@ -326,7 +339,7 @@ export function dropBeam() {
   b.box(-D, D, 0, 0.62, -0.3, 0.3, 'wood', { ...o, faces: 'fbtd', along: [0, 1, 0], tile: [1.6, 1.6], shade: 1.15 });
   for (const x of [-3.2, -1.2, 1.2, 3.2]) b.box(x - 0.14, x + 0.14, -0.03, 0.65, -0.33, 0.33, 'bronze', { ...o, faces: 'fbtd', shade: 1.5 });
   b.box(-D, D, -0.02, 0.0, -0.31, 0.31, 'gold', { ...o, faces: 'd', shade: 1.2 });
-  for (const x of [-2.2, 2.2]) b.box(x - 0.035, x + 0.035, 0.62, 7.4, -0.035, 0.035, 'dark', { ...o, faces: 'fblr' });
+  for (const x of [-2.2, 2.2]) b.box(x - 0.035, x + 0.035, 0.62, 8.4, -0.035, 0.035, 'dark', { ...o, faces: 'fblr' });
   for (const x of [-2.4, 0, 2.4]) for (const z of [-0.31, 0.31]) b.lathe(x, z, 0.24, [[0.07, 0], [0.07, 0.14]], 'gold', 6, 1.6);
   return b.geometry();
 }

@@ -1,25 +1,27 @@
 // Hanuman: always runs forward by himself. The player only picks a lane, jumps or slides.
 import * as THREE from 'three';
+import { GRAVITY, JUMP_V, SLIDE_TIME, AIR_TIME } from './pace.js';
 
 export const LANES = [-2.4, 0, 2.4];
-const GRAVITY = 28, JUMP_V = 10.4, SLIDE_TIME = 0.85, FLY_HEIGHT = 3.1;      // leap: 1.9 m high, 0.74 s in the air
-const AIR_TIME = 2 * JUMP_V / GRAVITY;
+
 const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
 
-// Mixamo clips carry a little forward drift in the hips. Pin it so the game alone decides where he is.
-function pinHips(clip, flattenY) {
+// Mixamo clips move the hips: forward with the run-up, up with a leap, down with a slide. The game alone decides
+// where he is, so the hips are pinned in place; only a slide keeps their height, so that he really goes down.
+// The rig may stand along any axis: his height is whichever part of the hips' place is large when he stands.
+function pinHips(clip, keepHeight) {
   for (const t of clip.tracks) {
     if (!/Hips\.position$/.test(t.name)) continue;
-    const v = t.values;
-    // find the part of the clip where the body is really off the ground (jump) or really down (slide),
+    const v = t.values, H = [0, 1, 2].reduce((a, b) => Math.abs(v[b]) > Math.abs(v[a]) ? b : a), sign = Math.sign(v[H]) || 1;
+    // find the part of the clip where the body is really off the ground (leap) or really down (slide),
     // so the game can play exactly that part while he is in the air or under a beam
     let lo = Infinity, hi = -Infinity;
-    for (let i = 1; i < v.length; i += 3) { lo = Math.min(lo, v[i]); hi = Math.max(hi, v[i]); }
-    const base = v[1], up = hi - base > base - lo, level = up ? base + (hi - base) * 0.2 : base - (base - lo) * 0.4;
+    for (let i = H; i < v.length; i += 3) { lo = Math.min(lo, v[i] * sign); hi = Math.max(hi, v[i] * sign); }
+    const base = v[H] * sign, up = hi - base > base - lo, level = up ? base + (hi - base) * 0.2 : base - (base - lo) * 0.4;
     let a = -1, b = -1;
-    for (let i = 1, n = 0; i < v.length; i += 3, n++) if (up ? v[i] > level : v[i] < level) { if (a < 0) a = n; b = n; }
+    for (let i = H, n = 0; i < v.length; i += 3, n++) if (up ? v[i] * sign > level : v[i] * sign < level) { if (a < 0) a = n; b = n; }
     clip.userData = { from: a < 0 ? 0 : t.times[a], to: b < 0 ? clip.duration : t.times[b] };
-    for (let i = 3; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; if (flattenY) v[i + 1] = v[1]; }
+    for (let i = 3; i < v.length; i += 3) for (let k = 0; k < 3; k++) if (k !== H || !keepHeight) v[i + k] = v[k];
   }
   return clip;
 }
@@ -27,6 +29,7 @@ function pinHips(clip, flattenY) {
 export class Hero {
   constructor(gltf) {
     this.root = new THREE.Group();
+    this.flyHeight = 2.5;      // how high he flies: clear of everything in the road, low enough to feel the speed
     this.model = gltf.scene;
     this.model.rotation.y = Math.PI;            // the model faces +Z, the run goes toward -Z
     this.root.add(this.model);
@@ -35,7 +38,7 @@ export class Hero {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const clip of gltf.animations) {
-      pinHips(clip, /jump|hang/.test(clip.name));
+      pinHips(clip, /slide/.test(clip.name));
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     this.current = null;
@@ -87,6 +90,12 @@ export class Hero {
 
   get airborne() { return this.y > this.floor + 0.02; }
   get sliding() { return this.slide > 0; }
+  // How far down he is in a slide, 0..1: eases in as he drops and out as he rises, for the camera to follow.
+  get low() {
+    if (this.slide <= 0) return 0;
+    const a = Math.min(1, (SLIDE_TIME - this.slide) / 0.2), b = Math.min(1, this.slide / 0.3);
+    return a * a * (3 - 2 * a) * b * b * (3 - 2 * b);
+  }
 
   // Wind flight: he rises above the street and flies level, mace arm forward, until the wind runs out.
   startFlight() {
@@ -109,9 +118,9 @@ export class Hero {
       if (this.airborne) { this.vy = -14; return true; }          // swipe down in the air drops him fast
       if (this.slide > 0.25) return false;                          // already down: a second swipe must not restart the move
       this.slide = SLIDE_TIME; this.slideZ = this.root.position.z;
-      const clip = this.actions.running_slide.getClip(), from = Math.max(0, clip.userData.from - 0.1);
-      // paced so the clip reaches its last frame exactly as the slide ends: no held pose, no skipped frames
-      this.play('running_slide', { once: true, from, speed: (clip.duration - from) / SLIDE_TIME, fade: 0.1 }); return true;
+      const clip = this.actions.running_slide.getClip(), w = clip.userData, from = Math.max(0, w.from - 0.12), to = Math.min(clip.duration, w.to + 0.12);
+      // the low part of the clip, with a little of going down and coming up, paced to last exactly as long as the slide
+      this.play('running_slide', { once: true, from, speed: (to - from) / SLIDE_TIME, fade: 0.1 }); return true;
     }
     return false;
   }
@@ -131,7 +140,7 @@ export class Hero {
     this.model.rotation.z = this.lean;
 
     this.fly += ((this.flying ? 1 : 0) - this.fly) * Math.min(1, dt * 5);
-    if (this.flying) { this.y += (FLY_HEIGHT + Math.sin(this.time * 2.6) * 0.18 - this.y) * Math.min(1, dt * 3.5); this.vy = 0; }
+    if (this.flying) { this.y += (this.flyHeight + Math.sin(this.time * 2.6) * 0.12 - this.y) * Math.min(1, dt * 3.5); this.vy = 0; }
     else if (this.y > this.floor || this.vy > 0) { this.vy -= GRAVITY * dt; this.y += this.vy * dt; }
     if (this.y <= this.floor) { this.y = this.floor; this.vy = 0; }      // on the ground, or on top of something he came down on
     // tipped forward to fly level; the body is kept over the spot he is flying above

@@ -5,6 +5,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero } from './hero.js';
 import { World, SECTIONS, FIRE_AT, END_AT, groundAt } from './world.js';
 import LINES from './lines.json';
+import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen } from './input.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
@@ -12,8 +13,7 @@ import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
 const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
-const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
-const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 2;   // lamps that fill the strength meter; how long he stays giant
+const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 1;   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
 const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d1208);      // inside the palace: lamplit dark instead of night sky
@@ -24,14 +24,18 @@ const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: 
   hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant') };
 // what the player chose last time, kept on the device
 const store = { get(k, d) { try { return localStorage.getItem('hm.' + k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem('hm.' + k, v); } catch { /* private mode */ } } };
-const settings = { gfx: store.get('gfx', 'rich'), vib: store.get('vib', 'on') === 'on' };
+const phone = window.matchMedia('(pointer: coarse)').matches;
+// Smooth: plainer shading and fewer pixels, the default on a phone. Rich: full shading, the default on a computer.
+const settings = { gfx: store.get('gfx', phone ? 'smooth' : 'rich'), vib: store.get('vib', 'on') === 'on' };
+const sharpest = () => Math.min(window.devicePixelRatio || 1, settings.gfx === 'rich' ? (phone ? 1.75 : 2) : 1.25);
 const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibrate(pattern); };
 const query = new URLSearchParams(location.search), debug = query.has('debug');
-const startAt = debug ? Math.max(0, SECTIONS.findIndex(s => s.id === query.get('at'))) : 0;      // ?debug&at=court starts a run at that section
+const explore = query.has('explore');      // ?explore: the whole route with nothing in his way, for looking round
+const startAt = debug || explore ? Math.max(0, SECTIONS.findIndex(s => s.id === query.get('at'))) : 0;      // &at=court starts a run at that section
 const t0 = performance.now();
 
 const renderer = new THREE.WebGLRenderer({ canvas: $('view'), antialias: true, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(window.devicePixelRatio || 1, settings.gfx === 'rich' ? 2 : 1.25);
+let pixelRatio = sharpest();
 renderer.setPixelRatio(pixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 
@@ -49,7 +53,8 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
   wind: 0, flight: 0, safe: 0,
   sec: 0, from: 0, inside: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
-let hero, world, tailFire, tailLight;
+let hero, world, tailFire, tailLight, aura;
+let queued = null;      // a leap asked for a moment before he could make it: made as soon as he can
 
 let fixed = null;      // [width, height] when recording at an exact size
 function resize() {
@@ -66,7 +71,7 @@ async function load() {
   const tl = new THREE.TextureLoader();
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
-  world = new World(scene, models, { city, glow, paving, sky });
+  world = new World(scene, models, { city, glow, paving, sky }, { lite: settings.gfx !== 'rich', bare: explore });
   world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); };
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
 
@@ -74,8 +79,11 @@ async function load() {
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
   tailLight = new THREE.PointLight(0xff7a2a, 0, 20, 1.8); scene.add(tailLight);
 
+  // the glow that shows his strength is up
+  aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: world.flameTex, color: 0xffd98a, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0 }));
+  aura.position.y = 1.15; aura.visible = false; hero.root.add(aura);
   world.update(0, 0); placeCamera(1, true);
-  renderer.compile(scene, camera);
+  world.warm(renderer, camera);
   state.loadMs = Math.round(performance.now() - t0);
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]);      // lettering in place before the menu shows
   state.mode = 'ready'; screen('menu');
@@ -100,7 +108,7 @@ function resume() { if (state.mode === 'paused') { state.mode = 'run'; last = pe
 function home() {
   world.reset(); hero.reset();
   Object.assign(state, { mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
-  tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); world.behind = 3;
+  tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
 }
 
@@ -117,14 +125,14 @@ function result(title, thirdLabel, third) {
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0) {
   if (typeof from !== 'number') from = 0;
-  const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 0 };
+  const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   world.reset(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
-  Object.assign(state, { mode: 'run', speed: Math.max(START_SPEED, Math.min(MAX_SPEED, START_SPEED + ACCEL * sec.from / 11.5)), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+  Object.assign(state, { mode: 'run', speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
-  tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1);
-  screen(null); last = performance.now();
+  tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false;
+  queued = null; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
   hero.play('fast_run', { fade: 0.15 });
 }
@@ -180,12 +188,13 @@ function rules(dt) {
   if (!state.fire && state.dist >= FIRE_AT) ignite();
   if (state.fire) {
     state.blaze = Math.min(1, state.blaze + dt * 0.35);
-    state.grow = Math.min(1, Math.max(0, (state.dist - FIRE_AT - 140) / 160));
+    state.grow = Math.min(1, Math.max(0, (state.dist - (END_AT - 190)) / 120));      // he grows only at the last, as he breaks out through the city
     if (state.grow > 0 && !state.grown) { state.grown = true; slowMotion(1.1, 0.35); state.low = 2.4; }
     state.burned += world.igniteUpTo(p.z);
     if (state.dist >= END_AT) return won();
   }
-  hero.root.scale.setScalar(1 + Math.max(state.grow, state.big) * 0.9);
+  hero.root.scale.setScalar(1 + state.grow * 0.9);      // his strength shows as a glow, not as size
+  aura.visible = state.big > 0.02; aura.material.opacity = state.big * 0.55; aura.scale.setScalar(3.4 + Math.sin(performance.now() * 0.012) * 0.25);
   const smash = state.fire || state.big > 0.3, pace = state.speed * (state.fire ? 1.15 : 1);
   const reach = 0.82 * hero.root.scale.x;
   let floor = 0;
@@ -197,8 +206,9 @@ function rules(dt) {
       // on a long frame he and the thing coming at him cover more ground than it is deep: widen the test by what the frame skipped
       const dz = Math.abs(o.z - p.z), sweep = Math.max(0, (pace + (o.vz || 0)) * dt / 2 - 0.12);
       if (flying || o.done || o.off || dz > o.hd + 0.2 + sweep || (!o.wide && Math.abs(o.x - p.x) > reach)) continue;
-      if (o.kind === 'gap') {      // the raised drawbridge: only a leap (or a giant's stride) carries him over
-        if (state.big < 0.3 && hero.y < 0.25 && dz < o.hd - 0.3) return fell();
+      if (o.kind === 'gap') {      // the raised drawbridge: only a leap carries him over
+        if (explore) { if (!hero.airborne && o.z < p.z && dz < o.hd + 0.2) hero.move('up'); continue; }
+        if (hero.y < 0.25 && dz < o.hd - 0.3) return fell();
         continue;
       }
       // things on the ground: above them he is safe, and he can come down on top and run across.
@@ -208,9 +218,12 @@ function rules(dt) {
       if (smash) hit(o, c);
       else if (over) {
         if (o.kind !== 'high' && !o.sharp && hero.vy <= 0) floor = Math.max(floor, o.top + lift);      // coming down or standing on it
-        if (!o.near) {       // now and then a good leap is shown from the roadside in slow motion; never a slide
-          o.near = true;
-          if (o.kind !== 'high' && hero.y > o.top + lift && state.cine <= 0 && !state.shot) { shot('side', 1.3); slowMotion(1.05, 0.36); state.cine = 16 + Math.random() * 10; }
+        if (!o.near) {       // now and then a good leap is shown from the roadside, a good slide from low in front, in slow motion.
+          o.near = true;     // Both shots are over before he lands or rises, so the road ahead is back in view with all his time to act.
+          if (state.cine <= 0 && !state.shot && !explore) {
+            if (o.kind === 'high') { shot('under', 0.7); slowMotion(0.55, 0.42); state.cine = 16 + Math.random() * 10; }
+            else if (hero.y > o.top + lift && hero.vy > -2) { shot('side', 0.8); slowMotion(0.65, 0.36); state.cine = 16 + Math.random() * 10; }
+          }
         }
       } else if (dz <= o.hd - 0.05 + sweep && state.safe <= 0) hit(o, c);
       if (state.mode !== 'run') return;
@@ -236,6 +249,8 @@ function rules(dt) {
 const look = new THREE.Vector3(), want = new THREE.Vector3(), tip = new THREE.Vector3();
 const INTRO = 1.7;      // seconds for the opening sweep from in front of him to the chase view
 const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
+// The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
+const flyCam = { back: 3.4, up: 1.5, ahead: 14, lookY: 1.2, fov: 62 };
 const ease = t => t * t * (3 - 2 * t);
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
 
@@ -245,6 +260,7 @@ const SHOTS = {
   front: (p, k, u) => [[p.x * 0.4 + 1.1, 1.35 * k + hero.y * 0.7, p.z - 6.5 * k], [p.x, 1.3 * k + hero.y, p.z], 50],                               // ahead of him, looking back at his face
   low:   (p, k, u) => [[p.x + 1.6, 0.35, p.z - 4.2 * k], [p.x, 1.7 * k + hero.y, p.z], 58],                                         // near the ground, looking up
   drone: (p, k, u) => [[p.x * 0.3 + 2 - u * 4, 15 + u * 5, p.z + 12], [0, 1, p.z - 16], 52],                               // high above the street
+  under: (p, k, u) => [[p.x + (p.x > 0.5 ? -2.2 : 2.2), 0.42, p.z - 3.0], [p.x, 0.6, p.z + 0.4], 56],                                              // low on the road ahead, as he slides toward it
   hero:  (p, k, u) => [[p.x + (1.5 - u * 0.5) * k, (0.75 + u * 0.25) * k, p.z - (3.3 - u * 0.5) * k], [p.x, 1.3 * k, p.z], 46],                 // slow push-in on him from the front, low
   orbit: (p, k, u) => [[p.x + Math.sin(u * 2.4 + 0.5) * 5.5 * k, hero.y + (1.0 + u) * k, p.z + Math.cos(u * 2.4 + 0.5) * 5.5 * k], [p.x, hero.y + 0.8 * k, p.z - 0.6], 58],      // swings round him from behind to the side
 };
@@ -252,16 +268,18 @@ function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs
 
 // Wind gathered: he flies above the street for a few seconds and nothing below can touch him.
 function useFlight() {
-  if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return;
+  if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return false;
   state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight();
-  slowMotion(0.5, 0.45); shot('orbit', 1.1);
+  slowMotion(0.4, 0.5);      // no swing round him here: in flight the road ahead stays in view
+  return true;
 }
 
-// Strength meter full and a tap: he grows giant for a few seconds and nothing in the street can stop him.
+// Strength meter full and a touch on its button: for a few seconds he glows and breaks through whatever is in his way.
 function usePower() {
-  if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return;
+  if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return false;
   state.meter = 0; state.giant = GIANT_SECS; state.danger = 0;
-  slowMotion(0.7, 0.35); state.low = 1.7; state.shake = 0.4;
+  slowMotion(0.5, 0.4); state.shake = 0.4;
+  return true;
 }
 
 // The chase camera: close behind and above so he fills the lower third; it lags a little on lane changes, rises less
@@ -273,12 +291,17 @@ function placeCamera(dt, snap) {
   const slow = 1 - state.tscale, low = ease(Math.min(1, state.low));
   if (view.air && !hero.airborne && hero.fly < 0.2) view.dip = 0.28;      // landing
   view.air = hero.airborne; view.dip *= Math.exp(-dt * 9);
-  const big = Math.max(state.grow, state.big);
-  view.duck += ((hero.sliding ? 1 : 0) - view.duck) * Math.min(1, dt * 6);      // ease down with a slide instead of dropping
-  let back = (tall ? 6.0 : 5.1) * (0.55 + 0.45 * k) + big * 2.6 + hero.fly * 1.6;
+  const big = state.grow;
+  view.duck += (hero.low - view.duck) * Math.min(1, dt * 18);      // down and up again with the slide itself, back level as he rises
+  const f = hero.fly;
+  let back = (tall ? 6.0 : 5.1) * (0.55 + 0.45 * k) + big * 2.6 + (1 - f) * Math.max(0, Math.min(2.2, hero.y)) * (tall ? 1.0 : 0.45);      // drawn back on a leap so he is never cut off
   let height = (tall ? 3.3 : 2.55) * (0.6 + 0.4 * k) + big * 2.0 + hero.y * 0.4 - view.duck * 0.4 - view.dip;
   back = back * (1 - 0.32 * low) - slow * 0.8; height *= 1 - 0.62 * low;
-  const lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8 + hero.fly * 7;
+  let lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8, ahead = 9;
+  if (f > 0.001) {      // taking wing: the view moves to its place above and behind him
+    back += ((tall ? flyCam.back * 1.15 : flyCam.back) - back) * f; height += (hero.y + flyCam.up - height) * f;
+    lookY += (flyCam.lookY - lookY) * f; ahead += (flyCam.ahead - ahead) * f; fov += ((tall ? flyCam.fov + 10 : flyCam.fov) - fov) * f;
+  }
 
   if (state.shot) {
     const s = state.shot; s.t += dt;
@@ -295,12 +318,12 @@ function placeCamera(dt, snap) {
     view.back = back;
   } else {
     // the distance behind him is held exactly (a camera that trails by speed shakes whenever a frame runs long); only the amount eases
-    view.back = snap ? back : view.back + (back - view.back) * Math.min(1, dt * 5);
+    view.back = snap ? back : view.back + (back - view.back) * Math.min(1, dt * 7);
     want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), G + height, p.z + view.back);
     want.y = Math.max(want.y, groundAt(want.z) + 1.4);      // coming down a stairway, the steps behind him are higher than he is
     if (snap) camera.position.copy(want);
     else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 9); c.z = want.z; }
-    look.set(p.x * 0.85, G + lookY + slope * 0.5, p.z - 9);      // the view tips up a climb and down a descent
+    look.set(p.x * 0.85, G + lookY + slope * 0.5, p.z - ahead);      // the view tips up a climb and down a descent
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
   camera.lookAt(look); camera.rotateZ(-hero.lean * 0.3);
@@ -324,6 +347,7 @@ function frame(now) {
   if (state.low > 0) state.low -= real;
   const running = state.mode === 'run';
   if (running) rules(dt);
+  if (running && queued) { queued.t -= real; if (hero.move('up') || queued.t <= 0) queued = null; }
   const falling = state.mode === 'fall';
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
   const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
@@ -355,17 +379,17 @@ function frame(now) {
     paint('full', state.meter >= 1 && state.giant <= 0 && !state.fire, v => ui.meter.classList.toggle('full', v));
     // each power: dim until charged, glowing when ready, and a ring that fills with the charge then runs down while in use
     paint('gRing', Math.round(giant * 50), v => ui.giant.style.setProperty('--p', v / 50));
-    paint('gState', state.giant > 0 ? 'active' : state.meter >= 1 && !state.fire ? 'ready' : '', v => ui.giant.className = 'medal power ' + v);
+    paint('gState', state.giant > 0 ? 'active' : state.meter >= 1 && !state.fire ? 'ready' : '', v => { ui.giant.classList.toggle('ready', v === 'ready'); ui.giant.classList.toggle('active', v === 'active'); });
     paint('fRing', Math.round(fly * 50), v => ui.fly.style.setProperty('--p', v / 50));
-    paint('fState', state.flight > 0 ? 'active' : state.wind >= 1 && !state.fire ? 'ready' : '', v => ui.fly.className = 'medal power ' + v);
+    paint('fState', state.flight > 0 ? 'active' : state.wind >= 1 && !state.fire ? 'ready' : '', v => { ui.fly.classList.toggle('ready', v === 'ready'); ui.fly.classList.toggle('active', v === 'active'); });
   }
   if (state.alertT > 0) { state.alertT -= dt; if (state.alertT <= 0) ui.alert.hidden = true; }
 
   // keep it smooth: if frames run long, render fewer pixels rather than stutter
   frames++; acc += raw; if (raw > 1 / 45) slowFrames++;
-  if (frames >= 90) {
+  if (frames >= 60) {
     const fps = frames / acc;
-    if (slowFrames > 30 && pixelRatio > 1) { pixelRatio = Math.max(1, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); resize(); }
+    if (slowFrames > 18 && pixelRatio > 0.85 && running) { pixelRatio = Math.max(0.85, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); resize(); }
     state.fps = Math.round(fps);
     if (debug) { ui.fps.hidden = false; ui.fps.textContent = `${state.fps} fps  px ${pixelRatio}\n${renderer.info.render.calls} draws  ${Math.round(renderer.info.render.triangles / 1000)}k tris\nload ${state.loadMs} ms`; }
     frames = 0; acc = 0; slowFrames = 0; shown++;
@@ -374,11 +398,17 @@ function frame(now) {
 
 listen(window, dir => {
   if (state.mode !== 'run') return;
-  if (dir === 'giant') usePower(); else if (dir === 'fly') useFlight(); else if (dir !== 'tap') hero.move(dir);
+  if (dir === 'giant') press2('giant', usePower); else if (dir === 'fly') press2('fly', useFlight);
+  else if (dir !== 'tap') { const done = hero.move(dir); queued = !done && dir === 'up' && !hero.flying ? { t: 0.28 } : null; }
 });
+// A power button answers every touch: a pulse and a buzz when it fires, a shake when it is not charged.
+function press2(id, fn) {
+  const el = $(id), ok = fn();
+  el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); buzz(ok ? [30, 30, 60] : 15);
+}
 const press = (id, fn) => $(id).addEventListener('click', fn);
 press('go', () => start(startAt)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
-for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); fn(); });      // on touch down, not on release
+for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run') press2(id, fn); });      // on touch down, not on release
 // settings
 function showSettings() {
   for (const b of $('gfx').children) b.classList.toggle('on', b.dataset.v === settings.gfx);
@@ -386,7 +416,7 @@ function showSettings() {
 }
 $('gfx').addEventListener('click', e => {
   const v = e.target.dataset.v; if (!v) return;
-  settings.gfx = v; store.set('gfx', v); pixelRatio = Math.min(window.devicePixelRatio || 1, v === 'rich' ? 2 : 1.25); renderer.setPixelRatio(pixelRatio); resize(); showSettings();
+  settings.gfx = v; store.set('gfx', v); pixelRatio = sharpest(); renderer.setPixelRatio(pixelRatio); resize(); showSettings();      // the shading itself changes the next time the game is opened
 });
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
@@ -406,5 +436,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { flyCam, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };

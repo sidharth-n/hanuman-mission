@@ -6,19 +6,21 @@ import { rng } from './build.js';
 import { kit, footpath, lampBeam, arrowVolley, greatArrow, streetGate, SLOT } from './buildings.js';
 import * as palace from './palace.js';
 import ROUTE from './route.json';
+import { speedAt, room, rollLead, REACT, MAX_SPEED } from './pace.js';
 
 export const CHUNK = 24;
+const GAP_AT = -12;      // where in a stretch of bridge the drawbridge is raised
 
 // The route as a list of stretches: what kind of place each is, how high its floor starts, whether the city is burning yet.
 function layout(route) {
   const list = [], marks = []; let base = 0;
   const add = (sec, kind, length, dir = 1, fire = false) => {
-    const count = Math.round(length / CHUNK);
+    const count = Math.round(length / CHUNK), from = list.length * CHUNK;
     for (let n = 0; n < count; n++) {
       const rise = kind === 'stairs' ? dir * palace.STAIR_RISE : 0, r = rng(list.length * 104729 + 7);
       // on the bridge the drawbridge is raised here and there: z of the middle of the gap, or null
-      const gap = kind === 'bridge' && n > 0 && r() < 0.7 ? (r() < 0.5 ? -4 : -16) : null;
-      list.push({ kind, sec: sec.id, n, of: count, base, rise, dir, fire, gap, rows: sec.rowGap > 0 }); base += rise;
+      const gap = kind === 'bridge' && n > 0 && r() < 0.7 ? GAP_AT : null;
+      list.push({ kind, sec: sec.id, n, of: count, from, base, rise, dir, fire, gap, rows: sec.rowGap > 0 }); base += rise;
     }
   };
   for (const sec of route.sections) {
@@ -33,9 +35,58 @@ function layout(route) {
 const { list: PLAN, marks: SECTIONS } = layout(ROUTE);
 export { SECTIONS };
 export const FIRE_AT = SECTIONS.find(s => s.fire).from, END_AT = PLAN.length * CHUNK;
-const BEFORE = { kind: 'city', sec: 'gate', n: 0, of: 1, base: 0, rise: 0, dir: 1, fire: false, gap: null, rows: false };
+const BEFORE = { kind: 'city', sec: 'gate', n: 0, of: 1, from: 0, base: 0, rise: 0, dir: 1, fire: false, gap: null, rows: false };
 const last = PLAN[PLAN.length - 1], AFTER = { ...last, base: last.base + last.rise, rise: 0, n: 1, of: 3, rows: false };
 const planAt = i => i < 0 ? BEFORE : PLAN[i] || AFTER;
+
+// ── Where the rows of things in his way go ──
+// Worked out once for the whole route from the pacing rule in pace.js, never by hand. Some rows cannot move (a raised
+// drawbridge, the beam of a great doorway); the rest are laid down one after another, each as soon as the rule allows
+// after the one before, and never so near a fixed row ahead that the rule would be broken there. On the stairway a row
+// must stand on a landing. A row may hold things that roll toward him only if it has the extra road that costs.
+const DOOR_EVERY = 5, ROLL = { vz: 5, from: 27 };
+function placeRows() {
+  const rows = [], r = rng(977);
+  const fixed = [];
+  PLAN.forEach((c, i) => {
+    if (c.fire || !c.rows) return;
+    if (c.gap !== null) fixed.push({ d: i * CHUNK - c.gap, type: 'gap' });
+    if (c.kind === 'hall' && c.n % DOOR_EVERY === 0) fixed.push({ d: i * CHUNK + 0.6, type: 'door' });
+  });
+  const allowed = d => {      // the first place at or after d where a free row may stand
+    for (;;) {
+      const i = Math.floor(d / CHUNK), c = planAt(i), s = d - i * CHUNK;
+      if (i >= PLAN.length || c.fire) return Infinity;
+      if (!c.rows) d = (i + 1) * CHUNK;
+      else if (c.kind === 'stairs' && Math.abs(s - 13) > 0.01) d = s < 13 ? i * CHUNK + 13 : (i + 1) * CHUNK;      // the middle landing only
+      else if (c.kind === 'court' && c.n === 0 && s < 8) d = i * CHUNK + 8;      // clear of the bell gate
+      else return d;
+    }
+  };
+  let prev = -Infinity, f = 0, n = 0;
+  for (;;) {
+    const next = fixed[f];
+    // every other row on the stairway asks for the extra road that lets it roll
+    const want = isFinite(prev) ? prev + room(speedAt(prev + 30)) : 0;      // at the speed he will have reached by then, not the speed he has now
+    let d = allowed(want + (isFinite(prev) && planAt(Math.floor(want / CHUNK)).kind === 'city' ? r() * 3 : 0));
+    const kind = d < Infinity ? planAt(Math.floor(d / CHUNK)).kind : null;
+    let roll = false;
+    if (kind === 'stairs' && n % 2 === 0) { const need = prev + room(speedAt(d)) + rollLead(speedAt(d), ROLL.vz, ROLL.from); roll = true; if (d < need) d = allowed(need); }
+    if (next && d + room(speedAt(next.d)) > next.d) { rows.push({ d: next.d, type: next.type }); prev = next.d; f++; continue; }      // too near the fixed row ahead: that one comes next
+    if (d === Infinity) { if (next) { rows.push({ d: next.d, type: next.type }); prev = next.d; f++; continue; } break; }
+    rows.push({ d, type: 'free', roll: roll && planAt(Math.floor(d / CHUNK)).kind === 'stairs' }); prev = d; n++;
+  }
+  // the rule, checked: no row closer to the one before than the road he needs at that speed
+  for (let k = 1; k < rows.length; k++) {
+    const a = rows[k - 1], b = rows[k], need = room(speedAt(b.d)) + (b.roll ? rollLead(speedAt(b.d), ROLL.vz, ROLL.from) : 0);
+    if (b.d - a.d < need - 0.01) console.error(`rows too close at ${b.d.toFixed(1)} m: ${(b.d - a.d).toFixed(1)} m, needs ${need.toFixed(1)} m`);
+  }
+  const by = new Map();
+  for (const row of rows) { const i = Math.floor(row.d / CHUNK); if (!by.has(i)) by.set(i, []); by.get(i).push({ ...row, z: i * CHUNK - row.d }); }
+  return { rows, by };
+}
+const { rows: ROW_LIST, by: ROWS_BY } = placeRows();
+export { ROW_LIST };
 
 // How high the floor is at any point along the route.
 export function groundAt(z) {
@@ -70,19 +121,19 @@ const POOLS = {
   stairs: [['boulder', null, null], [null, 'boulder', null], [null, null, 'boulder'], ['boulder', null, 'boulder'], ['log', 'log', null], [null, 'log', 'log'], ['rack', null, 'rack'],
     ['rack', 'boulder', null], [null, 'boulder', 'rack'], ['barricade', 'barricade', 'barricade'], ['pots', null, 'pots'], ['log', 'log', 'log']],
   court: [['rack', null, null], [null, null, 'rack'], ['drum', null, 'rack'], ['rack', null, 'drum'], ['spikes', 'spikes', 'spikes'], ['spikes', 'drum', 'spikes'], ['arrows', 'arrows', null], [null, 'arrows', 'arrows'],
-    ['beam', 'beam', 'beam'], ['fireball', null, null], [null, 'fireball', null], [null, null, 'fireball'], ['fireball', null, 'fireball'], ['drum', 'spikes', null], [null, 'spikes', 'drum'], ['pots', 'barricade', 'pots']],
+    ['beam', 'beam', 'beam'], ['drum', 'spikes', null], [null, 'spikes', 'drum'], ['pots', 'barricade', 'pots'], ['drum', null, 'drum']],
   hall: [['table', null, null], [null, 'table', null], ['table', 'table', 'table'], ['chain', 'chain', 'chain'], ['chain', 'drum', 'chain'], ['drum', null, 'drum'], ['drum', 'drum', null], [null, 'drum', 'drum'],
-    ['spikes', 'spikes', 'spikes'], ['spikes', 'table', 'spikes'], ['fireball', null, 'fireball'], ['fireball', 'fireball', null], [null, 'fireball', 'fireball'], ['table', 'fireball', 'table'],
-    ['rack', 'table', null], [null, 'table', 'rack'], ['arrows', 'table', 'arrows'], ['rack', 'chain', 'rack']],
+    ['spikes', 'spikes', 'spikes'], ['spikes', 'table', 'spikes'], ['rack', 'table', null], [null, 'table', 'rack'], ['arrows', 'table', 'arrows'], ['rack', 'chain', 'rack']],
 };
 const KIND = { pots: 'low', barricade: 'low', cart: 'block', beam: 'high', arrows: 'block', stone: 'block', boulder: 'low', log: 'low', rack: 'block', drum: 'block',
-  spikes: 'low', table: 'low', chain: 'high', fireball: 'high', door: 'high', gap: 'gap' };
-const TOP = { pots: 1.0, barricade: 1.1, cart: 1.55, arrows: 1.25, beam: 0, stone: 1.45, boulder: 1.24, log: 1.3, rack: 2.7, drum: 2.6, spikes: 0.9, table: 0.95, chain: 0, fireball: 0, door: 0, gap: 0 };      // how high each stands
-const HALF_DEPTH = { pots: 0.6, barricade: 0.55, cart: 1.25, beam: 0.35, arrows: 0.7, stone: 0.8, boulder: 0.6, log: 0.55, rack: 0.4, drum: 0.7, spikes: 0.65, table: 0.6, chain: 0.3, fireball: 0.8, door: 0.4, gap: palace.GAP_HALF };
-const MOVING = { boulder: { vz: 6.5, from: 44, up: 0.62 }, log: { vz: 5.5, from: 44, up: 0.72 }, fireball: { vz: 15, from: 58, up: 1.6 } };      // speed toward him, how far ahead it starts, how high it rides
+  spikes: 'low', table: 'low', chain: 'high', door: 'high', gap: 'gap' };
+const TOP = { pots: 1.0, barricade: 1.1, cart: 1.55, arrows: 1.25, beam: 0, stone: 1.45, boulder: 1.24, log: 1.3, rack: 2.7, drum: 1.6, spikes: 0.9, table: 0.95, chain: 0, door: 0, gap: 0 };      // how high each stands
+const HALF_DEPTH = { pots: 0.6, barricade: 0.55, cart: 1.25, beam: 0.35, arrows: 0.7, stone: 0.8, boulder: 0.6, log: 0.55, rack: 0.4, drum: 0.7, spikes: 0.65, table: 0.6, chain: 0.3, door: 0.4, gap: palace.GAP_HALF };
+// speed toward him, how far ahead it starts, how high it rides. They start late, so that they meet him well past the row before.
+const MOVING = { boulder: { ...ROLL, up: 0.62 }, log: { ...ROLL, vz: 4.5, up: 0.72 } };
 const SHARP = { spikes: true, boulder: true, log: true };      // nothing to land on
 const ARROWS_FROM = 34, ARROW_SKY = 16;      // metres ahead of him at which a volley is loosed; height it falls from
-const SPIKES_FROM = 17, DOOR_FROM = 34, DOOR_UP = 6.5, DOOR_LOW = 1.35;      // when the floor spikes spring and the door beam drops; where the beam hangs before and after
+const SPIKES_FROM = MAX_SPEED * (REACT + 0.7), DOOR_FROM = 34, DOOR_UP = 7.4, DOOR_LOW = 1.35;      // when the floor spikes spring and the door beam drops; where the beam hangs before and after
 
 function canvasTexture(size, draw) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -99,11 +150,14 @@ function glowTexture(inner, outer) {
 }
 
 export class World {
-  constructor(scene, models, tex) {
-    this.scene = scene;
+  // opt.lite: plain shading and one torch, for phones. opt.bare: nothing in his way, for looking round the world.
+  constructor(scene, models, tex, opt = {}) {
+    this.scene = scene; this.lite = !!opt.lite; this.bare = !!opt.bare;
+    const Solid = this.lite ? THREE.MeshLambertMaterial : THREE.MeshStandardMaterial, pbr = this.lite ? {} : { roughness: 0.9, metalness: 0 };
     // every building shares one material and one texture sheet
     for (const t of [tex.city, tex.glow, tex.paving]) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
-    this.cityMat = new THREE.MeshStandardMaterial({ map: tex.city, emissiveMap: tex.glow, emissive: 0xffffff, emissiveIntensity: 1.25, vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 });
+    this.cityMat = new Solid({ map: tex.city, emissiveMap: tex.glow, emissive: 0xffffff, emissiveIntensity: 1.25, vertexColors: true, ...pbr });
+    if (!this.lite) this.cityMat.envMapIntensity = 0.5;
     this.kit = kit();
     this.houses = this.kit.filter(k => k.type === 'house'); this.towers = this.kit.filter(k => k.type === 'tower');
     this.courtyard = this.kit.find(k => k.type === 'court');
@@ -111,7 +165,7 @@ export class World {
     this.beamGeo = lampBeam(); this.arrowGeo = arrowVolley(); this.boltGeo = greatArrow(); this.gateGeo = streetGate();
     // the palace and the way up to it, built once and set down wherever the route calls for them
     this.geo = {
-      bridge: { none: palace.bridgeModule(), [-4]: palace.bridgeModule(-4), [-16]: palace.bridgeModule(-16) },
+      bridge: { none: palace.bridgeModule(), gap: palace.bridgeModule(GAP_AT) },
       stairs: { 1: palace.stairsModule(1), [-1]: palace.stairsModule(-1) },
       court: palace.courtModule(), gate: palace.bellGate(), bell: palace.bell(), hall: palace.hallModule(), front: palace.hallFront(),
       table: palace.table(), chain: palace.lampChain(), drum: palace.drum(), rack: palace.rack(), plate: palace.spikePlate(), spikes: palace.spikes(),
@@ -125,19 +179,19 @@ export class World {
       const k = seen.get(key); at.setXYZ(i, at.getX(i) * k, at.getY(i) * k, at.getZ(i) * k);
     }
     rock.computeVertexNormals();
-    this.rockGeo = rock; this.rockMat = new THREE.MeshStandardMaterial({ color: 0x5b5148, roughness: 1, metalness: 0, flatShading: true });
+    this.rockGeo = rock; this.rockMat = new Solid({ color: 0x5b5148, flatShading: true, ...pbr });
     this.markMat = new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,90,40,0.55)', 'rgba(255,60,20,0.2)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     this.markGeo = new THREE.CircleGeometry(1.15, 20).rotateX(-Math.PI / 2);
     this.prefabs = {};
     for (const [name, [height, yaw]] of Object.entries(KIT)) if (models[name]) this.prefabs[name] = this.prefab(models[name].scene, height, yaw);
 
     const map = tex.paving; map.wrapS = map.wrapT = THREE.MirroredRepeatWrapping; map.repeat.set(2 * ROAD / 4, CHUNK / 4);
-    this.roadMat = new THREE.MeshStandardMaterial({ map, color: 0xb9ad9f, roughness: 0.92, metalness: 0 });
-    this.sideMat = new THREE.MeshStandardMaterial({ color: 0x14110e, roughness: 1, metalness: 0 });
+    this.roadMat = new Solid({ map, color: 0xb9ad9f, ...pbr });
+    this.sideMat = new Solid({ color: 0x14110e, ...pbr });
     this.roadGeo = new THREE.PlaneGeometry(2 * ROAD, CHUNK).rotateX(-Math.PI / 2);
     this.sideGeo = new THREE.PlaneGeometry(26, CHUNK).rotateX(-Math.PI / 2);
     // the moat: dark water that catches the sky, the far bank, and other bridges away to either side
-    this.waterMat = new THREE.MeshStandardMaterial({ color: 0x0a1930, roughness: 0.22, metalness: 0.75, envMapIntensity: 2.4 });
+    this.waterMat = this.lite ? new THREE.MeshLambertMaterial({ color: 0x0a1930 }) : new THREE.MeshStandardMaterial({ color: 0x0a1930, roughness: 0.22, metalness: 0.75, envMapIntensity: 2.4 });
     this.waterGeo = new THREE.PlaneGeometry(320, CHUNK).rotateX(-Math.PI / 2);
     this.farBridgeGeo = new THREE.BoxGeometry(3.2, 1.3, CHUNK);
     this.bankGeo = new THREE.PlaneGeometry(320, 26);
@@ -145,7 +199,7 @@ export class World {
     this.flameTex = glowTexture('rgba(255,244,190,1)', 'rgba(255,130,30,0.85)');
     this.flameMat = new THREE.SpriteMaterial({ map: this.flameTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.poolMat = new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,150,60,0.32)', 'rgba(255,110,30,0.12)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-    this.poolGeo = new THREE.CircleGeometry(6.5, 24).rotateX(-Math.PI / 2);
+    this.poolGeo = new THREE.CircleGeometry(4.4, 20).rotateX(-Math.PI / 2);      // kept small: big see-through discs are what phones draw slowest
     // the wind to gather for flight: a pale spinning swirl
     this.windMat = new THREE.SpriteMaterial({ depthWrite: false, blending: THREE.AdditiveBlending, map: canvasTexture(128, (g, s) => {
       const glow = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
@@ -164,7 +218,7 @@ export class World {
       flame(s * 0.13, s * 0.4, '#ff9a2a'); flame(s * 0.08, s * 0.28, '#ffe08a'); flame(s * 0.04, s * 0.16, '#fffbe6');
     }) });
 
-    this.torches = [new THREE.PointLight(0xff8a3c, 0, 26, 1.6), new THREE.PointLight(0xff8a3c, 0, 26, 1.6)];
+    this.torches = [new THREE.PointLight(0xff8a3c, 0, 26, 1.6)]; if (!this.lite) this.torches.push(new THREE.PointLight(0xff8a3c, 0, 26, 1.6));
     this.torches.forEach(l => scene.add(l));
     this.sky(models, tex.sky);
     // the far end of a hall: darkness, so that the night sky never shows through the palace
@@ -183,10 +237,26 @@ export class World {
     const size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
     src.position.set(-c.x, -box.min.y, -c.z);
     const inner = new THREE.Group(); inner.add(src); inner.scale.setScalar(height / size.y); inner.rotation.y = yaw;
-    src.traverse(o => { if (o.isMesh) { o.material.envMapIntensity = 0.5; o.material.metalness = Math.min(o.material.metalness, 0.45); } });
+    src.traverse(o => {
+      if (!o.isMesh) return;
+      if (this.lite) o.material = new THREE.MeshLambertMaterial({ map: o.material.map });
+      else { o.material.envMapIntensity = 0.5; o.material.metalness = Math.min(o.material.metalness, 0.45); }
+    });
     const holder = new THREE.Group(); holder.add(inner);
     holder.userData.size = size.multiplyScalar(height / size.y);
     return holder;
+  }
+
+  // Everything the run will ever show is drawn once, out of sight, before it starts: its shaders are built and its
+  // pictures handed to the graphics chip, so nothing has to be prepared in the middle of a jump.
+  warm(renderer, camera) {
+    const g = new THREE.Group();
+    for (const name of Object.keys(this.prefabs)) g.add(this.spawn(name));
+    for (const m of [this.cityMat, this.roadMat, this.sideMat, this.waterMat, this.rockMat, this.markMat, this.poolMat]) g.add(new THREE.Mesh(this.markGeo, m));
+    for (const m of [this.flameMat, this.windMat, this.lampMat]) g.add(new THREE.Sprite(m));
+    this.scene.add(g); renderer.compile(this.scene, camera);
+    g.traverse(o => { const m = o.material; if (m) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k]) renderer.initTexture(m[k]); });
+    this.scene.remove(g);
   }
 
   spawn(name) { const o = this.prefabs[name].clone(); o.userData = this.prefabs[name].userData; return o; }
@@ -262,12 +332,6 @@ export class World {
       }
       case 'boulder': return [new THREE.Mesh(this.rockGeo, this.rockMat), { type: 'roll', ...MOVING.boulder, t: -1 }];
       case 'log': return [this.part(this.geo.log), { type: 'roll', ...MOVING.log, t: -1 }];
-      case 'fireball': {      // a ball of fire from the mouths in the walls, flying down the lane at chest height
-        const o = new THREE.Group(); o.visible = false;
-        this.flame(chunk, 0, 0, 0, 0.8, x + z, o); this.flame(chunk, 0, 0, 0, 0.45, x - z, o);
-        this.flame(chunk, 0, 0.05, -0.8, 0.5, z, o); this.flame(chunk, 0, 0.1, -1.6, 0.3, z + 1, o);      // its tail streams behind it
-        return [o, { type: 'fly', ...MOVING.fireball, t: -1 }, true];
-      }
       default: { const o = this.spawn(type); if (type === 'pots') o.rotation.y = r() * 6.3; return [o]; }
     }
   }
@@ -321,7 +385,7 @@ export class World {
     const g = chunk.group;
     // where the drawbridge has been raised, if it has: the deck is built round the gap
     chunk.gap = c.gap;
-    g.add(this.part(this.geo.bridge[chunk.gap ?? 'none']));
+    g.add(this.part(this.geo.bridge[chunk.gap === null ? 'none' : 'gap']));
     const water = new THREE.Mesh(this.waterGeo, this.waterMat); water.position.set(0, -8, -CHUNK / 2); g.add(water);
     for (const s of [-1, 1]) {
       const far = new THREE.Mesh(this.farBridgeGeo, this.sideMat); far.position.set(s * (40 + (s > 0 ? 9 : 0)), -0.65, -CHUNK / 2); g.add(far);
@@ -350,7 +414,7 @@ export class World {
     const g = chunk.group, gy = chunk.gy;
     g.add(this.part(this.geo.stairs[c.dir]));
     for (const s of [-1, 1]) {
-      for (const z of [-1.5, -13]) this.brazier(chunk, s * (ROAD + 0.55), gy(z), z, r() * 10);
+      this.brazier(chunk, s * (ROAD + 0.55), gy(-13), -14.6, r() * 10);
       // towers of the upper city rising behind the terrace walls
       const far = this.part(this.towers[Math.floor(r() * this.towers.length)].geo[1]);
       far.position.set(s * (palace.STAIR_HALF + 5 + r() * 4), gy(-12) - 3, -r() * CHUNK); far.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; far.scale.setScalar(1.7 + r() * 0.5); g.add(far);
@@ -367,8 +431,8 @@ export class World {
       chunk.bell = { mesh: bell, z: g.position.z - 3, t: -1 };
     }
     for (const s of [-1, 1]) {
-      for (const z of [-6, -18]) this.brazier(chunk, s * (ROAD + 0.55), 0, z, r() * 10);
-      if (c.n % 2 === 1) { const st = this.spawn('rakshasa-statue'); st.position.set(s * 6.3, 0, -12); st.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(st); }
+      this.brazier(chunk, s * (ROAD + 0.55), 0, c.n % 2 ? -6 : -18, r() * 10);
+      if (c.n % 2 === 1) { const st = this.spawn('rakshasa-statue'); st.position.set(s * 6.3, 0, -15); st.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(st); }
       // the towers of the palace beyond the walls
       const far = this.part(this.towers[Math.floor(r() * this.towers.length)].geo[1]);
       far.position.set(s * (palace.COURT_HALF + 5 + r() * 5), -1, -r() * CHUNK); far.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; far.scale.setScalar(2.1 + r() * 0.6); g.add(far);
@@ -379,26 +443,31 @@ export class World {
     const g = chunk.group;
     g.add(this.part(this.geo.hall));
     // the front of the palace on the way in, a wall with a great doorway between one hall and the next, the same on the way out
-    if (!c.fire && c.n % 3 === 0) g.add(this.part(this.geo.front));
+    if (!c.fire && c.n % DOOR_EVERY === 0) g.add(this.part(this.geo.front));
     if (c.fire && c.n === c.of - 1) { const out = this.part(this.geo.front); out.position.z = -CHUNK; out.rotation.y = Math.PI; g.add(out); }
+    // each ring of lamps has a living flame at its heart, and the torchlight rides on the rings
+    for (const z of palace.HALL_LAMPS) {
+      this.flame(chunk, 0, palace.LAMP_AT + 0.25, z, 0.55, r() * 10);
+      chunk.braziers.push(new THREE.Vector3(0, g.position.y + palace.LAMP_AT - 1.5, g.position.z + z));
+    }
     for (const s of [-1, 1]) {
-      for (const z of [-6, -18]) this.brazier(chunk, s * (ROAD + 0.55), 0, z, r() * 10);
-      if (c.n % 2 === 1) { const st = this.spawn('rakshasa-statue'); st.scale.setScalar(0.72); st.position.set(s * 6.95, 0, -12); st.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(st); }
-      for (const z of palace.HALL_PILLARS) chunk.buildings.push({ x: s * (palace.HALL_PX + 1.2), z: g.position.z + z, lz: z, h: 7.4, lit: false });
+      // now and then a pair of stone guardians between the columns
+      if (c.n % 2 === 1) { const st = this.spawn('rakshasa-statue'); st.scale.setScalar(0.9); st.position.set(s * 8.2, 0, -16); st.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(st); }
+      for (const z of palace.HALL_PILLARS) chunk.buildings.push({ x: s * (palace.HALL_PX + 1.2), z: g.position.z + z, lz: z, h: 9, lit: false });
     }
   }
 
   // ── what stands in his way, the lamps to gather and the wind ──
   populate(chunk, c, r) {
     const g = chunk.group, gy = chunk.gy, fire = c.fire, pool = POOLS[c.kind];
-    const door = c.kind === 'hall' && !fire && c.n % 3 === 0;      // a doorway: its locking beam drops as he comes
-    const zs = c.kind === 'stairs' ? [-1, -13] : door ? [-0.6, -14] : c.kind === 'court' && c.n === 0 ? [-16] : fire ? [-3, -11, -19] : [-4, -16];
-    zs.forEach((z, n) => {
+    // in the fire run he breaks through everything, so it can come thick; everywhere else the rows are where the pacing rule put them
+    let list = fire ? [-4, -16].map(z => ({ z, type: 'free' })) : ROWS_BY.get(chunk.i) || [];
+    if (this.bare) list = list.filter(row => row.type === 'gap');      // looking round: only the raised drawbridge is left, and he leaps it by himself
+    for (const { z, type, roll } of list) {
       const y = gy(z);
       let row;
-      if (door && n === 0) row = ['door'];
-      else if (chunk.gap === z) row = ['gap'];
-      else do row = pool[Math.floor(r() * pool.length)]; while (fire && row.some(t => MOVING[t] || t === 'spikes'));      // in the fire run everything is there to be smashed
+      if (type !== 'free') row = [type];
+      else do row = pool[Math.floor(r() * pool.length)]; while (row.some(t => MOVING[t] ? !roll : fire && t === 'spikes') || (roll && !row.some(t => MOVING[t])));
       const add = (type, lane, x, mesh, extra = {}) => {
         const ob = { type, kind: KIND[type], lane, x, z: g.position.z + z, hd: HALF_DEPTH[type], top: TOP[type], wall: row.length === 1 || row.every(Boolean), sharp: !!SHARP[type], mesh, done: false, ...extra };
         chunk.obstacles.push(ob); return ob;
@@ -414,6 +483,7 @@ export class World {
         const ob = add(type, lane, LANES[lane], o, { ...(off ? { off: true } : {}), ...(MOVING[type] ? { vz: MOVING[type].vz } : {}) });
         if (live) chunk.live.push({ ...live, ob, mesh: o });
       });
+      if (this.bare) continue;
       let coinLane = row.length === 3 ? row.findIndex(x => x === null) : -1; if (coinLane < 0) coinLane = Math.floor(r() * 3);
       const under = row.length === 3 ? row[coinLane] : row[0];
       const arc = under && (KIND[under] === 'low' || under === 'gap');
@@ -422,9 +492,9 @@ export class World {
         s.position.set(LANES[coinLane], floor + up, z - dz); g.add(s);
         chunk.coins.push({ mesh: s, x: s.position.x, y: up, floor, z: g.position.z + s.position.z, got: false });
       }
-    });
+    }
     // now and then a gust of wind to gather: two of them charge his flight
-    if (chunk.i >= 3 && !fire && r() < 0.38) {
+    if (chunk.i >= 3 && !fire && !this.bare && r() < 0.22) {
       const w = new THREE.Sprite(this.windMat), lane = Math.floor(r() * 3), floor = gy(-10); w.scale.setScalar(1.5); w.position.set(LANES[lane], floor + 1.35, -10); g.add(w);
       chunk.winds.push({ mesh: w, x: LANES[lane], floor, z: g.position.z - 10, got: false });
     }
@@ -444,7 +514,6 @@ export class World {
       const from = a.type === 'volley' ? ARROWS_FROM : a.type === 'rise' ? SPIKES_FROM : a.type === 'drop' ? DOOR_FROM : a.from;
       if (ob.z < heroZ - from) return;
       a.t = 0; a.mesh.visible = true; a.z0 = a.mesh.position.z;
-      if (a.type === 'roll' || a.type === 'fly') ob.off = false;
     }
     if (a.type === 'volley') {
       a.t += dt / 0.45; const k = Math.min(1, a.t);
@@ -464,7 +533,7 @@ export class World {
     } else {
       ob.z += a.vz * dt;
       a.mesh.position.z = ob.z - c.group.position.z; a.mesh.position.y = groundAt(ob.z) - c.plan.base + a.up;
-      if (a.type === 'roll') a.mesh.rotation.x += a.vz * dt / a.up;
+      a.mesh.rotation.x += a.vz * dt / a.up;
       if (ob.z > heroZ + 7) { a.mesh.visible = false; ob.done = true; a.t = 2; }
     }
   }
