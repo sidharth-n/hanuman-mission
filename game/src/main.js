@@ -74,7 +74,7 @@ async function load() {
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
   world = new World(scene, models, { city, glow, paving, sky }, { lite: settings.gfx !== 'rich', bare: explore });
-  world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); };
+  world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); sound.fx('bell', { gap: 4 }); };
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
@@ -145,30 +145,30 @@ function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = 
 function hit(o, chunk) {
   o.done = true;
   state.falling.push({ mesh: o.mesh, t: 0, dir: o.x <= hero.root.position.x ? -1 : 1 });
-  if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; return; }
-  if (state.big > 0.3) { state.shake = 0.3; return; }       // giant: he simply goes through it
+  if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; sound.fx('smash', { gap: 0.25 }); return; }
+  if (state.big > 0.3) { state.shake = 0.3; sound.fx('smash', { gap: 0.25 }); buzz(25); return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
-  state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50); sound.chant();
+  state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50); sound.fx('hit'); sound.chant();
   hero.stumble(); say(LINES.stumble);
 }
 
 function caught() {
-  hero.play('hit_reaction', { once: true, fade: 0.08 }); buzz([80, 60, 140]); sound.chant();
+  hero.play('hit_reaction', { once: true, fade: 0.08 }); buzz([80, 60, 140]); sound.fx('hit'); sound.chant();
   result('Captured', 'Best');
 }
 
 // He ran off the raised drawbridge: down into the moat.
 function fell() {
-  state.mode = 'fall'; state.fallT = 0.85; hero.floor = -30; hero.vy = -2; hero.play('falling_idle', { fade: 0.1 }); buzz([120, 40, 60]); sound.chant();
+  state.mode = 'fall'; state.fallT = 0.85; hero.floor = -30; hero.vy = -2; hero.play('falling_idle', { fade: 0.1 }); buzz([120, 40, 60]); sound.fx('splash', { delay: 0.45 }); sound.chant();
 }
 
 function ignite() {
   state.fire = true; state.danger = 0; tailFire.visible = true; slowMotion(0.9, 0.3); state.low = 1.9; world.behind = 2;
-  say(LINES.ignite, 3.2);
+  say(LINES.ignite, 3.2); sound.fx('fire'); buzz([40, 40, 90]);
 }
 
 function won() {
-  hero.play('mutant_roaring', { once: true, fade: 0.2 });
+  hero.play('mutant_roaring', { once: true, fade: 0.2 }); sound.fx('power'); buzz([60, 40, 60, 40, 160]);
   result('Lanka burns', 'Burned', state.burned);
 }
 
@@ -233,13 +233,16 @@ function rules(dt) {
     }
     for (const w of c.winds) {
       if (w.got || Math.abs(w.z - p.z) > 0.9 || Math.abs(w.x - p.x) > reach) continue;
-      w.got = true; w.mesh.visible = false;
+      w.got = true; w.mesh.visible = false; sound.fx('wind');
       if (state.wind < 1 && !flying) { state.wind = Math.min(1, state.wind + 1 / WINDS_FOR_FLIGHT); if (state.wind >= 1) say(LINES.wind, 2.4); }
     }
     for (const k of c.coins) {
       // in flight the lamps below come up to him
       if (k.got || Math.abs(k.z - p.z) > 0.8 || Math.abs(k.x - p.x) > reach * (flying ? 1.5 : 1) || (!flying && Math.abs(k.y - (hero.y + 1)) > 1.3 * hero.root.scale.x)) continue;
       k.got = true; k.mesh.visible = false; state.gold++;
+      // lamps in a row ring a little higher each time
+      const t = performance.now(); state.chain = t - (state.lampT || 0) < 600 ? Math.min(10, (state.chain || 0) + 1) : 0; state.lampT = t;
+      sound.fx('lamp', { rate: 1 + state.chain * 0.05, gap: 0.04 });
       if (!state.fire && state.giant <= 0 && state.meter < 1) {
         state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
         if (state.meter >= 1) say(LINES.strength, 2.2);
@@ -255,7 +258,7 @@ const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
 // The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
 const flyCam = { back: 2.3, up: 1.5, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close, then closer twice
 const ease = t => t * t * (3 - 2 * t);
-function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; sound.chant(); }      // every slow-motion moment carries the chant
+function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; sound.chant(); buzz(30); }      // every slow-motion moment carries the chant and a touch on the hand
 
 // Cinematic shots: for a few seconds the camera leaves the chase view. He keeps running and the player keeps control.
 const SHOTS = {
@@ -274,7 +277,7 @@ function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs
 // Wind gathered: he flies above the street for a few seconds and nothing below can touch him.
 function useFlight() {
   if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return false;
-  state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight();
+  state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight(); sound.fx('wing');
   slowMotion(1.0, 0.4); shot('wing', 1.5);      // as he rises the camera sweeps round him once, then settles behind with the road ahead in view
   return true;
 }
@@ -283,7 +286,7 @@ function useFlight() {
 function usePower() {
   if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return false;
   state.meter = 0; state.giant = GIANT_SECS; state.danger = 0;
-  slowMotion(0.5, 0.4); state.shake = 0.4;
+  slowMotion(0.5, 0.4); state.shake = 0.4; sound.fx('power');
   return true;
 }
 
@@ -352,7 +355,7 @@ function frame(now) {
   if (state.low > 0) state.low -= real;
   const running = state.mode === 'run';
   if (running) rules(dt);
-  if (running && queued) { queued.t -= real; if (hero.move('up') || queued.t <= 0) queued = null; }
+  if (running && queued) { queued.t -= real; const went = hero.move('up'); if (went) sound.fx('leap'); if (went || queued.t <= 0) queued = null; }
   const falling = state.mode === 'fall';
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
   const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
@@ -396,7 +399,7 @@ function frame(now) {
     const fps = frames / acc;
     if (slowFrames > 18 && pixelRatio > 0.85 && running) { pixelRatio = Math.max(0.85, pixelRatio - 0.25); renderer.setPixelRatio(pixelRatio); resize(); }
     state.fps = Math.round(fps);
-    if (debug) { ui.fps.hidden = false; ui.fps.textContent = `${state.fps} fps  px ${pixelRatio}\n${renderer.info.render.calls} draws  ${Math.round(renderer.info.render.triangles / 1000)}k tris\nload ${state.loadMs} ms`; }
+    if (debug) { ui.fps.hidden = false; ui.fps.textContent = `${state.fps} fps  px ${pixelRatio}\n${renderer.info.render.calls} draws  ${Math.round(renderer.info.render.triangles / 1000)}k tris\nload ${state.loadMs} ms\nsound ${sound.on ? 'on' : 'off'}  track ${sound.info.track} ${sound.info.at}s r${sound.info.ready}\nengine ${sound.info.engine}  effects ${sound.info.effects}`; }
     frames = 0; acc = 0; slowFrames = 0; shown++;
   }
 }
@@ -404,14 +407,14 @@ function frame(now) {
 listen(window, dir => {
   if (state.mode !== 'run') return;
   if (dir === 'giant') press2('giant', usePower); else if (dir === 'fly') press2('fly', useFlight);
-  else if (dir !== 'tap') { const done = hero.move(dir); queued = !done && dir === 'up' && !hero.flying ? { t: 0.28 } : null; }
+  else if (dir !== 'tap') { const done = hero.move(dir); if (done && dir === 'up') sound.fx('leap'); else if (done && dir === 'down') sound.fx('slide'); queued = !done && dir === 'up' && !hero.flying ? { t: 0.28 } : null; }
 });
 // A power button answers every touch: a pulse and a buzz when it fires, a shake when it is not charged.
 function press2(id, fn) {
   const el = $(id), ok = fn();
-  el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); buzz(ok ? [30, 30, 60] : 15);
+  el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); if (ok) buzz([30, 30, 60]);
 }
-const press = (id, fn) => $(id).addEventListener('click', fn);
+const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
 press('go', () => start(startAt)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run') press2(id, fn); });      // on touch down, not on release
 // settings
@@ -424,7 +427,7 @@ $('gfx').addEventListener('click', e => {
   settings.gfx = v; store.set('gfx', v); pixelRatio = sharpest(); renderer.setPixelRatio(pixelRatio); resize(); showSettings();      // the shading itself changes the next time the game is opened
 });
 function showSound() { $('mute').classList.toggle('off', !sound.on); $('mute').setAttribute('aria-pressed', !sound.on); }
-press('mute', () => { sound.toggle(); showSound(); buzz(20); }); showSound();
+press('mute', () => { sound.toggle(); showSound(); sound.fx('tap'); }); showSound();
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
 window.addEventListener('keydown', e => {
@@ -439,7 +442,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');
   // once everything has loaded, hand the offline cache the exact files this visit used
   window.addEventListener('load', () => navigator.serviceWorker.ready.then(reg => setTimeout(() => {
-    const used = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin));
+    const used = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && !/\.mp3($|\?)/.test(u));
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
