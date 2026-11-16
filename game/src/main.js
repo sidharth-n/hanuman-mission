@@ -6,7 +6,7 @@ import { Hero } from './hero.js';
 import { World } from './world.js';
 import { listen } from './input.js';
 
-const KIT = ['house', 'tower-house', 'market-stall', 'street-arch', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
+const KIT = ['market-stall', 'street-arch', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
 const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
 const FIRE_AT = 380, END_AT = 820;       // metres: where the tail catches fire, where the run ends
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
@@ -46,8 +46,10 @@ async function load() {
   const loader = new GLTFLoader(); let done = 0;
   const names = ['hanuman', ...KIT];
   const one = name => loader.loadAsync(`assets/${name === 'hanuman' ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
-  const models = Object.fromEntries(await Promise.all(names.map(one)));
-  world = new World(scene, models);
+  const tl = new THREE.TextureLoader();
+  const [models, city, glow, paving] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
+    tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg')]);
+  world = new World(scene, models, { city, glow, paving });
   hero = new Hero(models.hanuman); scene.add(hero.root);
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);

@@ -1,15 +1,17 @@
 // The street of Lanka at night: an endless row of chunks built from a small kit of models, recycled as he runs.
 import * as THREE from 'three';
 import { LANES } from './hero.js';
+import { rng } from './build.js';
+import { kit, footpath, lampBeam, SLOT } from './buildings.js';
 
 export const CHUNK = 24;
 const ROAD = 3.9;        // half width of the paved road (three lanes)
-const FRONT = 5.5;       // distance from the centre line to the house fronts
+const FRONT = 6.2;       // distance from the centre line to the house fronts
 const AHEAD = 4, BEHIND = 1;
 
 // name -> [height in metres, extra yaw so the front faces +Z]
 const KIT = {
-  'house': [6.6, 0], 'tower-house': [11.5, 0], 'market-stall': [2.7, 0], 'street-arch': [12.5, 0],
+  'market-stall': [2.7, 0], 'street-arch': [12.5, 0],
   'rakshasa-statue': [4.6, 0], 'brazier': [2.3, 0], 'cart': [1.75, 0], 'pots': [1.05, 0], 'barricade': [1.15, 0],
   'palace': [70, 0],
 };
@@ -23,11 +25,6 @@ const ROWS = [
 ];
 const KIND = { pots: 'low', barricade: 'low', cart: 'block', beam: 'high' };
 const HALF_DEPTH = { pots: 0.6, barricade: 0.55, cart: 1.25, beam: 0.35 };
-
-function rng(seed) {
-  let a = seed >>> 0;
-  return () => { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
-}
 
 function canvasTexture(size, draw) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -43,31 +40,22 @@ function glowTexture(inner, outer) {
   });
 }
 
-function paving() {
-  const t = canvasTexture(512, (g, s) => {
-    const r = rng(11);
-    g.fillStyle = '#15120f'; g.fillRect(0, 0, s, s);
-    const n = 8, cell = s / n;
-    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
-      const off = (y % 2) * cell / 2, l = 26 + r() * 16;
-      g.fillStyle = `hsl(${28 + r() * 12}, ${8 + r() * 8}%, ${l}%)`;
-      g.fillRect(((x * cell + off) % s) + 2, y * cell + 2, cell - 4, cell - 4);
-      if (x * cell + off + cell > s) g.fillRect(-2, y * cell + 2, (x * cell + off + cell) - s - 2, cell - 4);
-    }
-    for (let i = 0; i < 900; i++) { g.fillStyle = `rgba(0,0,0,${r() * 0.25})`; g.fillRect(r() * s, r() * s, 2 + r() * 3, 2 + r() * 3); }
-  });
-  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 4;
-  return t;
-}
-
 export class World {
-  constructor(scene, models) {
+  constructor(scene, models, tex) {
     this.scene = scene;
+    // every building shares one material and one texture sheet
+    for (const t of [tex.city, tex.glow, tex.paving]) { t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4; }
+    this.cityMat = new THREE.MeshStandardMaterial({ map: tex.city, emissiveMap: tex.glow, emissive: 0xffffff, emissiveIntensity: 1.25, vertexColors: true, roughness: 0.9, metalness: 0, envMapIntensity: 0.5 });
+    this.kit = kit();
+    this.houses = this.kit.filter(k => k.type === 'house'); this.towers = this.kit.filter(k => k.type === 'tower');
+    this.court = this.kit.find(k => k.type === 'court');
+    this.footGeo = footpath(CHUNK, ROAD, FRONT + 0.75);
+    this.beamGeo = lampBeam();
     this.prefabs = {};
     for (const [name, [height, yaw]] of Object.entries(KIT)) if (models[name]) this.prefabs[name] = this.prefab(models[name].scene, height, yaw);
 
-    const map = paving(); map.repeat.set(2 * ROAD / 3.2, CHUNK / 3.2);
-    this.roadMat = new THREE.MeshStandardMaterial({ map, roughness: 0.92, metalness: 0 });
+    const map = tex.paving; map.wrapS = map.wrapT = THREE.MirroredRepeatWrapping; map.repeat.set(2 * ROAD / 4, CHUNK / 4);
+    this.roadMat = new THREE.MeshStandardMaterial({ map, color: 0xb9ad9f, roughness: 0.92, metalness: 0 });
     this.sideMat = new THREE.MeshStandardMaterial({ color: 0x14110e, roughness: 1, metalness: 0 });
     this.roadGeo = new THREE.PlaneGeometry(2 * ROAD, CHUNK).rotateX(-Math.PI / 2);
     this.sideGeo = new THREE.PlaneGeometry(26, CHUNK).rotateX(-Math.PI / 2);
@@ -76,13 +64,8 @@ export class World {
     this.flameMat = new THREE.SpriteMaterial({ map: this.flameTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.poolMat = new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,150,60,0.32)', 'rgba(255,110,30,0.12)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     this.poolGeo = new THREE.CircleGeometry(6.5, 24).rotateX(-Math.PI / 2);
-    this.coinGeo = new THREE.IcosahedronGeometry(0.2, 0);
-    this.coinMat = new THREE.MeshBasicMaterial({ color: 0xffc94a });
-    this.woodMat = new THREE.MeshStandardMaterial({ color: 0x4a2f1c, roughness: 0.8 });
-    this.lampMat = new THREE.MeshBasicMaterial({ color: 0xffb347 });
-    this.postGeo = new THREE.CylinderGeometry(0.09, 0.11, 1.75, 6);
-    this.barGeo = new THREE.BoxGeometry(2.3, 0.2, 0.22);
-    this.lampGeo = new THREE.SphereGeometry(0.1, 8, 6);
+    this.coinGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.06, 20).rotateX(Math.PI / 2);
+    this.coinMat = new THREE.MeshStandardMaterial({ color: 0xffc64a, emissive: 0xb87a14, emissiveIntensity: 1, metalness: 0.55, roughness: 0.35 });
 
     this.torches = [new THREE.PointLight(0xff8a3c, 0, 26, 1.6), new THREE.PointLight(0xff8a3c, 0, 26, 1.6)];
     this.torches.forEach(l => scene.add(l));
@@ -126,13 +109,7 @@ export class World {
     far.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8ff, size: 1.4, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.8 })));
   }
 
-  beam() {
-    const g = new THREE.Group();
-    for (const x of [-1.1, 1.1]) { const p = new THREE.Mesh(this.postGeo, this.woodMat); p.position.set(x, 0.875, 0); g.add(p); }
-    const bar = new THREE.Mesh(this.barGeo, this.woodMat); bar.position.y = 1.72; g.add(bar);
-    for (const x of [-0.7, 0, 0.7]) { const l = new THREE.Mesh(this.lampGeo, this.lampMat); l.position.set(x, 1.5, 0); g.add(l); }
-    return g;
-  }
+  beam() { return new THREE.Mesh(this.beamGeo, this.cityMat); }
 
   build(i) {
     const g = new THREE.Group(); g.position.z = -i * CHUNK;
@@ -140,21 +117,33 @@ export class World {
     const chunk = { i, group: g, obstacles: [], coins: [], braziers: [], buildings: [] };
     const road = new THREE.Mesh(this.roadGeo, this.roadMat); road.position.z = -CHUNK / 2; g.add(road);
     for (const s of [-1, 1]) { const side = new THREE.Mesh(this.sideGeo, this.sideMat); side.position.set(s * (ROAD + 13), -0.01, -CHUNK / 2); g.add(side); }
+    g.add(new THREE.Mesh(this.footGeo, this.cityMat));
 
     for (const s of [-1, 1]) {
-      for (let z = 0; z > -CHUNK; z -= 6) {
-        const statue = i % 4 === 1 && z === -6;
-        const name = statue ? 'rakshasa-statue' : (r() < 0.28 ? 'tower-house' : 'house');
-        const o = this.spawn(name), depth = o.userData.size.z;
-        o.position.set(s * (FRONT + (statue ? 0.4 : depth / 2)), 0, z - 3);
-        o.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2;      // fronts face the street
-        g.add(o);
-        chunk.buildings.push({ x: o.position.x, z: g.position.z + o.position.z, lz: o.position.z, h: o.userData.size.y, lit: false });
+      const face = s < 0 ? Math.PI / 2 : -Math.PI / 2;      // fronts face the street
+      const stall = r() < 0.55 ? Math.floor(r() * 4) : -1;
+      let last = -1;
+      for (let k = 0; k < CHUNK / SLOT; k++) {
+        const z = -SLOT / 2 - k * SLOT, statue = i % 4 === 1 && k === 1;
+        let b;
+        do {
+          b = statue ? this.court : r() < 0.2 ? this.towers[Math.floor(r() * this.towers.length)] : this.houses[Math.floor(r() * this.houses.length)];
+        } while (!statue && (b.id === last || (k === stall && b.veranda)));
+        last = b.id;
+        // the brazier stands at one corner of every slot: use the version of the building lit from that corner
+        const further = k % 2 === 0, lit = (s < 0) === further ? 1 : -1;
+        const o = new THREE.Mesh(b.geo[lit], this.cityMat);
+        o.position.set(s * FRONT, 0, z); o.rotation.y = face; g.add(o);
+        chunk.buildings.push({ x: s * (FRONT + 1.5), z: g.position.z + z, lz: z, h: b.height - 1, lit: false });
+        if (statue) { const st = this.spawn('rakshasa-statue'); st.position.set(s * (FRONT + 0.25), 0.16, z); st.rotation.y = face; g.add(st); }
+        if (k === stall && !statue) { const st = this.spawn('market-stall'); st.position.set(s * (ROAD + 1.15), 0.14, z); st.rotation.y = face; g.add(st); }
       }
-      if (r() < 0.55) { const st = this.spawn('market-stall'); st.position.set(s * (ROAD + 1.15), 0, -2 - Math.floor(r() * 3) * 6 - 3); st.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(st); }
+      // a taller tower one street back, so the city reads as deep
+      const far = new THREE.Mesh(this.towers[Math.floor(r() * this.towers.length)].geo[1], this.cityMat);
+      far.position.set(s * (FRONT + 12 + r() * 5), 0, -r() * CHUNK); far.rotation.y = face; far.scale.setScalar(1.5 + r() * 0.5); g.add(far);
       for (const z of [-6, -18]) {
-        const b = this.spawn('brazier'); b.position.set(s * (ROAD + 0.55), 0, z); g.add(b);
-        const f = new THREE.Sprite(this.flameMat); f.position.set(b.position.x, 2.75, z); f.scale.setScalar(1.9); g.add(f);
+        const b = this.spawn('brazier'); b.position.set(s * (ROAD + 0.55), 0.14, z); g.add(b);
+        const f = new THREE.Sprite(this.flameMat); f.position.set(b.position.x, 2.89, z); f.scale.setScalar(1.9); g.add(f);
         this.flames.push(f); f.userData.seed = r() * 10; f.userData.base = 1;
         const pool = new THREE.Mesh(this.poolGeo, this.poolMat); pool.position.set(b.position.x * 0.8, 0.02, z); g.add(pool);
         chunk.braziers.push(new THREE.Vector3(b.position.x, 2.9, g.position.z + z));
@@ -220,7 +209,7 @@ export class World {
     for (const c of this.chunks.values()) for (const b of c.buildings) {
       if (b.lit || b.z < heroZ - 18) continue;      // catches a little ahead of him so the player sees it spread
       b.lit = true; lit++;
-      const inward = b.x < 0 ? 1.6 : -1.6;
+      const inward = b.x < 0 ? 1.2 : -1.2;
       this.fire(c.group, b.x + inward, b.h * 0.95, b.lz, 1.7 + b.h * 0.14);
       this.fire(c.group, b.x + inward * 1.5, b.h * 0.5, b.lz + 1.4, 1.2);
     }
