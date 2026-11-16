@@ -36,7 +36,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 #pause { width: 44px; height: 44px; }      /* the one button on the play screen's top bar: a full-size touch target */
 .power { position: fixed; bottom: calc(32px + var(--bottom)); width: 64px; height: 64px; filter: grayscale(.85) brightness(.55); transition: filter .25s; }
 /* its name, on a small stone tag across the foot of the icon */
-.power .tag { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); padding: 2px 8px 2px calc(8px + .14em); pointer-events: none; white-space: nowrap;
+.power .tag, .act .tag { position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); padding: 2px 8px 2px calc(8px + .14em); pointer-events: none; white-space: nowrap;
   font: 700 12px/1.2 var(--head); letter-spacing: .14em; text-transform: uppercase; color: var(--gold-light);
   background: var(--stone); border: 1px solid var(--gold-deep); border-radius: 3px; box-shadow: 0 2px 6px rgba(0, 0, 0, .7); }
 /* every touch is answered: a pulse when the power fires, a shake when it is not yet charged */
@@ -139,3 +139,21 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   .stats { flex-direction: row; width: min(560px, 100%); padding: 16px 24px; } .stat { flex: 1; flex-direction: column; align-items: center; gap: 8px; border-top: 0; padding: 4px; } .stat b { font-size: 24px; }
   #result { gap: 8px; }
 }
+
+/* ── the fight: a thumb stick on the left, strike and dodge under the right thumb, his lives under the top bar ── */
+#pad { position: fixed; left: calc(26px + var(--left)); bottom: calc(44px + var(--bottom)); width: 124px; height: 124px; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(26, 22, 19, .28) 0 57%, rgba(26, 22, 19, .62) 59% 100%); border: 1.5px solid rgba(232, 180, 76, .6); box-shadow: 0 4px 16px rgba(0, 0, 0, .5); }
+#pad i { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff3c4, var(--gold) 55%, var(--gold-deep)); box-shadow: 0 2px 8px rgba(0, 0, 0, .7); }
+#pad.held { border-color: var(--gold-light); }
+.act { position: fixed; touch-action: none; }
+#strike { right: calc(20px + var(--right)); bottom: calc(44px + var(--bottom)); width: 88px; height: 88px; box-shadow: 0 0 0 2px var(--gold-deep), 0 0 18px rgba(255, 138, 42, .55), 0 2px 8px rgba(0, 0, 0, .7); }
+#dodge { right: calc(126px + var(--right)); bottom: calc(36px + var(--bottom)); width: 60px; height: 60px; box-shadow: 0 0 0 1.5px var(--gold-deep), 0 2px 8px rgba(0, 0, 0, .7); }
+.act.hit { animation: hit .25s ease-out; }
+.act.wait { filter: grayscale(.8) brightness(.6); }
+body.fighting #fly { display: none; }
+body.fighting #alert { top: calc(104px + var(--top)); }      /* below his lives */
+body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + var(--bottom)); width: 56px; height: 56px; }
+#lives { position: fixed; left: calc(12px + var(--left)); top: calc(60px + var(--top)); display: flex; gap: 6px; pointer-events: none; }
+#lives img { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--gold); box-shadow: 0 2px 6px rgba(0, 0, 0, .7); transition: filter .2s, opacity .2s, transform .2s; }
+#lives img.lost { filter: grayscale(1) brightness(.3); opacity: .75; transform: scale(.82); }

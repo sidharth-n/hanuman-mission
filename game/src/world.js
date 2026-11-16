@@ -35,6 +35,8 @@ function layout(route) {
 const { list: PLAN, marks: SECTIONS } = layout(ROUTE);
 export { SECTIONS };
 export const FIRE_AT = SECTIONS.find(s => s.fire).from, END_AT = PLAN.length * CHUNK;
+// Where the run stops for the fight in the palace court, and the middle of the floor it is fought on (metres along the route).
+export const FIGHT_AT = PLAN.findIndex(c => c.kind === 'court' && !c.fire && c.n === 3) * CHUNK + 4, FIGHT_MID = FIGHT_AT + 9;
 const BEFORE = { kind: 'city', sec: 'gate', n: 0, of: 1, from: 0, base: 0, rise: 0, dir: 1, fire: false, gap: null, rows: false };
 const last = PLAN[PLAN.length - 1], AFTER = { ...last, base: last.base + last.rise, rise: 0, n: 1, of: 3, rows: false };
 const planAt = i => i < 0 ? BEFORE : PLAN[i] || AFTER;
@@ -45,6 +47,7 @@ const planAt = i => i < 0 ? BEFORE : PLAN[i] || AFTER;
 // after the one before, and never so near a fixed row ahead that the rule would be broken there. On the stairway a row
 // must stand on a landing. A row may hold things that roll toward him only if it has the extra road that costs.
 const DOOR_EVERY = 5, ROLL = { vz: 5, from: 27 };
+const FIGHT_N = 3;      // the stretch of the palace court where the guards make their stand
 function placeRows() {
   const rows = [], r = rng(977);
   const fixed = [];
@@ -60,6 +63,8 @@ function placeRows() {
       if (!c.rows) d = (i + 1) * CHUNK;
       else if (c.kind === 'stairs' && Math.abs(s - 13) > 0.01) d = s < 13 ? i * CHUNK + 13 : (i + 1) * CHUNK;      // the middle landing only
       else if (c.kind === 'court' && c.n === 0 && s < 8) d = i * CHUNK + 8;      // clear of the bell gate
+      else if (c.kind === 'court' && ((c.n === FIGHT_N - 1 && s > 14) || c.n === FIGHT_N)) d = (i + 1) * CHUNK + 10;      // the floor where the guards make their stand is kept bare, and the road they come in by
+      else if (c.kind === 'court' && c.n === FIGHT_N + 1 && s < 10) d = i * CHUNK + 10;
       else return d;
     }
   };

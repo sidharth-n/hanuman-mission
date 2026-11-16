@@ -2,11 +2,12 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { Hero } from './hero.js';
-import { World, SECTIONS, FIRE_AT, END_AT, groundAt } from './world.js';
+import { Hero, LANES as LANE_X } from './hero.js';
+import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, groundAt } from './world.js';
+import { Fight, LIVES } from './fight.js';
 import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
-import { listen } from './input.js';
+import { listen, fightControls } from './input.js';
 import { createSound } from './sound.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
@@ -23,7 +24,8 @@ const SKY_LIGHT = new THREE.Color(0x7f95d8), LAMP_LIGHT = new THREE.Color(0xd9a2
 
 const $ = id => document.getElementById(id);
 const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
-  hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant') };
+  hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant'),
+  pad: $('pad'), strike: $('strike'), dodge: $('dodge'), lives: $('lives') };
 // what the player chose last time, kept on the device
 const store = { get(k, d) { try { return localStorage.getItem('hm.' + k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem('hm.' + k, v); } catch { /* private mode */ } } };
 const phone = window.matchMedia('(pointer: coarse)').matches;
@@ -34,7 +36,7 @@ const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibra
 const sound = createSound(store);      // the song under the game and the chant over its big moments
 const query = new URLSearchParams(location.search), debug = query.has('debug');
 const explore = query.has('explore');      // ?explore: the whole route with nothing in his way, for looking round
-const startAt = debug || explore ? Math.max(0, SECTIONS.findIndex(s => s.id === query.get('at'))) : 0;      // &at=court starts a run at that section
+const startAt = debug || explore || query.has('fight') ? Math.max(0, SECTIONS.findIndex(s => s.id === (query.get('at') || (query.has('fight') ? 'court' : '')))) : 0;      // ?fight starts at the palace court, a short run from the guards      // &at=court starts a run at that section
 const t0 = performance.now();
 
 const renderer = new THREE.WebGLRenderer({ canvas: $('view'), antialias: true, powerPreference: 'high-performance' });
@@ -56,8 +58,9 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
   wind: 0, flight: 0, safe: 0,
   sec: 0, from: 0, inside: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
-let hero, world, tailFire, tailLight, aura;
+let hero, world, tailFire, tailLight, aura, fight;
 let queued = null;      // a leap asked for a moment before he could make it: made as soon as he can
+let stick = null;       // the fight's thumb stick
 
 let fixed = null;      // [width, height] when recording at an exact size
 function resize() {
@@ -69,8 +72,8 @@ window.addEventListener('resize', resize); resize();
 
 async function load() {
   const loader = new GLTFLoader(); let done = 0;
-  const names = ['hanuman', 'gada', ...KIT];
-  const one = name => loader.loadAsync(`assets/${name === 'hanuman' ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
+  const names = ['hanuman', 'guard', 'gada', ...KIT];
+  const one = name => loader.loadAsync(`assets/${name === 'hanuman' || name === 'guard' ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
   const tl = new THREE.TextureLoader();
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
@@ -78,6 +81,9 @@ async function load() {
   world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); sound.fx('bell', { gap: 4 }); };
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
+  ui.lives.innerHTML = '<img src="ui/lotus.jpg" alt="">'.repeat(LIVES);
+  fight = new Fight({ scene, hero, gltf: models.guard, sound, buzz, groundAt, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
+  stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()) }); fight.stick = stick;
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
@@ -96,22 +102,24 @@ async function load() {
 // One full-screen layer at a time: 'loading' | 'menu' | 'panel' | 'result', or none while running.
 function screen(name) {
   for (const k of ['loading', 'menu', 'panel', 'result']) ui[k].hidden = k !== name;
-  const inRun = state.mode === 'run' || state.mode === 'paused';
+  const inRun = state.mode === 'run' || state.mode === 'paused' || state.mode === 'fight';
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
+  const inFight = inRun && fight && fight.active;      // the fight's own controls and his lives
+  ui.pad.hidden = ui.strike.hidden = ui.dodge.hidden = ui.lives.hidden = !inFight; document.body.classList.toggle('fighting', !!inFight);
   if (!inRun) ui.alert.hidden = true;
 }
 
 function pause() {
-  if (state.mode !== 'run') return;
-  state.mode = 'paused'; sound.pause(); $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
+  if (state.mode !== 'run' && state.mode !== 'fight') return;
+  state.was = state.mode; state.mode = 'paused'; sound.pause(); if (stick) stick.release(); $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
 }
 function openSettings() { $('panelTitle').textContent = 'Settings'; $('resume').textContent = 'Done'; $('quit').hidden = true; screen('panel'); }
-function resume() { if (state.mode === 'paused') { state.mode = 'run'; sound.resume(); if (state.fire) sound.blaze(true); last = performance.now(); screen(null); } else screen('menu'); }
+function resume() { if (state.mode === 'paused') { state.mode = state.was || 'run'; sound.resume(); if (state.fire) sound.blaze(true); last = performance.now(); screen(null); } else screen('menu'); }
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); hero.reset(); sound.stop();
-  Object.assign(state, { orbit: null, mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
+  world.reset(); fight.clear(); hero.reset(); sound.stop();
+  Object.assign(state, { orbit: null, mode: 'ready', fought: false, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
 }
@@ -130,13 +138,13 @@ function result(title, thirdLabel, third) {
 function start(from = 0) {
   if (typeof from !== 'number') from = 0;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
-  world.reset(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
-  Object.assign(state, { orbit: null, mode: 'run', speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+  world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
+  Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false;
-  queued = null; screen(null); last = performance.now();
+  queued = null; view.join = 0; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
   sound.start();      // the chant as he sets off, then the song
   // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
@@ -165,6 +173,24 @@ function fell() {
   state.mode = 'fall'; state.fallT = 0.85; hero.floor = -30; hero.vy = -2; hero.play('falling_idle', { fade: 0.1 }); buzz([120, 40, 60]); sound.fx('splash', { delay: 0.45 }); sound.chant();
 }
 
+// The palace court: the guards make their stand. The run stops, the fight's controls come up, and he must put all three
+// down to go on. If they take all his lives he is captured, and the next run takes up from the gate of the court.
+function startFight() {
+  state.fought = true; state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null;
+  if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
+  fight.begin(FIGHT_MID); painted.lives = null;
+  say(LINES.guards, 2.6); sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
+}
+function endFight(how) {
+  fight.result = null; if (stick) stick.release();
+  if (how === 'lost') { screen(null); return caught(); }      // he stays where he fell, among them, until the next run
+  const p = hero.root.position; hero.free = false;
+  hero.root.rotation.y = 0; hero.lane = [0, 1, 2].reduce((a, b) => Math.abs(LANE_X[b] - p.x) < Math.abs(LANE_X[a] - p.x) ? b : a);
+  state.mode = 'run'; state.ramp = state.speed; state.speed = 7; state.safe = 2; state.dist = -p.z; last = performance.now();
+  state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
+  say(LINES.cleared, 2.4); sound.fx('power'); buzz([40, 40, 120]); screen(null);
+}
+
 function ignite() {
   state.fire = true; state.danger = 0; tailFire.visible = true; slowMotion(0.9, 0.3); state.low = 1.9; world.behind = 2;
   say(LINES.ignite, 3.2); sound.fx('fire'); sound.blaze(true); buzz([40, 40, 90]);
@@ -177,6 +203,7 @@ function won() {
 
 function rules(dt) {
   state.speed = Math.min(MAX_SPEED, state.speed + ACCEL * dt);
+  if (state.ramp) { state.speed = Math.min(state.ramp, state.speed + 5 * dt); if (state.speed >= state.ramp) state.ramp = 0; }      // back up to pace after the fight
   if (state.danger > 0) state.danger -= dt;
   if (state.slow > 0) state.slow = Math.max(0, state.slow - dt * 1.1);
   const p = hero.root.position;
@@ -192,6 +219,7 @@ function rules(dt) {
     state.sec = sec; state.from = sec; state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
     if (!SECTIONS[sec].fire) say(SECTIONS[sec].name, 2.4);
   }
+  if (!state.fought && !state.fire && !explore && state.dist >= FIGHT_AT && state.dist < FIGHT_MID + 6) return startFight();
   if (!state.fire && state.dist >= FIRE_AT) ignite();
   if (state.fire) {
     state.blaze = Math.min(1, state.blaze + dt * 0.35);
@@ -258,7 +286,8 @@ function rules(dt) {
 
 const look = new THREE.Vector3(), want = new THREE.Vector3(), tip = new THREE.Vector3();
 const INTRO = 2.6;      // seconds for the opening sweep from in front of him to the chase view
-const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
+const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0, join: 0 };
+const lookWant = new THREE.Vector3();
 // The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
 const flyCam = { back: 2.3, up: 1.5, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close, then closer twice
 const ease = t => t * t * (3 - 2 * t);
@@ -287,7 +316,9 @@ function useFlight() {
 }
 
 // Strength meter full and a touch on its button: for a few seconds he glows and breaks through whatever is in his way.
+// In a fight the same strength goes into one blow that throws every guard near him back.
 function usePower() {
+  if (state.mode === 'fight') { if (state.meter < 1 || !fight.special()) return false; state.meter = 0; slowMotion(0.5, 0.4); sound.fx('power'); return true; }
   if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return false;
   state.meter = 0; state.giant = GIANT_SECS; state.danger = 0;
   slowMotion(0.5, 0.4); state.shake = 0.4; sound.fx('power');
@@ -339,6 +370,13 @@ function placeCamera(dt, snap) {
     camera.position.set(...at); camera.position.y = Math.max(camera.position.y + G, groundAt(camera.position.z) + 0.5);      // never under a stairway
     look.set(...to); look.y += G; view.fovWant = f; view.back = back;
     if (s.t >= s.secs) state.shot = null;
+  } else if (fight.active && state.mode !== 'ready') {
+    // the fight: the view stands off, behind and above, the way action games hold it, so the whole floor and every guard are seen
+    const c = fight.focus;
+    want.set(c.x * 0.8, G + (tall ? 5.3 : 3.7), c.z + (tall ? 6.6 : 5.6));
+    lookWant.set(c.x * 0.92, G + 0.9, c.z - (tall ? 2.6 : 2.2));      // he stands in the lower middle of the screen, clear of the thumbs, with the guards above him
+    camera.position.lerp(want, Math.min(1, dt * 4.5)); look.lerp(lookWant, Math.min(1, dt * 5.5));
+    fov = tall ? 62 : 50; view.back = back; view.join = 1;
   } else if (state.mode === 'ready' || state.intro > 0) {
     // title: a slow drift in front of him. On Run the camera sweeps round behind as he takes off.
     const e = state.mode === 'ready' ? 0 : ease(1 - state.intro / INTRO);
@@ -353,9 +391,11 @@ function placeCamera(dt, snap) {
     view.back = snap ? back : view.back + (back - view.back) * Math.min(1, dt * 7);
     want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), G + height, p.z + view.back);
     want.y = Math.max(want.y, groundAt(want.z) + 1.4);      // coming down a stairway, the steps behind him are higher than he is
+    lookWant.set(p.x * 0.85, G + lookY + slope * 0.5, p.z - ahead);      // the view tips up a climb and down a descent
     if (snap) camera.position.copy(want);
+    else if (view.join > 0) { view.join -= dt; camera.position.lerp(want, Math.min(1, dt * 5)); look.lerp(lookWant, Math.min(1, dt * 6)); }      // coming back from the fight: eased round, never cut
     else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 9); c.z = want.z; }
-    look.set(p.x * 0.85, G + lookY + slope * 0.5, p.z - ahead);      // the view tips up a climb and down a descent
+    if (snap || view.join <= 0) look.copy(lookWant);
     if (state.orbit) sweep(dt, p, G);
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
@@ -378,13 +418,15 @@ function frame(now) {
   const dt = state.mode === 'paused' ? 0 : real * state.tscale;      // game time; the camera and the screen keep real time
   if (state.intro > 0) { state.intro -= real; if (state.intro <= 0 && !state.fire) world.behind = 1; }
   if (state.low > 0) state.low -= real;
-  const running = state.mode === 'run';
+  const running = state.mode === 'run', fighting = state.mode === 'fight';
   if (running) rules(dt);
+  if (fighting) { fight.update(dt, real); if (fight.result) endFight(fight.result); }
+  fight.tick(dt, state.mode === 'paused' ? 0 : real);
   if (running && queued) { queued.t -= real; const went = hero.move('up'); if (went) sound.fx('leap'); if (went || queued.t <= 0) queued = null; }
   const falling = state.mode === 'fall';
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
   const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
-  hero.update(dt, speed, state.mode === 'run' || falling, groundAt);
+  hero.update(fighting && fight.frozen ? 0 : dt, speed, state.mode === 'run' || falling, groundAt);
   world.update(dt, hero.root.position.z);
   for (const f of state.falling) { f.t += dt; f.mesh.rotation.z = f.dir * Math.min(1.35, f.t * 7); f.mesh.position.y = -Math.min(0.5, f.t * 1.2); }
   if (state.shake > 0) state.shake = Math.max(0, state.shake - real * 1.6);
@@ -404,7 +446,7 @@ function frame(now) {
   placeCamera(real, false);
   renderer.render(scene, camera);
 
-  if (running) {
+  if (running || fighting) {
     const giant = state.giant > 0 ? state.giant / GIANT_SECS : state.fire ? 1 : state.meter, fly = state.flight > 0 ? state.flight / FLIGHT_SECS : state.wind;
     paint('dist', Math.round(state.dist), v => ui.dist.textContent = v);
     paint('lamps', state.gold, v => ui.gold.textContent = v);
@@ -414,6 +456,7 @@ function frame(now) {
     paint('gRing', Math.round(giant * 50), v => ui.giant.style.setProperty('--p', v / 50));
     paint('gState', state.giant > 0 ? 'active' : state.meter >= 1 && !state.fire ? 'ready' : '', v => { ui.giant.classList.toggle('ready', v === 'ready'); ui.giant.classList.toggle('active', v === 'active'); });
     paint('fRing', Math.round(fly * 50), v => ui.fly.style.setProperty('--p', v / 50));
+    if (fighting) paint('lives', fight.lives, v => [...ui.lives.children].forEach((el, i) => el.classList.toggle('lost', i >= v)));
     paint('fState', state.flight > 0 ? 'active' : state.wind >= 1 && !state.fire ? 'ready' : '', v => { ui.fly.classList.toggle('ready', v === 'ready'); ui.fly.classList.toggle('active', v === 'active'); });
   }
   if (state.alertT > 0) { state.alertT -= dt; if (state.alertT <= 0) ui.alert.hidden = true; }
@@ -430,6 +473,7 @@ function frame(now) {
 }
 
 listen(window, dir => {
+  if (state.mode === 'fight' && dir === 'giant') return press2('giant', usePower);
   if (state.mode !== 'run') return;
   if (dir === 'giant') press2('giant', usePower); else if (dir === 'fly') press2('fly', useFlight);
   else if (dir !== 'tap') { const done = hero.move(dir); if (done && dir === 'up') sound.fx('leap'); else if (done && dir === 'down') sound.fx('slide'); queued = !done && dir === 'up' && !hero.flying ? { t: 0.28 } : null; }
@@ -441,7 +485,11 @@ function press2(id, fn) {
 }
 const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
 press('go', () => start(startAt)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
-for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run') press2(id, fn); });      // on touch down, not on release
+for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
+// the fight's two buttons answer on touch down, with a pulse when the move is made
+function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }
+$('strike').addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'fight') tap('strike', () => fight.attack()); });
+$('dodge').addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'fight') tap('dodge', () => fight.dodge()); });      // on touch down, not on release
 // settings
 function showSettings() {
   for (const b of $('gfx').children) b.classList.toggle('on', b.dataset.v === settings.gfx);
@@ -471,5 +519,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { get fight() { return fight; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };

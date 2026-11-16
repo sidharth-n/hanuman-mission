@@ -9,7 +9,7 @@ const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), 
 // Mixamo clips move the hips: forward with the run-up, up with a leap, down with a slide. The game alone decides
 // where he is, so the hips are pinned in place; only a slide keeps their height, so that he really goes down.
 // The rig may stand along any axis: his height is whichever part of the hips' place is large when he stands.
-function pinHips(clip, keepHeight) {
+export function pinHips(clip, keepHeight) {
   for (const t of clip.tracks) {
     if (!/Hips\.position$/.test(t.name)) continue;
     const v = t.values, H = [0, 1, 2].reduce((a, b) => Math.abs(v[b]) > Math.abs(v[a]) ? b : a), sign = Math.sign(v[H]) || 1;
@@ -62,7 +62,7 @@ export class Hero {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const clip of gltf.animations) {
-      pinHips(clip, /slide/.test(clip.name));
+      pinHips(clip, /slide|roll/.test(clip.name));      // a slide and a roll really go down
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     this.current = null;
@@ -98,7 +98,7 @@ export class Hero {
   }
 
   reset() {
-    this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0;
+    this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0; this.root.rotation.y = 0; this.free = false; this.pace = 0;
     this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.flying = false; this.fly = 0;
     this.model.rotation.x = 0; this.model.position.z = 0;
     this.root.scale.setScalar(1);
@@ -111,7 +111,7 @@ export class Hero {
     next.reset(); next.time = from; next.timeScale = speed;
     next.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity); next.clampWhenFinished = once;
     next.play();
-    if (this.current && fade > 0) this.current.crossFadeTo(next, fade, false); else if (this.current) this.current.stop();
+    if (this.current && this.current !== next) { if (fade > 0) this.current.crossFadeTo(next, fade, false); else this.current.stop(); }      // the same move again simply starts over
     this.current = next; this.name = name;
   }
 
@@ -158,10 +158,10 @@ export class Hero {
   update(dt, speed, running, groundAt) {
     this.time += dt;
     const p = this.root.position;
-    if (running) p.z -= speed * dt;
+    // in a fight (free) he is moved and turned by the fight itself: no lanes, no running on by himself
+    if (running && !this.free) p.z -= speed * dt;
     if (groundAt) p.y = groundAt(p.z);
-    const tx = LANES[this.lane];
-    const dx = tx - p.x;
+    const dx = this.free ? 0 : LANES[this.lane] - p.x;
     p.x += dx * Math.min(1, dt * 13);
     this.lean += ((-dx * 0.16) - this.lean) * Math.min(1, dt * 12);
     this.model.rotation.z = this.lean;
@@ -177,9 +177,9 @@ export class Hero {
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;
 
-    if (running && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: 0.75 + speed / 28, fade: 0.14 });
+    if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: 0.75 + speed / 28, fade: 0.14 });
     this.mixer.update(dt);
-    this.poseTail(running ? speed : 0);
+    this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();
   }
 
@@ -206,6 +206,7 @@ export class Hero {
     const tilt = new THREE.Quaternion().setFromAxisAngle(X_AXIS, out);
     const side = new THREE.Quaternion().setFromAxisAngle(Y_AXIS, Math.sin(this.time * 4.2) * 0.12 - this.lean * 1.2);
     const world = side.multiply(tilt);
+    if (this.root.rotation.y) world.premultiply(this.root.quaternion).multiply(_q.copy(this.root.quaternion).invert());      // turned in a fight: the tail still streams out behind him
     // world-space tilt expressed in the first tail bone's local frame
     const local = parentQ.clone().invert().multiply(world).multiply(parentQ);
     this.tail[0].quaternion.copy(local.multiply(this.tailRest[0]));
@@ -215,6 +216,14 @@ export class Hero {
       q.setFromAxisAngle(i % 2 ? X_AXIS : Z_AXIS, wave);
       this.tail[i].quaternion.copy(this.tailRest[i]).multiply(q);
     }
+  }
+
+  // The head of the mace and its grip in the world, for the bright trail a swing leaves.
+  maceEnds(tip, base) {
+    if (!this.mace) return false;
+    this.mace.updateWorldMatrix(true, false);
+    tip.set(0, 0.95, 0).applyMatrix4(this.mace.matrixWorld); base.set(0, 0.3, 0).applyMatrix4(this.mace.matrixWorld);
+    return true;
   }
 
   tailTip(target) {
