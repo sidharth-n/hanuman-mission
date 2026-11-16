@@ -92,6 +92,86 @@
       "status": "3d",
       "needs": "3D, attach to hand bone",
       "pick": "concepts-flow/gada/gada-1.clean.jpg"
+    },
+    {
+      "id": "house",
+      "name": "Lanka town house",
+      "group": "Street kit",
+      "where": "Lines both sides of the street (repeated, burns in the fire run)",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "tower-house",
+      "name": "Lanka tower house",
+      "group": "Street kit",
+      "where": "Taller building mixed in with the houses for skyline variety",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "market-stall",
+      "name": "Bazaar stall",
+      "group": "Street kit",
+      "where": "Street dressing along the run, smashed through in the fire run",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "street-arch",
+      "name": "Street archway",
+      "group": "Street kit",
+      "where": "Spans the street between districts, run through it",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "brazier",
+      "name": "Fire brazier",
+      "group": "Street kit",
+      "where": "Street light every few metres, the main light source at night",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "rakshasa-statue",
+      "name": "Rakshasa guardian statue",
+      "group": "Street kit",
+      "where": "Landmark at crossroads and outside the palace",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "cart",
+      "name": "Loaded ox cart",
+      "group": "Obstacles",
+      "where": "Blocks a lane, jump over it",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "pots",
+      "name": "Stack of clay pots",
+      "group": "Obstacles",
+      "where": "Breakable obstacle, smash through or dodge",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "barricade",
+      "name": "Guard barricade",
+      "group": "Obstacles",
+      "where": "Set up by the guards across a lane, jump over it",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "chudamani",
+      "name": "Sita's jewel (chudamani)",
+      "group": "Props",
+      "where": "Sita gives it to Hanuman in the Ashoka grove; the story item of the game",
+      "status": "concept",
+      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
     }
   ]
 }
