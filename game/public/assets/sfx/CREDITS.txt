@@ -1,8 +1,8 @@
 Sound effects in this folder. All are public domain (CC0 1.0) recordings from Freesound, trimmed and levelled for the game.
 
 leap.mp3: "Slow Swosh 40" by qubodup, https://freesound.org/people/qubodup/sounds/60027
-slide.mp3: "Boots Gravel Feet Slide 1_8" by Joao_Janz, https://freesound.org/people/Joao_Janz/sounds/504380 + "SLIDING ON GRAVEL.wav" by trexlasso, https://freesound.org/people/trexlasso/sounds/630008 + "Slow Swosh 40" by qubodup, https://freesound.org/people/qubodup/sounds/60027
-lamp.mp3: "ding.wav" by Dr. Macak, https://freesound.org/people/Dr.%20Macak/sounds/434627
+slide.mp3: "Swoosh 15 Windy" by qubodup, https://freesound.org/people/qubodup/sounds/60002
+lamp.mp3: "Kalimba C3" by dvdfu, https://freesound.org/people/dvdfu/sounds/536549
 wind.mp3: "Swoosh 15 Windy" by qubodup, https://freesound.org/people/qubodup/sounds/60002
 bell.mp3: "Indian Temple Bell.WAV" by ganiket, https://freesound.org/people/ganiket/sounds/466652
 hit.mp3: "Body fall_04.wav" by deleted_user_2104797, https://freesound.org/people/deleted_user_2104797/sounds/346692

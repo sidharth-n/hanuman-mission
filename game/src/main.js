@@ -445,7 +445,7 @@ $('gfx').addEventListener('click', e => {
   const v = e.target.dataset.v; if (!v) return;
   settings.gfx = v; store.set('gfx', v); pixelRatio = sharpest(); renderer.setPixelRatio(pixelRatio); resize(); showSettings();      // the shading itself changes the next time the game is opened
 });
-function showSound() { $('mute').classList.toggle('off', !sound.on); $('mute').setAttribute('aria-pressed', !sound.on); }
+function showSound() { $('mute').classList.toggle('on', sound.on); $('mute').setAttribute('aria-checked', sound.on); }
 press('mute', () => { sound.toggle(); showSound(); sound.fx('tap'); }); showSound();
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();

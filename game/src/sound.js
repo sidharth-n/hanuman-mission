@@ -6,7 +6,7 @@ const TRACKS = import.meta.env.DEV ? '/local-audio/' : 'assets/audio/';      // 
 const EFFECTS = 'assets/sfx/';
 const INTRO = 5.6;      // seconds of chant at the head of run.mp3: the loop comes back to here, not to the chant
 // how loud each effect sits against the track
-const LEVEL = { chant: 1, leap: 0.5, slide: 1, lamp: 0.3, wind: 0.6, bell: 0.9, hit: 0.9, splash: 0.9, wing: 0.7, power: 0.75, smash: 0.8, fire: 0.8, tap: 0.4,
+const LEVEL = { chant: 1, leap: 0.5, slide: 0.6, lamp: 0.24, wind: 0.6, bell: 0.9, hit: 0.9, splash: 0.9, wing: 0.7, power: 0.75, smash: 0.8, fire: 0.8, tap: 0.4,
   fireball: 0.55, spikes: 0.55, beam: 0.9, stone: 0.8, bridge: 0.8, blaze: 0.4 };
 
 export function createSound(store) {
