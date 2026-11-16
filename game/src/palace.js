@@ -400,3 +400,13 @@ export function stoneSeat(r, h) {
   b.face(Array.from({ length: N }, (_, k) => at(k, r, h)), 'stone', [0, 1, 0], { ...o, tile: [1.4, 1.4], shade: 1.1 });
   return b.geometry();
 }
+
+// A low stone lantern for a garden path: a carved post, an open lamp house on four rods, a pointed cap. Its flame is lit by the place that sets it.
+export function stoneLantern() {
+  const b = new Builder(), o = { ground: false }; b.tint = [0.74, 0.82, 1];
+  b.pillar(0, 0, 0, 1.05, 0.3, 'stone');
+  for (const x of [-0.14, 0.14]) for (const z of [-0.14, 0.14]) b.box(x - 0.018, x + 0.018, 1.05, 1.36, z - 0.018, z + 0.018, 'dark', { ...o, faces: 'fblr', shade: 1.6 });
+  b.box(-0.25, 0.25, 1.36, 1.41, -0.25, 0.25, 'lotus', { ...o, faces: 'fblrd', tile: [0.5, 0.05] });
+  b.lathe(0, 0, 1.41, [[0.34, 0], [0.12, 0.2], [0, 0.34]], 'iron', 4, 1.5);
+  return b.geometry();
+}

@@ -50,9 +50,8 @@ function garden(world) {
     petalMat: new THREE.PointsMaterial({ map: dot, color: 0xff7d8f, size: 0.13, opacity: 0.9, transparent: true, depthWrite: false }),
     lotusMat: new THREE.SpriteMaterial({ map: glow('rgba(255,235,245,1)', 'rgba(255,120,170,0.75)'), blending: THREE.AdditiveBlending, ...common }),
     haloMat: new THREE.SpriteMaterial({ map: glow('rgba(235,242,255,0.34)', 'rgba(150,185,255,0.13)'), blending: THREE.AdditiveBlending, ...common }),
-    stoneMat: new Solid({ color: 0x4f5964, ...pbr }),
     mistMat: new THREE.SpriteMaterial({ map: glow('rgba(190,215,255,0.5)', 'rgba(140,180,255,0.16)'), blending: THREE.AdditiveBlending, opacity: 0.5, ...common }), pondGeo: new THREE.CircleGeometry(4.6, 28).rotateX(-Math.PI / 2),
-    seatGeo: palace.stoneSeat(0.8, SITA.seat), postGeo: new THREE.BoxGeometry(0.34, 1.05, 0.34), capGeo: new THREE.ConeGeometry(0.36, 0.3, 4),
+    seatGeo: palace.stoneSeat(0.8, SITA.seat), lanternGeo: palace.stoneLantern(),
   };
   return world.garden;
 }
@@ -85,8 +84,7 @@ export function grove(world, chunk, c, r) {
   for (let j = 0; j < (world.lite ? 4 : 7); j++) { const m = new THREE.Sprite(k.mistMat); m.position.set((r() < 0.5 ? -1 : 1) * (4.5 + r() * 9), 0.7 + r() * 0.5, -r() * L); m.scale.set(9 + r() * 6, 2.2 + r() * 1.2, 1); g.add(m); }
   // low stone lanterns beside the path
   for (const s of [-1, 1]) for (const z of [-6, -18]) {
-    const post = new THREE.Mesh(k.postGeo, k.stoneMat); post.position.set(s * 4.7, 0.52, z); g.add(post);
-    const cap = new THREE.Mesh(k.capGeo, k.stoneMat); cap.position.set(s * 4.7, 1.5, z); cap.rotation.y = Math.PI / 4; g.add(cap);
+    const lantern = world.part(k.lanternGeo); lantern.position.set(s * 4.7, 0, z); g.add(lantern);
     world.flame(chunk, s * 4.7, 1.22, z, 0.3, r() * 10);
     chunk.braziers.push(new THREE.Vector3(s * 4.7, g.position.y + 1.3, g.position.z + z));
   }
