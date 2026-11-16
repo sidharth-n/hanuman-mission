@@ -126,7 +126,7 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); hero.reset(); sound.stop();
+  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
@@ -145,7 +145,7 @@ function result(title, thirdLabel, third) {
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
-  story.reset(fresh);
+  story.reset(fresh); if (director.active) director.skipQuiet(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
   Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
@@ -399,7 +399,9 @@ function placeCamera(dt, snap) {
   }
 
   if (director.active && director.cam) {      // a scene of the story: the director holds the camera
-    fov = director.frame(); look.copy(director.look); view.back = back; view.join = 1; view.fov = fov;
+    fov = director.frame(); if (tall) fov = Math.min(80, fov * 1.6);      // an upright phone sees a narrow slice: a wider lens keeps both speakers in it
+    look.copy(director.look); view.back = back; view.join = 1; view.fov = fov;
+    if (tall) camera.position.sub(look).multiplyScalar(1.35).add(look);      // and stands a little further off
   } else if (state.shot) {
     const s = state.shot; s.t += dt;
     const [at, to, f] = SHOTS[s.type](p, k, Math.min(1, s.t / s.secs));
