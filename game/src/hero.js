@@ -43,6 +43,21 @@ export class Hero {
     this.reset();
   }
 
+  // His mace rides in the right hand, so every clip (run, jump, slide, roar) carries it with the arm.
+  attachMace(src, length = 1.15) {
+    const hand = this.model.getObjectByName('mixamorigRightHand'); if (!hand) return;
+    src.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(src), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+    src.position.set(-c.x, -box.min.y - size.y * 0.3, -c.z);            // origin on the grip, a third of the way up the handle
+    src.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.7; } });
+    const inner = new THREE.Group(); inner.add(src); inner.scale.setScalar(length / size.y);
+    const grip = new THREE.Group(); grip.add(inner);
+    hand.updateWorldMatrix(true, false);
+    const unit = 1 / hand.getWorldScale(new THREE.Vector3()).x;          // the skeleton may be in other units than metres
+    grip.scale.setScalar(unit); grip.position.set(0, 0.09 * unit, 0.03 * unit); grip.rotation.set(0, 0, -Math.PI / 2);      // hammer grip: head up when the forearm is level
+    hand.add(grip); this.mace = grip; this.maceUnit = unit;
+  }
+
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0;
     this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0;

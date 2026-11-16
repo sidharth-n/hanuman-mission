@@ -45,13 +45,13 @@ window.addEventListener('resize', resize); resize();
 
 async function load() {
   const loader = new GLTFLoader(); let done = 0;
-  const names = ['hanuman', ...KIT];
+  const names = ['hanuman', 'gada', ...KIT];
   const one = name => loader.loadAsync(`assets/${name === 'hanuman' ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
   const tl = new THREE.TextureLoader();
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
   world = new World(scene, models, { city, glow, paving, sky });
-  hero = new Hero(models.hanuman); scene.add(hero.root);
+  hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }

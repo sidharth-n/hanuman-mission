@@ -1,0 +1,96 @@
+{
+  "about": "The route through Lanka, section by section: what each place looks like, what blocks the way, where the story beats, fights, forks and camera shots fall. Distances in metres. Difficulty rises along the route: obstacle rows get closer and the run gets faster.",
+  "sources": {
+    "epic": "Valmiki Ramayana, Sundara Kanda (the search for Sita, the burning of Lanka) and Yuddha Kanda sarga 3 (Hanuman's own description of Lanka's defences: four gates with strong doors and locking beams, engines that hurl darts and stones, iron sataghnis kept by the hundred at the gates, deep moats with crocodiles, drawbridges worked by engines).",
+    "fort": "Arthashastra fort chapter: triple moats with crocodiles, ramparts, towers, archers' positions, iron-pointed stakes."
+  },
+  "pickups": {
+    "lamp": { "what": "A small floating oil-lamp flame, Rama's name. Fills the strength meter.", "meter": 1 },
+    "wind": { "what": "A swirl of wind, the blessing of his father Vayu. He flies over everything for a few seconds.", "seconds": 6 },
+    "ring": { "what": "Rama's signet ring, carried from the start and given to Sita in the grove." },
+    "jewel": { "what": "Sita's hair jewel, carried from the grove to the end." }
+  },
+  "powers": {
+    "giant": { "needs": 30, "seconds": 5, "what": "Meter full, tap: he grows huge and smashes through everything." },
+    "flight": { "from": "wind", "what": "Flies above the lanes; obstacles and guards pass underneath." }
+  },
+  "obstacles": {
+    "water-channel":   { "move": "jump",  "from": "city",  "asset": "code" },
+    "fallen-pillar":   { "move": "jump",  "from": "city",  "asset": "code" },
+    "thrown-pots":     { "move": "jump",  "from": "guards throw them into his path", "asset": "have" },
+    "cart":            { "move": "dodge", "from": "city",  "asset": "have" },
+    "street-chain":    { "move": "slide", "from": "fort",  "asset": "code" },
+    "lamp-beam":       { "move": "slide", "from": "city",  "asset": "have" },
+    "fire-arrows":     { "move": "dodge", "from": "epic: engines and archers on the walls; a lane is marked before they land", "asset": "code" },
+    "hurled-stone":    { "move": "dodge", "from": "epic: engines that hurl stones; a shadow marks the lane", "asset": "code" },
+    "bridge-gap":      { "move": "jump",  "from": "epic: drawbridges lifted by engines", "asset": "code" },
+    "sataghni":        { "move": "dodge", "from": "epic: spiked iron log dropped at the gates", "asset": "to make" },
+    "rolling-stone":   { "move": "jump",  "from": "fort: rolled down the stairway", "asset": "code" },
+    "spear-rack":      { "move": "dodge", "from": "palace", "asset": "to make" },
+    "closing-door":    { "move": "slide", "from": "epic: strong doors with locking beams", "asset": "code" },
+    "spear-guard":     { "move": "dodge", "from": "epic: rakshasa guards", "asset": "guard, needs rig" },
+    "banquet-table":   { "move": "jump",  "from": "palace", "asset": "image done" },
+    "lamp-chain":      { "move": "slide", "from": "palace", "asset": "image done" },
+    "pillar":          { "move": "dodge", "from": "palace", "asset": "image done" },
+    "burning-beam":    { "move": "slide", "from": "fire",  "asset": "code" },
+    "falling-tower":   { "move": "dodge", "from": "fire",  "asset": "code" }
+  },
+  "sections": [
+    { "id": "gate", "name": "The Gate", "length": 80, "place": "sea gate of Lanka at night", "speed": 9, "rowGap": 0,
+      "obstacles": [],
+      "events": [
+        { "at": 0, "type": "shot", "what": "opening: slow pass over the gate and walls, down to Hanuman" },
+        { "at": 30, "type": "boss", "who": "Lankini", "what": "the guardian of the city blocks the gate; one clean strike fells her (as in the epic)" },
+        { "at": 70, "type": "spotted", "what": "a guard sees him; the chase begins" }
+      ] },
+    { "id": "city", "name": "The City", "length": 380, "place": "torch-lit bazaar streets", "speed": 10, "rowGap": 12,
+      "obstacles": ["water-channel", "fallen-pillar", "thrown-pots", "cart", "street-chain", "lamp-beam", "fire-arrows"],
+      "events": [
+        { "at": 120, "type": "turn", "dir": "left" },
+        { "at": 200, "type": "fork", "left": "rooftops: more lamps, gaps to leap", "right": "street: more guards" },
+        { "at": 300, "type": "pickup", "what": "wind" },
+        { "at": 340, "type": "turn", "dir": "right" }
+      ] },
+    { "id": "bridges", "name": "The Bridges", "length": 200, "place": "stone bridges over the moat, crocodiles below", "speed": 11, "rowGap": 11,
+      "obstacles": ["bridge-gap", "hurled-stone", "fire-arrows", "sataghni"],
+      "events": [
+        { "at": 20, "type": "shot", "what": "wide side view of him running the bridge with the palace above, slow motion on the first leap" }
+      ] },
+    { "id": "stairway", "name": "The Stairway", "length": 160, "place": "the grand stairway up to the palace, sloping up", "speed": 11, "rowGap": 10, "slope": 0.22,
+      "obstacles": ["rolling-stone", "spear-rack", "sataghni", "spear-guard"],
+      "events": [] },
+    { "id": "court", "name": "The Palace Court", "length": 200, "place": "outer palace court behind the great doors", "speed": 12, "rowGap": 10,
+      "obstacles": ["closing-door", "spear-guard", "spear-rack", "pillar"],
+      "events": [
+        { "at": 0, "type": "shot", "what": "the great doors swing shut; he slides under the locking beam" },
+        { "at": 150, "type": "fight", "who": "two guards with swords", "what": "the run stops, he fights with the mace, then runs on" }
+      ] },
+    { "id": "halls", "name": "The Inner Palace", "length": 320, "place": "pillared halls and corridors of gold and dark stone", "speed": 12.5, "rowGap": 9,
+      "obstacles": ["pillar", "banquet-table", "lamp-chain", "spear-guard", "closing-door"],
+      "events": [
+        { "at": 60, "type": "shot", "what": "high gliding view down the pillared hall" },
+        { "at": 140, "type": "fork", "left": "throne corridor: guards", "right": "treasure rooms: lamps" },
+        { "at": 220, "type": "pickup", "what": "wind" },
+        { "at": 290, "type": "fight", "who": "three guards and a captain", "what": "second fight" }
+      ] },
+    { "id": "grove", "name": "The Grove", "length": 90, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 0,
+      "obstacles": [],
+      "events": [
+        { "at": 10, "type": "shot", "what": "quiet walk under the trees" },
+        { "at": 60, "type": "story", "what": "he gives Sita the ring and receives her hair jewel" },
+        { "at": 85, "type": "fight", "who": "Ravana's captains", "what": "he wrecks the grove and fights; ends when he is bound and taken before Ravana" }
+      ] },
+    { "id": "throne", "name": "The Throne", "length": 0, "place": "Ravana's throne hall", "speed": 0, "rowGap": 0,
+      "obstacles": [],
+      "events": [
+        { "at": 0, "type": "story", "what": "before Ravana; his tail is wrapped and set on fire" }
+      ] },
+    { "id": "fire", "name": "Lanka Burns", "length": 460, "place": "back down through the palace, the stairway and the city, everything catching fire", "speed": 14, "rowGap": 8,
+      "obstacles": ["burning-beam", "falling-tower", "spear-guard", "cart"],
+      "events": [
+        { "at": 0, "type": "shot", "what": "low angle as the tail catches; slow motion" },
+        { "at": 140, "type": "power", "what": "giant" },
+        { "at": 440, "type": "shot", "what": "he leaps from the gate tower over the sea, the city burning behind him" }
+      ] }
+  ]
+}
