@@ -44,7 +44,7 @@ const card = a => {
       const mb = (statSync(`${root}assets/lux3d/${d}/model.glb`).size / 1e6).toFixed(1);
       const poster = existsSync(`${root}assets/lux3d/${d}/preview-1.png`) ? `poster="../lux3d/${d}/preview-1.png"` : '';
       return `<figure class="m3d"><model-viewer src="../lux3d/${d}/model.glb" ${poster} loading="lazy" reveal="interaction" camera-controls auto-rotate shadow-intensity="1" exposure="1.1"></model-viewer>
-        <figcaption><b>${label(d)}</b><span>${t.secs ? t.secs + ' s · ' : ''}${mb} MB raw · tap to load and turn</span></figcaption></figure>`;
+        <figcaption><b>${label(d)}</b><span>${mb} MB raw</span><a class="open3d" href="viewer.html#${d}">Open in 3D viewer ↗</a></figcaption></figure>`;
     }).join('');
   const picked = a.pick ? `<p class="picked">Approved image: option ${esc(a.pick.match(/-(\d+)\.clean/)?.[1] || '?')}</p>` : '';
   return `<article class="card" id="${a.id}">
@@ -90,16 +90,46 @@ details{width:100%}summary{cursor:pointer}details p{margin:4px 0 0;color:var(--m
 model-viewer{width:100%;height:340px;background:#cfcfcf;border-radius:8px}.meta{color:var(--mute);font-size:12px;margin:6px 0 0}
 .round{margin:4px 0 8px;font-size:13px;color:var(--gold);font-weight:600}.r1{margin-top:10px;color:var(--mute);font-size:13px}.r1 .concepts{margin-top:8px}.small{grid-template-columns:repeat(auto-fit,minmax(120px,160px))}
 .models{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.m3d{margin:0}.m3d model-viewer{height:300px}
+.open3d{display:inline-block;margin-left:auto;background:#e8b44c;color:#1a1208;font-weight:600;padding:3px 10px;border-radius:6px;text-decoration:none;font-size:12px}.open3d.big{margin:0 10px 0 0;font-size:13px;padding:5px 12px}
 .picked{color:#7fd17f;font-size:12px;margin:6px 0 0}
 details.p{font-size:12px;color:var(--mute);margin-top:6px}
 .rules{margin:16px 0 0;background:#1f1810;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--mute)}.rules b{color:var(--ink)}
 @media (max-width:560px){.top,main{padding-left:14px;padding-right:14px}.grid{grid-template-columns:1fr}}
 </style></head><body>
 <div class="top"><h1>${esc(m.game)} · Asset library</h1>
-<div class="sub">Concept image first → your pick → 3D in Lux3D → rig and animate → into the game. Nothing becomes 3D until it is approved here.</div>
+<div class="sub"><a class="open3d big" href="viewer.html">Open the 3D viewer ↗</a> Concept image first → your pick → 3D in Lux3D → rig and animate → into the game. Nothing becomes 3D until it is approved here.</div>
 <div class="stats"><span><b>${m.assets.length}</b> assets</span><span><b>${counts('concept')}</b> awaiting your pick</span><span><b>${counts('approved')}</b> approved</span><span>Updated ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false })} IST</span></div></div>
 <main><div class="rules"><b>Built for phones and a fast first load:</b> Hanuman about 15 to 25k triangles, props 2 to 8k, textures 1024 px max and compressed, Act 1 playable at about 15 to 20 MB. Bold, clear shapes over fine detail.</div>${groups.map(g => `<h2>${esc(g)}</h2><div class="grid">${m.assets.filter(a => a.group === g).map(card).join('')}</div>`).join('')}</main>
 </body></html>`;
+// Full-screen 3D viewer: every generated model, one at a time, loads straight away.
+const allModels = m.assets.flatMap(a => list('assets/lux3d')
+  .filter(d => d.startsWith(a.id + '-') && existsSync(`${root}assets/lux3d/${d}/model.glb`))
+  .sort((x, y) => (y.includes('g1') - x.includes('g1')) || x.localeCompare(y))
+  .map(d => ({ id: d, name: a.name, kind: d === a.test3d ? 'Text-to-3D test' : d.endsWith('-g1-multiview') ? 'G1 · 3 views' : d.endsWith('-g1') ? 'G1 · best' : 'Turbo',
+    mb: (statSync(`${root}assets/lux3d/${d}/model.glb`).size / 1e6).toFixed(1) })));
+const viewer = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${esc(m.game)} · 3D viewer</title>
+<script type="module" src="https://unpkg.com/@google/model-viewer@4/dist/model-viewer.min.js"></script>
+<style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#0e0b08;color:#f3e9d8;font:14px/1.4 -apple-system,system-ui,sans-serif}
+.wrap{display:grid;grid-template-columns:260px 1fr;height:100%}nav{overflow:auto;border-right:1px solid #3a2c1c;padding:14px}
+h1{font:600 18px Georgia,serif;color:#e8b44c;margin:0 0 4px}.hint{color:#a8977f;font-size:12px;margin:0 0 12px}
+button{display:block;width:100%;text-align:left;background:#18130e;color:#f3e9d8;border:1px solid #3a2c1c;border-radius:8px;padding:8px 10px;margin:0 0 6px;cursor:pointer}
+button span{display:block;color:#a8977f;font-size:12px}button.on{border-color:#e8b44c;background:#2a1f12}
+main{position:relative}model-viewer{width:100%;height:100%;background:radial-gradient(#3b3530,#141110)}
+.cap{position:absolute;left:16px;top:12px;font:600 20px Georgia,serif;color:#e8b44c;text-shadow:0 1px 4px #000}.cap span{display:block;font:13px system-ui;color:#d8c9b0}
+.load{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:#000a;padding:6px 12px;border-radius:99px;color:#e8b44c;font-size:13px}
+a{color:#e8b44c}@media (max-width:700px){.wrap{grid-template-columns:1fr;grid-template-rows:42% 58%}nav{order:2;border:0;border-top:1px solid #3a2c1c}}</style></head><body>
+<div class="wrap"><nav><h1>3D viewer</h1><p class="hint">Real Lux3D models. Drag to turn, scroll or pinch to zoom, right-drag to move. <a href="index.html">Back to library</a></p><div id="list"></div></nav>
+<main><model-viewer id="mv" camera-controls auto-rotate shadow-intensity="1" exposure="1.15" environment-image="neutral" interaction-prompt="none"></model-viewer>
+<div class="cap" id="cap"></div><div class="load" id="load">Loading…</div></main></div>
+<script>const M=${JSON.stringify(allModels)};const mv=document.getElementById('mv'),list=document.getElementById('list');
+function show(i){const x=M[i];mv.src='../lux3d/'+x.id+'/model.glb';document.getElementById('cap').innerHTML=x.name+'<span>'+x.kind+' · '+x.mb+' MB raw</span>';
+document.getElementById('load').style.display='block';[...list.children].forEach((b,j)=>b.classList.toggle('on',i===j));history.replaceState(null,'','#'+x.id)}
+mv.addEventListener('load',()=>document.getElementById('load').style.display='none');
+mv.addEventListener('progress',e=>{document.getElementById('load').textContent='Loading '+Math.round(e.detail.totalProgress*100)+'%'});
+M.forEach((x,i)=>{const b=document.createElement('button');b.innerHTML=x.name+'<span>'+x.kind+' · '+x.mb+' MB</span>';b.onclick=()=>show(i);list.appendChild(b)});
+const start=Math.max(0,M.findIndex(x=>x.id===location.hash.slice(1)));show(start);</script></body></html>`;
 mkdirSync(root + 'assets/library', { recursive: true });
+writeFileSync(root + 'assets/library/viewer.html', viewer);
 writeFileSync(root + 'assets/library/index.html', html);
 console.log('wrote assets/library/index.html', m.assets.length, 'assets');
