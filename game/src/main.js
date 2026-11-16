@@ -38,8 +38,9 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0 };                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
 let hero, world, tailFire, tailLight;
 
+let fixed = null;      // [width, height] when recording at an exact size
 function resize() {
-  const w = window.innerWidth, h = window.innerHeight;
+  const w = fixed ? fixed[0] : window.innerWidth, h = fixed ? fixed[1] : window.innerHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
@@ -74,7 +75,7 @@ function ready(line, label) {
 function start() {
   world.reset(); hero.reset();
   Object.assign(state, { mode: 'run', speed: START_SPEED, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
-    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, meter: 0, giant: 0, big: 0, burned: 0, cine: 4 });
+    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, meter: 0, giant: 0, big: 0, burned: 0, cine: 4 });
   ui.goldLabel.textContent = 'lamps'; ui.meter.classList.remove('full');
   world.behind = 3;
   tailFire.visible = false; tailLight.intensity = 0;
@@ -169,6 +170,17 @@ const view = { fov: 60, dip: 0, air: false, back: 5 };
 const ease = t => t * t * (3 - 2 * t);
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
 
+// Cinematic shots: for a few seconds the camera leaves the chase view. He keeps running and the player keeps control.
+const SHOTS = {
+  side:  (p, k, u) => [[p.x + (p.x > 0.5 ? -3.6 : 3.6), 1.25 * k, p.z - 0.6], [p.x, 1.15 * k, p.z - 0.9], 62],            // alongside him, like a runner filmed from the roadside
+  front: (p, k, u) => [[p.x * 0.4 + 1.1, 1.35 * k, p.z - 6.5 * k], [p.x, 1.3 * k, p.z], 50],                               // ahead of him, looking back at his face
+  low:   (p, k, u) => [[p.x + 1.6, 0.35, p.z - 4.2 * k], [p.x, 1.7 * k, p.z], 58],                                         // near the ground, looking up
+  drone: (p, k, u) => [[p.x * 0.3 + 2 - u * 4, 15 + u * 5, p.z + 12], [0, 1, p.z - 16], 52],                               // high above the street
+  hero:  (p, k, u) => [[p.x + (1.5 - u * 0.5) * k, (0.75 + u * 0.25) * k, p.z - (3.3 - u * 0.5) * k], [p.x, 1.3 * k, p.z], 46],                 // slow push-in on him from the front, low
+  orbit: (p, k, u) => [[p.x + Math.sin(u * 6.283 + 3.1) * 5 * k, (1.2 + u) * k, p.z + Math.cos(u * 6.283 + 3.1) * 5 * k], [p.x, 1.2 * k, p.z], 55],
+};
+function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs }; }
+
 // Strength meter full and a tap: he grows giant for a few seconds and nothing in the street can stop him.
 function usePower() {
   if (state.meter < 1 || state.fire || state.giant > 0) return;
@@ -179,7 +191,7 @@ function usePower() {
 // The chase camera: close behind and above so he fills the lower third; it lags a little on lane changes, rises less
 // than he does on a jump, drops with a slide, widens with speed and pushes in during slow motion.
 function placeCamera(dt, snap) {
-  const p = hero.root.position, k = hero.root.scale.x, tall = window.innerHeight > window.innerWidth;
+  const p = hero.root.position, k = hero.root.scale.x, tall = camera.aspect < 1;
   const fast = Math.min(1, Math.max(0, (state.speed - START_SPEED) / (MAX_SPEED - START_SPEED)));
   const slow = 1 - state.tscale, low = ease(Math.min(1, state.low));
   if (view.air && !hero.airborne) view.dip = 0.28;      // landing
@@ -190,7 +202,12 @@ function placeCamera(dt, snap) {
   back = back * (1 - 0.32 * low) - slow * 0.8; height *= 1 - 0.62 * low;
   const lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8;
 
-  if (state.mode === 'ready' || state.intro > 0) {
+  if (state.shot) {
+    const s = state.shot; s.t += dt;
+    const [at, to, f] = SHOTS[s.type](p, k, Math.min(1, s.t / s.secs));
+    camera.position.set(...at); look.set(...to); view.fovWant = f; view.back = back;
+    if (s.t >= s.secs) state.shot = null;
+  } else if (state.mode === 'ready' || state.intro > 0) {
     // title: a slow drift in front of him. On Run the camera sweeps round behind as he takes off.
     const e = state.mode === 'ready' ? 0 : ease(1 - state.intro / INTRO);
     const a = (2.5 + Math.sin(performance.now() * 0.0004) * 0.16) * (1 - e), R = 4.0 * k + (back - 4.0 * k) * e, y0 = (tall ? 0.95 : 0.75) * k;
@@ -207,7 +224,8 @@ function placeCamera(dt, snap) {
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
   camera.lookAt(look); camera.rotateZ(-hero.lean * 0.3);
-  view.fov = snap ? fov : view.fov + (fov - view.fov) * Math.min(1, dt * 6);
+  const wantFov = state.shot ? view.fovWant : fov;
+  view.fov = snap ? wantFov : view.fov + (wantFov - view.fov) * Math.min(1, dt * (state.shot ? 30 : 6));
   if (Math.abs(camera.fov - view.fov) > 0.02) { camera.fov = view.fov; camera.updateProjectionMatrix(); }
 }
 
@@ -277,4 +295,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, start, move: d => hero.move(d) };
+if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, start, move: d => hero.move(d), shot, slowMotion, usePower,
+  size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };

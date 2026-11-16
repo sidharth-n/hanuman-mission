@@ -1,0 +1,53 @@
+{
+ "ancient-rama-empire-music-8e0c9442.mp3": {
+  "openverse_id": "8e0c9442-09f4-445a-97ac-3723566103c4",
+  "title": "Ancient Rama Empire Music",
+  "creator": "CHASMA",
+  "source": "jamendo",
+  "license": "by 3.0",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "page": "https://www.jamendo.com/track/1371446",
+  "file_url": "https://prod-1.storage.jamendo.com/?trackid=1371446&format=mp32",
+  "attribution": "\"Ancient Rama Empire Music\" by CHASMA is licensed under CC BY 3.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/3.0/.",
+  "credit_required": true,
+  "seconds": 375.37,
+  "kbps": 154,
+  "sample_rate": "44100",
+  "channels": 2,
+  "fetched": "2026-11-16"
+ },
+ "beautiful-indian-music-4087eaf8.mp3": {
+  "openverse_id": "4087eaf8-f74a-4759-90ed-be72444727bb",
+  "title": "Beautiful Indian Music",
+  "creator": "CHASMA",
+  "source": "jamendo",
+  "license": "by 3.0",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "page": "https://www.jamendo.com/track/1371452",
+  "file_url": "https://prod-1.storage.jamendo.com/?trackid=1371452&format=mp32",
+  "attribution": "\"Beautiful Indian Music\" by CHASMA is licensed under CC BY 3.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/3.0/.",
+  "credit_required": true,
+  "seconds": 289.8,
+  "kbps": 168,
+  "sample_rate": "44100",
+  "channels": 2,
+  "fetched": "2026-11-16"
+ },
+ "sbatronico---war-drum-93c296f0.mp3": {
+  "openverse_id": "93c296f0-58bf-46f7-af00-3ca23928f0b9",
+  "title": "sbatronico - war drum",
+  "creator": "sbatronico",
+  "source": "jamendo",
+  "license": "by 3.0",
+  "license_url": "https://creativecommons.org/licenses/by/3.0/",
+  "page": "https://www.jamendo.com/track/1719723",
+  "file_url": "https://prod-1.storage.jamendo.com/?trackid=1719723&format=mp32",
+  "attribution": "\"sbatronico - war drum\" by sbatronico is licensed under CC BY 3.0. To view a copy of this license, visit https://creativecommons.org/licenses/by/3.0/.",
+  "credit_required": true,
+  "seconds": 680.95,
+  "kbps": 168,
+  "sample_rate": "44100",
+  "channels": 2,
+  "fetched": "2026-11-16"
+ }
+}

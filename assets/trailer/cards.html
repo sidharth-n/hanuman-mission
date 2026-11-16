@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- Draws the trailer's text cards as transparent 1920x1080 pictures and hands them to the local receiver (tools: see state notes). -->
+<html lang="en"><head><meta charset="utf-8"><title>Trailer cards</title>
+<style>body{margin:0;background:#111;color:#ccc;font:14px system-ui;padding:16px}canvas{width:480px;height:270px;background:#333 url() ;margin:6px;border:1px solid #444}</style></head>
+<body><p id="log">drawing…</p>
+<script>
+const CARDS = {
+  'card-1': ['RAMA’S RING MUST REACH SITA'],
+  'card-2': ['THE GUARDS ARE CLOSING IN'],
+  'card-3': ['HE BREAKS THROUGH THEIR WALLS'],
+  'card-4': ['HIS TAIL SETS LANKA ABLAZE'],
+  'card-end': ['HANUMAN MISSION', 'A SEARCH FOR SITA IN LANKA', 'PLAY IN YOUR BROWSER  ·  HANUMAN-MISSION.PAGES.DEV'],
+};
+const W = 1920, H = 1080, FONT = 'Baskerville, "Hoefler Text", Georgia, serif';
+function spaced(g, text, x, y, px, track) {       // centred text with letter spacing
+  g.font = `600 ${px}px ${FONT}`; const widths = [...text].map(c => g.measureText(c).width + track * px);
+  let at = x - (widths.reduce((a, b) => a + b, 0) - track * px) / 2; g.textAlign = 'left';
+  [...text].forEach((c, i) => { g.fillText(c, at, y); at += widths[i]; });
+  return widths.reduce((a, b) => a + b, 0);
+}
+function gold(g, y, px) { const k = g.createLinearGradient(0, y - px, 0, y + px * 0.2); k.addColorStop(0, '#fbe7ae'); k.addColorStop(0.55, '#e8b44c'); k.addColorStop(1, '#b07a24'); return k; }
+function draw(lines) {
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
+  g.textBaseline = 'alphabetic'; g.shadowColor = 'rgba(0,0,0,0.9)'; g.shadowBlur = 26; g.shadowOffsetY = 4;
+  if (lines.length === 1) {
+    const y = 905, px = 60;
+    const shade = g.createLinearGradient(0, 720, 0, H); shade.addColorStop(0, 'rgba(0,0,0,0)'); shade.addColorStop(0.55, 'rgba(0,0,0,0.5)'); shade.addColorStop(1, 'rgba(0,0,0,0.68)');
+    g.save(); g.shadowColor = 'transparent'; g.fillStyle = shade; g.fillRect(0, 720, W, H - 720); g.restore();      // a soft dark band so the words read over fire
+    for (let n = 0; n < 2; n++) { g.fillStyle = gold(g, y, px); var w = spaced(g, lines[0], W / 2, y, px, 0.16); }
+    g.shadowBlur = 8; g.fillStyle = '#e8b44c'; g.fillRect(W / 2 - 90, y + 34, 180, 2);
+  } else {
+    const band = g.createLinearGradient(0, 0, 0, H); band.addColorStop(0, 'rgba(4,6,16,0.82)'); band.addColorStop(1, 'rgba(4,6,16,0.9)');
+    g.shadowColor = 'transparent'; g.fillStyle = band; g.fillRect(0, 0, W, H);
+    g.shadowColor = 'rgba(0,0,0,0.9)'; g.shadowBlur = 30;
+    for (let n = 0; n < 2; n++) { g.fillStyle = gold(g, 520, 150); spaced(g, lines[0], W / 2, 520, 150, 0.06); }
+    g.shadowBlur = 8; g.fillStyle = '#e8b44c'; g.fillRect(W / 2 - 150, 575, 300, 3);
+    g.fillStyle = '#f3e9d8'; spaced(g, lines[1], W / 2, 670, 46, 0.22);
+    g.fillStyle = 'rgba(243,233,216,0.78)'; spaced(g, lines[2], W / 2, 900, 30, 0.2);
+  }
+  document.body.appendChild(c); return c;
+}
+(async () => {
+  await document.fonts.ready; const out = [];
+  for (const [name, lines] of Object.entries(CARDS)) {
+    const c = draw(lines), blob = await new Promise(r => c.toBlob(r, 'image/png'));
+    const res = await fetch('http://127.0.0.1:8799/' + name + '.png', { method: 'POST', body: blob }); out.push(name + ' ' + res.status);
+  }
+  document.getElementById('log').textContent = out.join(' · '); window.__done = out;
+})();
+</script></body></html>

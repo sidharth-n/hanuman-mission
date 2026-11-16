@@ -15,3 +15,9 @@ assets/rig/
 state-log.md
 __pycache__/
 game/dist/
+
+# raw screen recordings for the trailer (large)
+assets/trailer/raw/
+assets/trailer/*.mp4
+assets/trailer/work/
+assets/trailer/music/*.mp3
