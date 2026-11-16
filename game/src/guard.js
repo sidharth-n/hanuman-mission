@@ -31,7 +31,8 @@ function standInSword() {
 }
 
 export class Guard {
-  constructor(gltf) {
+  // sword: the sword model (a scene to copy), or nothing for the plain stand-in blade
+  constructor(gltf, sword) {
     this.root = new THREE.Group();
     this.model = clone(gltf.scene);
     this.model.scale.multiplyScalar(TALL);
@@ -47,7 +48,14 @@ export class Guard {
     this.root.updateWorldMatrix(true, true);
     const unit = 1 / hand.getWorldScale(new THREE.Vector3()).x;
     this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit, 0.03 * unit); this.sword.rotation.set(0, 0, -Math.PI / 2);
-    this.sword.add(standInSword()); hand.add(this.sword);
+    if (sword) {      // the made sword, stood on its pommel: sized to 1.35 m, held a little above the pommel
+      const s = sword.clone(); s.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(s), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+      s.position.set(-c.x, -box.min.y - size.y * 0.1, -c.z);
+      s.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.8; } });
+      const fit = new THREE.Group(); fit.add(s); fit.scale.setScalar(1.35 / size.y); this.sword.add(fit);
+    } else this.sword.add(standInSword());
+    hand.add(this.sword);
 
     const blob = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }));
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.root.add(blob);
@@ -88,6 +96,6 @@ export class Guard {
   // The point and the hilt of the sword in the world, for the trail of a slash and the sparks where it lands.
   swordEnds(tip, base) {
     this.sword.updateWorldMatrix(true, false);
-    tip.set(0, 1.3, 0).applyMatrix4(this.sword.matrixWorld); base.set(0, 0.25, 0).applyMatrix4(this.sword.matrixWorld);
+    tip.set(0, 1.2, 0).applyMatrix4(this.sword.matrixWorld); base.set(0, 0.2, 0).applyMatrix4(this.sword.matrixWorld);
   }
 }

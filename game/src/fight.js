@@ -101,14 +101,14 @@ class Trail {
 }
 
 export class Fight {
-  // game: { scene, hero, gltf (the guard), sound, buzz, groundAt, shake(amount), slowMotion(secs, scale) }
+  // game: { scene, hero, gltf (the guard), sword (his sword's model), sound, buzz, groundAt, shake(amount), slowMotion(secs, scale) }
   constructor(game) {
     Object.assign(this, game);
     const tex = dotTexture();
     this.sparks = new Sparks(this.scene, tex);
     this.flashes = [0, 1, 2, 3].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true })); s.visible = false; s.userData = { t: 0, secs: 1, size: 1 }; this.scene.add(s); return s; });
     this.heroTrail = new Trail(this.scene, [1, 0.72, 0.28]);
-    this.guards = [0, 1, 2, 3, 4, 5, 6, 7].map(() => { const g = new Guard(this.gltf); g.trail = new Trail(this.scene, [1, 0.42, 0.24]); this.scene.add(g.root); return g; });
+    this.guards = [0, 1, 2, 3, 4, 5, 6, 7].map(() => { const g = new Guard(this.gltf, this.sword); g.trail = new Trail(this.scene, [1, 0.42, 0.24]); this.scene.add(g.root); return g; });
     this.stick = { x: 0, y: 0 };      // the thumb stick: x to his right on the screen, y toward the player
     this.focus = new THREE.Vector3(); this.active = false; this.over = null; this.result = null; this.lives = LIVES; this.freeze = 0; this.left = 0;
   }

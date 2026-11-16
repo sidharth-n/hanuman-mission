@@ -1,0 +1,249 @@
+{
+  "cards": {
+    "gate": "Night veils Lanka. Hanuman reaches the sea gate.",
+    "city": "Torches light the streets. Hanuman searches for Sita.",
+    "bridges": "Across the moat, the palace waits.",
+    "stairway": "The great stairway rises toward Ravana's palace.",
+    "court": "Hanuman slips into the palace court.",
+    "halls": "He searches the pillared halls. No sign of Sita.",
+    "grove": "Moonlight falls on the Ashoka grove.",
+    "throne": "Bound by choice, Hanuman stands before Ravana.",
+    "fire": "Hanuman grows vast. His burning tail sets Lanka ablaze.",
+    "end": "Lanka burns behind him. He carries Sita's hope to Rama."
+  },
+  "alerts": {
+    "guards": "Palace guards attack",
+    "more": "More guards arrive",
+    "captain": "The captain advances",
+    "cleared": "The way opens",
+    "bound": "Bound by choice"
+  },
+  "scenes": {
+    "lankini_challenge": [
+      {
+        "who": "Lankini",
+        "line": "Halt, little monkey. Who dares enter Lanka?"
+      },
+      {
+        "who": "Hanuman",
+        "line": "I have crossed the sea on my lord's errand."
+      },
+      {
+        "who": "Lankini",
+        "line": "I guard this city. None may pass me."
+      },
+      {
+        "who": "Hanuman",
+        "line": "Let me pass. I seek no quarrel with you."
+      }
+    ],
+    "lankini_yields": [
+      {
+        "who": "Lankini",
+        "line": "A monkey has struck me down."
+      },
+      {
+        "who": "Lankini",
+        "line": "The prophecy said this would herald Lanka's fall."
+      },
+      {
+        "who": "Lankini",
+        "line": "Go in. I will not bar your way."
+      }
+    ],
+    "grove_sita": [
+      {
+        "who": "",
+        "line": "Hidden in the branches, Hanuman sees Sita below."
+      },
+      {
+        "who": "Hanuman",
+        "line": "She grieves, yet her faith in Rama holds."
+      },
+      {
+        "who": "",
+        "line": "He descends and bows before her."
+      },
+      {
+        "who": "Hanuman",
+        "line": "Mother, I am Hanuman, Rama's messenger."
+      },
+      {
+        "who": "Sita",
+        "line": "Ravana wears many forms. How can I trust you?"
+      },
+      {
+        "who": "Hanuman",
+        "line": "Rama sent this ring as a sign. Please take it."
+      },
+      {
+        "who": "Sita",
+        "line": "His ring. Tell me, is my lord well?"
+      },
+      {
+        "who": "Hanuman",
+        "line": "He is safe, but he grieves for you."
+      },
+      {
+        "who": "Sita",
+        "line": "Take my hair jewel. Rama will know it."
+      },
+      {
+        "who": "Hanuman",
+        "line": "I will place it in his hands."
+      },
+      {
+        "who": "Sita",
+        "line": "Bring Rama soon. Ravana gives me little time."
+      }
+    ],
+    "grove_wreck": [
+      {
+        "who": "Hanuman",
+        "line": "Before I go, Ravana must know whom I serve."
+      },
+      {
+        "who": "Hanuman",
+        "line": "Let Lanka see the strength of Rama's servant."
+      }
+    ],
+    "grove_bound": [
+      {
+        "who": "Guard",
+        "line": "The monkey has ceased to fight. Bind him."
+      },
+      {
+        "who": "Hanuman",
+        "line": "I will bear these bonds to reach Ravana."
+      },
+      {
+        "who": "Hanuman",
+        "line": "I must speak to him face to face."
+      }
+    ],
+    "throne": [
+      {
+        "who": "Ravana",
+        "line": "Who are you to lay waste to my grove?"
+      },
+      {
+        "who": "Hanuman",
+        "line": "I am Hanuman, a messenger of Rama."
+      },
+      {
+        "who": "Ravana",
+        "line": "You speak his name before the lord of Lanka?"
+      },
+      {
+        "who": "Hanuman",
+        "line": "I came to find Sita. I have seen her grief."
+      },
+      {
+        "who": "Hanuman",
+        "line": "Return her to Rama. There is still time."
+      },
+      {
+        "who": "Ravana",
+        "line": "You would command me in my own court?"
+      },
+      {
+        "who": "Hanuman",
+        "line": "I ask you to spare your people this war."
+      },
+      {
+        "who": "Hanuman",
+        "line": "Even your might cannot shield you from Rama."
+      },
+      {
+        "who": "Ravana",
+        "line": "Enough. Guards, wrap his tail in cloth and oil."
+      },
+      {
+        "who": "Ravana",
+        "line": "Set it alight. Lead him through the streets."
+      }
+    ],
+    "ignite": [
+      {
+        "who": "",
+        "line": "Sita prays. The fire leaves Hanuman unharmed."
+      },
+      {
+        "who": "",
+        "line": "Hanuman breaks free of his bonds."
+      }
+    ],
+    "ending": [
+      {
+        "who": "",
+        "line": "Flames rise over Lanka."
+      },
+      {
+        "who": "",
+        "line": "Sita is safe in the grove, untouched by the fire."
+      },
+      {
+        "who": "",
+        "line": "Hanuman leaps across the sea, back toward Rama."
+      }
+    ],
+    "grove_ravana": [
+      {
+        "who": "",
+        "line": "Hidden in the branches, Hanuman watches the moonlit Ashoka grove."
+      },
+      {
+        "who": "",
+        "line": "Ravana comes with his attendants. Sita sits on the ground."
+      },
+      {
+        "who": "Ravana",
+        "line": "Yield to me, Sita. All my kingdom shall be yours."
+      },
+      {
+        "who": "",
+        "line": "Without fear, Sita sets a blade of grass between them."
+      },
+      {
+        "who": "Sita",
+        "line": "I am Rama's wife. Your riches mean nothing to me."
+      },
+      {
+        "who": "Sita",
+        "line": "Rama will come. Your power cannot shield you from him."
+      },
+      {
+        "who": "Ravana",
+        "line": "You have two months to yield, or you shall die."
+      },
+      {
+        "who": "",
+        "line": "Ravana turns in anger and leaves the grove."
+      },
+      {
+        "who": "Hanuman",
+        "line": "He has gone. Now I must find a way to speak to Sita."
+      }
+    ],
+    "court_arrival": [
+      {
+        "who": "",
+        "line": "Bound, Hanuman is led into Ravana's great court."
+      },
+      {
+        "who": "",
+        "line": "The hall of gold is filled with Lanka's lords and warriors."
+      }
+    ],
+    "roar": [
+      {
+        "who": "",
+        "line": "Grown vast, Hanuman stands at the heart of the burning city."
+      },
+      {
+        "who": "",
+        "line": "His mighty roar fills Lanka with the name of Rama."
+      }
+    ]
+  }
+}

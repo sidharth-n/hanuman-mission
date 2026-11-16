@@ -15,6 +15,7 @@ import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
 const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
+const CAST = ['hanuman', 'guard'];      // the characters, kept beside the world's pieces
 const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 3, WIND_SECS = 60, OPEN_FLIGHT = 3.6;      // gusts that charge a flight; seconds for it to charge by itself; the flight every run opens with
 //   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
@@ -72,8 +73,8 @@ window.addEventListener('resize', resize); resize();
 
 async function load() {
   const loader = new GLTFLoader(); let done = 0;
-  const names = ['hanuman', 'guard', 'gada', ...KIT];
-  const one = name => loader.loadAsync(`assets/${name === 'hanuman' || name === 'guard' ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
+  const names = [...CAST, 'gada', 'guard-sword', ...KIT];
+  const one = name => loader.loadAsync(`assets/${CAST.includes(name) ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
   const tl = new THREE.TextureLoader();
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
@@ -82,7 +83,7 @@ async function load() {
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
   ui.lives.innerHTML = '<img src="ui/lotus.jpg" alt="">'.repeat(LIVES);
-  fight = new Fight({ scene, hero, gltf: models.guard, sound, buzz, groundAt, more: () => { say(LINES.more, 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
+  fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, sound, buzz, groundAt, more: () => { say(LINES.more, 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()) }); fight.stick = stick;
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
