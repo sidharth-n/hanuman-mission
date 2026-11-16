@@ -2,7 +2,8 @@
 import * as THREE from 'three';
 
 export const LANES = [-2.4, 0, 2.4];
-const GRAVITY = 26, JUMP_V = 9.2, SLIDE_TIME = 0.75;
+const GRAVITY = 28, JUMP_V = 10.4, SLIDE_TIME = 0.7;      // leap: 1.9 m high, 0.74 s in the air
+const AIR_TIME = 2 * JUMP_V / GRAVITY;
 const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 // Mixamo clips carry a little forward drift in the hips. Pin it so the game alone decides where he is.
@@ -10,6 +11,14 @@ function pinHips(clip, flattenY) {
   for (const t of clip.tracks) {
     if (!/Hips\.position$/.test(t.name)) continue;
     const v = t.values;
+    // find the part of the clip where the body is really off the ground (jump) or really down (slide),
+    // so the game can play exactly that part while he is in the air or under a beam
+    let lo = Infinity, hi = -Infinity;
+    for (let i = 1; i < v.length; i += 3) { lo = Math.min(lo, v[i]); hi = Math.max(hi, v[i]); }
+    const base = v[1], up = hi - base > base - lo, level = up ? base + (hi - base) * 0.2 : base - (base - lo) * 0.4;
+    let a = -1, b = -1;
+    for (let i = 1, n = 0; i < v.length; i += 3, n++) if (up ? v[i] > level : v[i] < level) { if (a < 0) a = n; b = n; }
+    clip.userData = { from: a < 0 ? 0 : t.times[a], to: b < 0 ? clip.duration : t.times[b] };
     for (let i = 3; i < v.length; i += 3) { v[i] = v[0]; v[i + 2] = v[2]; if (flattenY) v[i + 1] = v[1]; }
   }
   return clip;
@@ -60,34 +69,38 @@ export class Hero {
 
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0;
-    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0;
+    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0;
     this.root.scale.setScalar(1);
     this.play('breathing_idle', { fade: 0 });
   }
 
-  play(name, { once = false, fade = 0.12, speed = 1 } = {}) {
+  play(name, { once = false, fade = 0.12, speed = 1, from = 0 } = {}) {
     const next = this.actions[name];
     if (!next || (next === this.current && !once)) { if (next) next.timeScale = speed; return; }
-    next.reset(); next.timeScale = speed;
+    next.reset(); next.time = from; next.timeScale = speed;
     next.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity); next.clampWhenFinished = once;
     next.play();
     if (this.current && fade > 0) this.current.crossFadeTo(next, fade, false); else if (this.current) this.current.stop();
     this.current = next; this.name = name;
   }
 
-  get airborne() { return this.y > 0.02; }
+  get airborne() { return this.y > this.floor + 0.02; }
   get sliding() { return this.slide > 0; }
 
   move(dir) {
     if (dir === 'left' && this.lane > 0) { this.lane--; return true; }
     if (dir === 'right' && this.lane < 2) { this.lane++; return true; }
     if (dir === 'up' && !this.airborne) {
-      this.vy = JUMP_V; this.y = 0.03; this.slide = 0; this.jumpZ = this.root.position.z;
-      this.play('running_jump', { once: true, speed: 1.25, fade: 0.08 }); return true;
+      this.vy = JUMP_V; this.y = this.floor + 0.03; this.slide = 0; this.jumpZ = this.root.position.z;
+      const w = this.actions.running_jump.getClip().userData, lead = 0.06;      // start just before the feet leave the ground
+      this.play('running_jump', { once: true, from: Math.max(0, w.from - lead), speed: (w.to - w.from + lead) / AIR_TIME, fade: 0.07 }); return true;
     }
     if (dir === 'down') {
       if (this.airborne) { this.vy = -14; return true; }          // swipe down in the air drops him fast
-      this.slide = SLIDE_TIME; this.slideZ = this.root.position.z; this.play('running_slide', { once: true, speed: 2.0, fade: 0.08 }); return true;
+      if (this.slide > 0.25) return false;                          // already down: a second swipe must not restart the move
+      this.slide = SLIDE_TIME; this.slideZ = this.root.position.z;
+      const w = this.actions.running_slide.getClip().userData, lead = 0.1;
+      this.play('running_slide', { once: true, from: Math.max(0, w.from - lead), speed: (w.to - w.from + 2 * lead) / SLIDE_TIME, fade: 0.09 }); return true;
     }
     return false;
   }
@@ -104,16 +117,14 @@ export class Hero {
     this.lean += ((-dx * 0.16) - this.lean) * Math.min(1, dt * 12);
     this.model.rotation.z = this.lean;
 
-    if (this.airborne || this.vy > 0) {
-      this.vy -= GRAVITY * dt; this.y += this.vy * dt;
-      if (this.y <= 0) { this.y = 0; this.vy = 0; }
-    }
+    if (this.y > this.floor || this.vy > 0) { this.vy -= GRAVITY * dt; this.y += this.vy * dt; }
+    if (this.y <= this.floor) { this.y = this.floor; this.vy = 0; }      // on the ground, or on top of something he came down on
     this.model.position.y = this.y;
-    this.blob.scale.setScalar(1 - Math.min(0.5, this.y * 0.25));
+    this.blob.position.y = this.floor + 0.03; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25));
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;
 
-    if (running && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: 0.75 + speed / 28 });
+    if (running && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: 0.75 + speed / 28, fade: 0.14 });
     this.mixer.update(dt);
     this.poseTail(running ? speed : 0);
   }

@@ -35,7 +35,7 @@ const camera = new THREE.PerspectiveCamera(56, 1, 0.3, 700);
 
 const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, alertT: 0, falling: [],
   tscale: 1, slowT: 0, slowK: 1, intro: 0, low: 0,        // slow motion, opening sweep, low hero shot
-  meter: 0, giant: 0, big: 0, burned: 0 };                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
+  meter: 0, giant: 0, big: 0, burned: 0, cine: 0 };                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
 let hero, world, tailFire, tailLight;
 
 function resize() {
@@ -74,7 +74,7 @@ function ready(line, label) {
 function start() {
   world.reset(); hero.reset();
   Object.assign(state, { mode: 'run', speed: START_SPEED, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
-    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, meter: 0, giant: 0, big: 0, burned: 0 });
+    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, meter: 0, giant: 0, big: 0, burned: 0, cine: 4 });
   ui.goldLabel.textContent = 'lamps'; ui.meter.classList.remove('full');
   world.behind = 3;
   tailFire.visible = false; tailLight.intensity = 0;
@@ -92,7 +92,7 @@ function hit(o, chunk) {
   if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; return; }
   if (state.big > 0.3) { state.shake = 0.3; return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
-  state.danger = 6; state.slow = 1; state.shake = 0.5; slowMotion(0.14, 0.12);
+  state.danger = 6; state.slow = 1; state.shake = 0.5;
   hero.stumble(); say('The guards are closing in');
 }
 
@@ -131,16 +131,24 @@ function rules(dt) {
   }
   hero.root.scale.setScalar(1 + Math.max(state.grow, state.big) * 0.9);
   const smash = state.fire || state.big > 0.3;
-  const reach = 1.05 * hero.root.scale.x;
+  const reach = 0.82 * hero.root.scale.x;
+  let floor = 0;
+  if (state.cine > 0) state.cine -= dt;
   for (const c of world.nearby(p.z)) {
     for (const o of c.obstacles) {
-      if (o.done || Math.abs(o.z - p.z) > o.hd + 0.35 || Math.abs(o.x - p.x) > reach) continue;
-      const clear = !smash && (o.kind === 'low' ? hero.y > 0.75 : o.kind === 'high' ? hero.sliding : false);
-      if (!clear) hit(o, c);
-      else if (!o.near && !smash) {       // cleared it: if he left it late, slow the moment down
-        o.near = true;
-        if ((o.kind === 'low' ? hero.jumpZ : hero.slideZ) - o.z < 3.3) slowMotion(0.3, 0.38);
-      }
+      const dz = Math.abs(o.z - p.z);
+      if (o.done || dz > o.hd + 0.2 || Math.abs(o.x - p.x) > reach) continue;
+      // things on the ground: above them he is safe, and he can come down on top and run across.
+      // a beam: safe only while sliding. Only the real footprint counts as a hit, not the space around it.
+      const over = o.kind === 'high' ? hero.sliding : hero.y >= o.top - 0.45;
+      if (smash) hit(o, c);
+      else if (over) {
+        if (o.kind !== 'high' && hero.vy <= 0) floor = Math.max(floor, o.top);      // coming down or standing on it
+        if (!o.near) {       // the first time he clears a row that blocks the whole street, slow the moment down
+          o.near = true;
+          if (o.wall && state.cine <= 0) { slowMotion(0.6, 0.5); state.cine = 9; }
+        }
+      } else if (dz <= o.hd - 0.05) hit(o, c);
       if (state.mode !== 'run') return;
     }
     for (const k of c.coins) {
@@ -152,11 +160,12 @@ function rules(dt) {
       }
     }
   }
+  hero.floor = floor;
 }
 
 const look = new THREE.Vector3(), want = new THREE.Vector3(), tip = new THREE.Vector3();
 const INTRO = 1.7;      // seconds for the opening sweep from in front of him to the chase view
-const view = { fov: 60, dip: 0, air: false };
+const view = { fov: 60, dip: 0, air: false, back: 5 };
 const ease = t => t * t * (3 - 2 * t);
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
 
@@ -176,7 +185,7 @@ function placeCamera(dt, snap) {
   if (view.air && !hero.airborne) view.dip = 0.28;      // landing
   view.air = hero.airborne; view.dip *= Math.exp(-dt * 9);
   const big = Math.max(state.grow, state.big);
-  let back = (tall ? 5.2 : 4.3) * (0.55 + 0.45 * k) + big * 2.6;
+  let back = (tall ? 6.0 : 5.1) * (0.55 + 0.45 * k) + big * 2.6;
   let height = (tall ? 3.3 : 2.55) * (0.6 + 0.4 * k) + big * 2.0 + hero.y * 0.4 - (hero.sliding ? 0.45 : 0) - view.dip;
   back = back * (1 - 0.32 * low) - slow * 0.8; height *= 1 - 0.62 * low;
   const lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8;
@@ -187,10 +196,13 @@ function placeCamera(dt, snap) {
     const a = (2.5 + Math.sin(performance.now() * 0.0004) * 0.16) * (1 - e), R = 4.0 * k + (back - 4.0 * k) * e, y0 = (tall ? 0.95 : 0.75) * k;
     camera.position.set(p.x + Math.sin(a) * R, 1.3 * k + (height - 1.3 * k) * e, p.z + Math.cos(a) * R);
     look.set(p.x * (1 - 0.15 * e), y0 + (lookY - y0) * e, p.z - 9 * e);
+    view.back = back;
   } else {
-    want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), height, p.z + back);
+    // the distance behind him is held exactly (a camera that trails by speed shakes whenever a frame runs long); only the amount eases
+    view.back = snap ? back : view.back + (back - view.back) * Math.min(1, dt * 5);
+    want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), height, p.z + view.back);
     if (snap) camera.position.copy(want);
-    else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 7); c.z += (want.z - c.z) * Math.min(1, dt * 14); }
+    else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 7); c.z = want.z; }
     look.set(p.x * 0.85, lookY, p.z - 9);
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
@@ -206,7 +218,7 @@ function frame(now) {
   const real = Math.min(0.05, raw);
   if (!hero) return;
   if (state.slowT > 0) state.slowT -= real;
-  state.tscale += ((state.slowT > 0 ? state.slowK : 1) - state.tscale) * Math.min(1, real * 16);
+  state.tscale += ((state.slowT > 0 ? state.slowK : 1) - state.tscale) * Math.min(1, real * 7);
   const dt = real * state.tscale;      // game time; the camera and the screen keep real time
   if (state.intro > 0) { state.intro -= real; if (state.intro <= 0 && !state.fire) world.behind = 1; }
   if (state.low > 0) state.low -= real;

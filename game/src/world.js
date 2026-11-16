@@ -25,6 +25,7 @@ const ROWS = [
   ['arrows', null, null], [null, null, 'arrows'], ['arrows', 'arrows', null], [null, 'arrows', 'arrows'], ['arrows', 'pots', 'arrows'], ['cart', 'arrows', null],
 ];
 const KIND = { pots: 'low', barricade: 'low', cart: 'block', beam: 'high', arrows: 'block' };
+const TOP = { pots: 1.0, barricade: 1.1, cart: 1.55, arrows: 1.25, beam: 0 };      // how high each stands
 const HALF_DEPTH = { pots: 0.6, barricade: 0.55, cart: 1.25, beam: 0.35, arrows: 0.7 };
 const ARROWS_FROM = 34, ARROW_SKY = 16;      // metres ahead of him at which a volley is loosed; height it falls from
 
@@ -192,7 +193,7 @@ export class World {
         o.position.set(LANES[lane], 0, z);
         if (type === 'pots') o.rotation.y = r() * 6.3;
         g.add(o);
-        chunk.obstacles.push({ type, kind: KIND[type], lane, x: LANES[lane], z: g.position.z + z, hd: HALF_DEPTH[type], mesh: o, done: false });
+        chunk.obstacles.push({ type, kind: KIND[type], lane, x: LANES[lane], z: g.position.z + z, hd: HALF_DEPTH[type], top: TOP[type], wall: row.every(Boolean), mesh: o, done: false });
       });
       const arc = row[coinLane] && KIND[row[coinLane]] === 'low';
       if (r() < 0.8) for (let k = 0; k < 5; k++) {
