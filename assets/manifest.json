@@ -1,0 +1,20 @@
+{
+  "game": "Hanuman Mission",
+  "statuses": ["concept", "approved", "3d", "rigged", "animated", "in-game", "rejected"],
+  "assets": [
+    {
+      "id": "hanuman", "name": "Hanuman", "group": "Characters", "where": "Player character, all three acts",
+      "status": "concept", "needs": "3D, rig, animations (run, jump, roll, mace combos, hit)",
+      "note": "Hanuman's look sets the style for everything else.",
+      "test3d": "hanuman-test"
+    },
+    { "id": "lankini", "name": "Lankini", "group": "Characters", "where": "Act 1 boss, guardian of Lanka's gate", "status": "concept", "needs": "3D, rig, attack animations" },
+    { "id": "guard", "name": "Rakshasa guard", "group": "Characters", "where": "Enemies in Acts 1 to 3", "status": "concept", "needs": "3D, rig, sword animations" },
+    { "id": "sita", "name": "Sita", "group": "Characters", "where": "Act 2, the Ashoka grove scene", "status": "concept", "needs": "3D (cutscene, may stay posed)" },
+    { "id": "ravana", "name": "Ravana", "group": "Characters", "where": "Act 3 court scene", "status": "concept", "needs": "3D (cutscene, posed)" },
+    { "id": "lanka-gate", "name": "Lanka gate and wall", "group": "Set pieces", "where": "Opening landing and Act 1 arena", "status": "concept", "needs": "3D" },
+    { "id": "palace", "name": "Golden palace tower", "group": "Set pieces", "where": "Rooftops in Acts 2 and 3 (repeated, burns in Act 3)", "status": "concept", "needs": "3D" },
+    { "id": "ashoka-tree", "name": "Ashoka tree", "group": "Set pieces", "where": "Act 2, Sita's grove", "status": "concept", "needs": "3D" },
+    { "id": "gada", "name": "Hanuman's mace (gada)", "group": "Props", "where": "Hanuman's weapon", "status": "concept", "needs": "3D, attach to hand bone" }
+  ]
+}

@@ -10,3 +10,4 @@ aholo-rules-brief.md
 assets/lux3d/**/model*.glb
 assets/lux3d/**/preview-*.png
 assets/lux3d/**/task.json
+assets/prompts/flow/PROJECT_URL
