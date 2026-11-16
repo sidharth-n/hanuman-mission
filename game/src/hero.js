@@ -218,6 +218,19 @@ export class Hero {
     }
   }
 
+  // Bound: coils of rope round his chest and arms, and no mace in his hand. Unbound: as he was.
+  bind(on) {
+    if (!this.ropes) {
+      const spine = this.bones.Spine1 || this.bones.Spine; if (!spine) return;
+      spine.updateWorldMatrix(true, false);
+      const unit = 1 / spine.getWorldScale(new THREE.Vector3()).x, mat = new THREE.MeshStandardMaterial({ color: 0xb08a4a, roughness: 0.95 });
+      this.ropes = new THREE.Group();
+      for (let i = 0; i < 5; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.335 - i * 0.006, 0.027, 6, 24), mat); t.rotation.x = Math.PI / 2 + (i % 2 ? 0.07 : -0.07); t.position.y = -0.12 + i * 0.075; this.ropes.add(t); }
+      this.ropes.scale.setScalar(unit); spine.add(this.ropes);
+    }
+    this.ropes.visible = on; if (this.mace) this.mace.visible = !on;
+  }
+
   // The head of the mace and its grip in the world, for the bright trail a swing leaves.
   maceEnds(tip, base) {
     if (!this.mace) return false;

@@ -125,7 +125,7 @@ export function createStory(g) {
   }
   function bound() {
     g.hold(); const p = hero.root.position;
-    putHero(p.x, p.z, heroYaw(0, -1));
+    putHero(p.x, p.z, heroYaw(0, -1)); hero.bind(true);
     standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]);
     g.say(STORY.alerts.bound, 2.4);
     director.play(beats('grove_bound', [
@@ -139,7 +139,7 @@ export function createStory(g) {
   function court() {
     g.hold(); sita.hide(); gift.visible = false;
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
-    putHero(0, hz, 0);
+    putHero(0, hz, 0); hero.bind(true);
     standGuards([[-1.6, hz + 0.7, Math.PI], [1.6, hz + 0.7, Math.PI]]);
     ravana.place(0, G + T + 0.34, tz + 0.62, 0); ravana.play('sit', { fade: 0 });
     g.card('throne');
@@ -159,15 +159,15 @@ export function createStory(g) {
         over,
         { ...onRavana, do: () => ravana.play('sit_talk') },
         { ...onHero, do: () => ravana.play('sit') },
-        { ...shot(v(-3.6, 1.2, hz - 1.5), v(0, 1.6, hz - 0.5), { to: v(-3.0, 1.3, hz - 2.2), fov: 50 }) },
+        { ...shot(v(-2.3, 1.2, hz - 1.3), v(0, 1.6, hz - 0.4), { to: v(-2.0, 1.3, hz - 1.9), fov: 50 }) },
         { ...shot(v(-1.6, T + 1.9, tz + 4.4), v(0, T + 2.5, tz), { to: v(-1.2, T + 2.2, tz + 3.8), fov: 44 }), do: () => { ravana.play('sit_exit', { once: true }); ravana.rise = 1.1; ravana.root.position.y = G + T; ravana.root.position.z = tz + 1.5; } },
         { ...over, do: () => ravana.play('command', { once: true, fade: 0.2 }) },
       ]),
       ...beats('ignite', [
         { ...shot(v(2.2, 0.9, hz + 3.2), v(0, 1.3, hz), { to: v(1.6, 1.1, hz + 2.6), fov: 48 }), do: () => { g.light(true); escort.forEach(e => e.reset()); } },
-        { ...shot(v(-1.8, 0.6, hz - 3.4), v(0, 1.9, hz), { to: v(-1.4, 0.7, hz - 2.8), fov: 54 }), do: () => { hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.fx('power'); g.buzz([60, 40, 160]); } },
+        { ...shot(v(-1.8, 0.6, hz - 3.4), v(0, 1.9, hz), { to: v(-1.4, 0.7, hz - 2.8), fov: 54 }), do: () => { hero.bind(false); hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.fx('power'); g.buzz([60, 40, 160]); } },
       ]),
-    ], () => g.fade(() => { ravana.hide(); escort.forEach(e => e.reset()); g.ablaze(); }));
+    ], () => g.fade(() => { hero.bind(false); ravana.hide(); escort.forEach(e => e.reset()); g.ablaze(); }));
   }
 
   // ── the end: grown vast, he roars in the middle of the burning city, then leaps for the sea ──
@@ -196,7 +196,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; if (fresh) done.lankini = false; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
+      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = false; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
