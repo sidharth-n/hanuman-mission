@@ -1,0 +1,12 @@
+state.md
+learning.md
+notes/
+.DS_Store
+node_modules/
+.env
+aholo-rules-brief.md
+
+# raw Lux3D downloads (large); optimized copies get committed later
+assets/lux3d/**/model*.glb
+assets/lux3d/**/preview-*.png
+assets/lux3d/**/task.json

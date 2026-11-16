@@ -1,0 +1,19 @@
+{
+  "name": "tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@manycore/aholo-sdk-asset": "^1.4.0",
+    "@manycore/aholo-sdk-lux3d": "^1.10.0",
+    "@manycore/aholo-sdk-world": "^1.5.0",
+    "dotenv": "^18.0.10"
+  }
+}
