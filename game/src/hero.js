@@ -26,6 +26,30 @@ function pinHips(clip, keepHeight) {
   return clip;
 }
 
+// In flight he is posed by hand, the way he is always painted: one arm reaching ahead, the mace resting over the
+// other shoulder, one leg trailing straight and one bent, chest and head lifted to see where he is going.
+// Each entry: a bone, the bone below it, and the way the line between them should point (x: his right, y: up, z: behind him).
+const FLIGHT = [
+  ['Spine1', 'Spine2', [0, 0.16, -1]], ['Spine2', 'Neck', [0, 0.3, -1]],
+  ['Neck', 'Head', [0, 0.7, -0.7]], ['Head', 'HeadTop_End', [0, 1, -0.2]],
+  ['LeftArm', 'LeftForeArm', [-0.2, -0.04, -1]], ['LeftForeArm', 'LeftHand', [-0.04, 0.03, -1]],
+  ['RightArm', 'RightForeArm', [0.5, -0.4, 0.6]], ['RightForeArm', 'RightHand', [-0.18, 0.38, -0.9]],      // elbow back by his ribs, fist up in front of the shoulder
+  ['RightUpLeg', 'RightLeg', [0.1, -0.06, 1]], ['RightLeg', 'RightFoot', [0.04, 0.04, 1]], ['RightFoot', 'RightToeBase', [0, -0.3, 1]],
+  ['LeftUpLeg', 'LeftLeg', [-0.12, -0.6, 0.8]], ['LeftLeg', 'LeftFoot', [-0.05, 0.45, 0.9]], ['LeftFoot', 'LeftToeBase', [0, 0.1, 1]],
+];
+const MACE_UP = new THREE.Vector3(-0.22, 0.5, 0.84);      // the mace lies back over his shoulder, head high behind him
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
+
+// Turn a bone so that the line from it to the bone below (or, with none given, its own upward axis) points along dir in the world.
+function aim(bone, child, dir, weight) {
+  bone.updateWorldMatrix(true, true);
+  bone.getWorldQuaternion(_w);
+  if (child) { bone.getWorldPosition(_a); child.getWorldPosition(_b).sub(_a).normalize(); } else _b.set(0, 1, 0).applyQuaternion(_w);
+  _q.setFromUnitVectors(_b, _d.copy(dir).normalize());
+  bone.parent.getWorldQuaternion(_p);
+  bone.quaternion.slerp(_p.invert().multiply(_w.premultiply(_q)), weight);
+}
+
 export class Hero {
   constructor(gltf) {
     this.root = new THREE.Group();
@@ -47,6 +71,9 @@ export class Hero {
     this.model.traverse(o => { const m = o.isBone && /Tail(\d)$/.exec(o.name); if (m) this.tail[+m[1] - 1] = o; });
     this.tailRest = this.tail.map(b => b.quaternion.clone());
     this.hips = this.model.getObjectByName('mixamorigHips');
+    this.bones = {};
+    this.model.traverse(o => { if (o.isBone && o.name.startsWith('mixamorig')) this.bones[o.name.slice(9)] = o; });
+    this.flightPose = FLIGHT.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], new THREE.Vector3(...d)]);
 
     const blob = new THREE.Mesh(new THREE.CircleGeometry(0.75, 20),
       new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }));
@@ -67,7 +94,7 @@ export class Hero {
     hand.updateWorldMatrix(true, false);
     const unit = 1 / hand.getWorldScale(new THREE.Vector3()).x;          // the skeleton may be in other units than metres
     grip.scale.setScalar(unit); grip.position.set(0, 0.09 * unit, 0.03 * unit); grip.rotation.set(0, 0, -Math.PI / 2);      // hammer grip: head up when the forearm is level
-    hand.add(grip); this.mace = grip; this.maceUnit = unit;
+    hand.add(grip); this.mace = grip; this.maceUnit = unit; this.maceRest = grip.quaternion.clone();
   }
 
   reset() {
@@ -144,7 +171,7 @@ export class Hero {
     else if (this.y > this.floor || this.vy > 0) { this.vy -= GRAVITY * dt; this.y += this.vy * dt; }
     if (this.y <= this.floor) { this.y = this.floor; this.vy = 0; }      // on the ground, or on top of something he came down on
     // tipped forward to fly level; the body is kept over the spot he is flying above
-    this.model.rotation.x = -this.fly * 1.22;
+    this.model.rotation.x = -this.fly * 1.3;
     this.model.position.set(0, this.y + this.fly * 0.25, this.fly * 0.85);
     this.blob.position.y = this.floor + 0.05; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25)); this.blob.visible = this.floor > -1;
     if (this.slide > 0) this.slide -= dt;
@@ -153,6 +180,21 @@ export class Hero {
     if (running && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: 0.75 + speed / 28, fade: 0.14 });
     this.mixer.update(dt);
     this.poseTail(running ? speed : 0);
+    this.poseFlight();
+  }
+
+  poseFlight() {
+    const w = this.fly * this.fly * (3 - 2 * this.fly);
+    if (this.mace) this.mace.quaternion.copy(this.maceRest);
+    if (w < 0.01) return;
+    for (const [bone, child, dir] of this.flightPose) aim(bone, child, dir, w);
+    if (this.mace) aim(this.mace, null, MACE_UP, w);
+    // the tail streams out behind him and lifts toward its tip, with a slow wave running down it
+    for (let i = 0; i < this.tail.length - 1; i++) {
+      const k = i / (this.tail.length - 1);
+      _t.set(Math.sin(this.time * 3 - i * 0.8) * 0.1, 0.08 + k * k * 0.9 + Math.sin(this.time * 4.2 - i * 0.9) * 0.07, 1 - k * 0.45);
+      aim(this.tail[i], this.tail[i + 1], _t, w);
+    }
   }
 
   // The tail has no animation of its own: swing it out behind him and let a wave travel down it.
