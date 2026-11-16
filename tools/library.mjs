@@ -22,8 +22,11 @@ const card = a => {
   const flow = flowFiles.map(f => {
     const n = f.match(/-(\d+)\.clean/)[1];
     return `<figure class="concept"><img loading="lazy" src="../concepts-flow/${a.id}/${f}" alt="${esc(a.name)} Flow option ${n}">
-      <figcaption><b>${n}</b><span>Flow, T-pose</span></figcaption></figure>`;
+      <figcaption><b>${n}</b><span>Flow${a.group === "Characters" ? ", T-pose" : ""}</span></figcaption></figure>`;
   }).join('');
+  const sdir = `assets/concepts-flow-stylized/${a.id}/`;
+  const stylized = list(sdir).filter(f => /-\d+\.clean\.jpg$/.test(f)).sort()
+    .map(f => `<figure class="concept"><img loading="lazy" src="../concepts-flow-stylized/${a.id}/${f}" alt="${esc(a.name)} stylized"></figure>`).join('');
   const prompt = existsSync(root + `assets/prompts/flow/${a.id}.txt`) ? readFileSync(root + `assets/prompts/flow/${a.id}.txt`, 'utf8') : '';
   let model = '';
   const t = a.test3d && readJson(`assets/lux3d/${a.test3d}/task.json`);
@@ -36,10 +39,11 @@ const card = a => {
   return `<article class="card" id="${a.id}">
     <header><h3>${esc(a.name)}</h3><span class="chip ${a.status}">${a.status === 'concept' ? 'awaiting your pick' : esc(a.status)}</span></header>
     <p class="where">${esc(a.where)}</p>
-    <h4 class="round">Round 2 · Flow${flow ? ' · pick 1 or 2' : ''}</h4>
+    <h4 class="round">Round 3 · Flow, realistic${flow ? ' · pick 1 or 2' : ''}</h4>
     <div class="concepts">${flow || '<p class="empty">Generating…</p>'}</div>
     ${prompt ? `<details class="p"><summary>prompt</summary><p>${esc(prompt)}</p></details>` : ''}
     ${a.note ? `<p class="note">${esc(a.note)}</p>` : ''}
+    ${stylized ? `<details class="r1"><summary>Round 2 · Flow, stylized (dropped: too cartoon)</summary><div class="concepts small">${stylized}</div></details>` : ''}
     <details class="r1"><summary>Round 1 · Aholo image (older, not T-pose)</summary><div class="concepts small">${concepts || '<p class="empty">none</p>'}</div></details>
     <p class="needs">Next: ${esc(a.needs)}</p>
     ${model}
