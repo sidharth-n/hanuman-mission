@@ -250,7 +250,7 @@ const look = new THREE.Vector3(), want = new THREE.Vector3(), tip = new THREE.Ve
 const INTRO = 1.7;      // seconds for the opening sweep from in front of him to the chase view
 const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
 // The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
-const flyCam = { back: 3.3, up: 2.1, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close
+const flyCam = { back: 2.3, up: 1.5, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close, then closer twice
 const ease = t => t * t * (3 - 2 * t);
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
 
