@@ -12,3 +12,7 @@ power.mp3: "conch-rhymer-00.flac" by pbimal, https://freesound.org/people/pbimal
 smash.mp3: "Stein Aufschlag mit langem Decay 01.wav" by mbezzola, https://freesound.org/people/mbezzola/sounds/105278
 fire.mp3: "ESE - WHOOSH - CALM - Fire Flame.wav" by EpicSoundEffects, https://freesound.org/people/EpicSoundEffects/sounds/475879
 tap.mp3: "Videogame Menu Button Clicking Sound 13" by Christopherderp, https://freesound.org/people/Christopherderp/sounds/333038
+spikes.mp3: "Sword Fast Unsheath.wav" by ethanchase7744, https://freesound.org/people/ethanchase7744/sounds/468695
+beam.mp3: "Doorslam.wav" by CastIronCarousel, https://freesound.org/people/CastIronCarousel/sounds/216872
+fireball.mp3: "JM_FX_Fireball 02.wav" by Julien Matthey, https://freesound.org/people/Julien%20Matthey/sounds/346917
+stone.mp3: "Boulder Push" by IDLauncher, https://freesound.org/people/IDLauncher/sounds/513236

@@ -228,6 +228,7 @@ export class World {
     this.chunks = new Map();
     this.time = 0;
     this.onBell = null;      // called when the alarm bell starts to ring
+    this.onSound = null;      // called with a name when something in the road makes itself heard: 'fireball' | 'spikes' | 'beam' | 'stone' | 'smash'
   }
 
   // Centre a model on its footprint, stand it on the ground and scale it to a real-world height.
@@ -514,13 +515,16 @@ export class World {
       const from = a.type === 'volley' ? ARROWS_FROM : a.type === 'rise' ? SPIKES_FROM : a.type === 'drop' ? DOOR_FROM : a.from;
       if (ob.z < heroZ - from) return;
       a.t = 0; a.mesh.visible = true; a.z0 = a.mesh.position.z;
+      // heard as it begins: a volley loosed, the spikes springing, a stone or log set rolling (the beam and a thrown stone are heard as they land)
+      const heard = a.type === 'volley' ? (a.shape === 'stone' ? null : 'fireball') : a.type === 'rise' ? 'spikes' : a.type === 'roll' ? 'stone' : null;
+      if (heard && this.onSound) this.onSound(heard);
     }
     if (a.type === 'volley') {
       a.t += dt / 0.45; const k = Math.min(1, a.t);
       a.mesh.position.y = a.rest + ARROW_SKY * (1 - k * k);
       if (a.shape === 'bolt') a.mesh.position.z = a.z0 - (1 - k) * 26;      // the great bolt comes in low from the walls ahead
       if (a.shape === 'stone') a.mesh.rotation.x = (1 - k) * 5;
-      if (k >= 1) { if (a.fire) a.fire.visible = true; a.t = 2; }
+      if (k >= 1) { if (a.fire) a.fire.visible = true; a.t = 2; if (a.shape === 'stone' && this.onSound) this.onSound('smash'); }
     } else if (a.type === 'rise') {
       a.t += dt / 0.13; const k = Math.min(1, a.t);
       a.mesh.position.y = a.y - 0.97 * (1 - k) * (1 - k);
@@ -529,7 +533,7 @@ export class World {
     } else if (a.type === 'drop') {
       a.t += dt / 0.42; const k = Math.min(1, a.t);
       a.mesh.position.y = a.y + DOOR_LOW + (DOOR_UP - DOOR_LOW) * (1 - k * k);
-      if (k >= 1) { a.t = 2; for (const o of a.obs) o.off = false; }
+      if (k >= 1) { a.t = 2; for (const o of a.obs) o.off = false; if (this.onSound) this.onSound('beam'); }
     } else {
       ob.z += a.vz * dt;
       a.mesh.position.z = ob.z - c.group.position.z; a.mesh.position.y = groundAt(ob.z) - c.plan.base + a.up;
