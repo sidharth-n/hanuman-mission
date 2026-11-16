@@ -13,3 +13,4 @@ assets/lux3d/**/task.json
 assets/prompts/flow/PROJECT_URL
 assets/rig/
 state-log.md
+__pycache__/
