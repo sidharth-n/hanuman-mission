@@ -4,6 +4,8 @@ import { readdirSync, writeFileSync, existsSync } from 'node:fs';
 const root = new URL('../', import.meta.url).pathname;
 const dir = 'assets/gameplay-shots/';
 const DESIGNS = [
+  ['f', 'Chosen direction · the run through Lanka, stage by stage', 'Camera behind Hanuman, three lanes, swipe to dodge. From the street where he is spotted, up the steps, through the palace, to Sita and the fire.'],
+  ['g', 'The route from above', 'Sea gate at the bottom, bazaar street, the grand stairway, Ravana\'s palace at the top, the Ashoka grove behind it.'],
   ['a', 'A · Bazaar street', 'Camera low behind Hanuman. Narrow torch-lit street, lanes to switch, obstacles to jump and slide.'],
   ['b', 'B · Rooftops', 'Camera behind and above. Leaping roof to roof over the city, palace on the hill ahead.'],
   ['c', 'C · Side view', 'Camera side-on like a film. Layers of city behind, guards chasing in frame.'],
@@ -11,6 +13,9 @@ const DESIGNS = [
   ['e', 'Story moments (same in every design)', 'The quiet meeting with Sita and the final escape.'],
 ];
 const BEAT = {
+  'f1-spotted': '1 · Spotted: guards right behind him', 'f2-turn': '2 · A turn: swipe left or right', 'f3-steps': '3 · The grand stairway up to the palace',
+  'f4-palace-court': '4 · Palace courtyard, guards at the doors', 'f5-pillared-hall': '5 · Inside: the pillared hall', 'f6-inner-corridor': '6 · Inside: corridors and steps',
+  'f7-ashoka-gate': '7 · Quiet walk into the Ashoka grove', 'f8-tail-lit': '8 · Captured: the tail is set on fire', 'g1-lanka-map': 'Lanka and the route',
   'a1-bazaar-chase': 'The chase', 'a2-bazaar-fire': 'Tail on fire', 'a3-bazaar-chase-portrait': 'The chase, phone held upright',
   'b1-rooftop-run': 'The chase', 'b2-rooftop-fire': 'Tail on fire', 'c1-side-chase': 'The chase', 'c2-side-giant': 'Giant Hanuman',
   'd1-avenue-high': 'The chase', 'd2-avenue-fire': 'Giant Hanuman, tail on fire', 'e1-ashoka-grove': 'Sita in the Ashoka grove',
@@ -25,7 +30,7 @@ const section = ([k, title, how]) => {
   const mine = shots.filter(s => s.id[0] === k);
   if (!mine.length) return '';
   return `<section><h2>${title}</h2><p class="how">${how}</p><div class="grid">${mine.map(s =>
-    `<figure class="${s.id.includes('portrait') ? 'tall' : ''}"><a href="../gameplay-shots/${s.f}" target="_blank"><img loading="lazy" src="../gameplay-shots/${s.f}" alt="${BEAT[s.id]}"></a><figcaption><b>${s.id.slice(0, 2).toUpperCase()}</b> ${BEAT[s.id]}</figcaption></figure>`).join('')}</div></section>`;
+    `<figure class="${s.id.includes('portrait') ? 'tall' : ''}"><a href="../gameplay-shots/${s.f}" target="_blank"><img loading="lazy" src="../gameplay-shots/${s.f}" alt="${BEAT[s.id]}"></a><figcaption><b>${/^[fg]/.test(s.id) ? '' : s.id.slice(0, 2).toUpperCase()}</b> ${BEAT[s.id]}</figcaption></figure>`).join('')}</div></section>`;
 };
 const html = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Hanuman Mission · Game look options</title>
@@ -43,7 +48,7 @@ figcaption{padding:10px 14px;color:var(--mute)}figcaption b{color:var(--gold);ma
 @media(max-width:600px){.top,main{padding-left:14px;padding-right:14px}}
 </style></head><body>
 <header class="top"><h1>Hanuman Mission · how the game could look</h1>
-<p class="sub">These are painted mock-ups, not the running game: each one shows a different camera and world for the same chase through Lanka at night. Pick the design (A, B, C or D) that feels right, or mix them, for example A for the chase and D for the giant ending. Click a picture to see it full size. <a href="index.html">Asset library</a></p></header>
+<p class="sub">These are painted mock-ups, not the running game: each one shows a different camera and world for the same chase through Lanka at night. The chosen direction is at the top: camera behind Hanuman, swipe controls. The earlier options A to D are kept below for comparison. Click a picture to see it full size. <a href="index.html">Asset library</a></p></header>
 <main>${DESIGNS.map(section).join('') || '<p class="how">Generating…</p>'}</main></body></html>`;
 writeFileSync(root + 'assets/library/shots.html', html);
 console.log('wrote assets/library/shots.html', shots.length, 'shots');
