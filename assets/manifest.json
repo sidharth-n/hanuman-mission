@@ -94,6 +94,22 @@
       "pick": "concepts-flow/gada/gada-1.clean.jpg"
     },
     {
+      "id": "guard-sword",
+      "name": "Guard's sword, straight (khanda)",
+      "group": "Props",
+      "where": "In the hand of every palace guard, for the sword fights",
+      "status": "concept",
+      "needs": "Sid's pick, then 3D, attach to hand bone"
+    },
+    {
+      "id": "guard-sword-curved",
+      "name": "Guard's sword, curved",
+      "group": "Props",
+      "where": "In the hand of every palace guard, for the sword fights",
+      "status": "concept",
+      "needs": "Sid's pick, then 3D, attach to hand bone"
+    },
+    {
       "id": "house",
       "name": "Lanka town house",
       "group": "Street kit",
