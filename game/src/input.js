@@ -2,7 +2,7 @@
 export function listen(target, on) {
   let start = null;
   const MIN = 22;
-  target.addEventListener('pointerdown', e => { start = { x: e.clientX, y: e.clientY, t: performance.now(), fired: false }; });
+  target.addEventListener('pointerdown', e => { if (e.target.closest && e.target.closest('button, .tablet')) return; start = { x: e.clientX, y: e.clientY, t: performance.now(), fired: false }; });
   target.addEventListener('pointermove', e => {
     if (!start || start.fired) return;
     const dx = e.clientX - start.x, dy = e.clientY - start.y;

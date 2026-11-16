@@ -5,6 +5,10 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero } from './hero.js';
 import { World } from './world.js';
 import { listen } from './input.js';
+import '@fontsource/cinzel/latin-700.css';
+import '@fontsource/cinzel/latin-900.css';
+import '@fontsource/cormorant-garamond/latin-500.css';
+import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
 const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
 const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
@@ -14,13 +18,17 @@ const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
 
 const $ = id => document.getElementById(id);
-const ui = { screen: $('screen'), line: $('line'), bar: $('bar'), fill: $('bar').firstElementChild, go: $('go'), how: $('how'),
-  hud: $('hud'), dist: $('dist'), gold: $('gold'), goldLabel: $('goldLabel'), meter: $('meter'), fill2: $('meter').firstElementChild, alert: $('alert'), fps: $('fps'), title: document.querySelector('#screen h1') };
+const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
+  hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant') };
+// what the player chose last time, kept on the device
+const store = { get(k, d) { try { return localStorage.getItem('hm.' + k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem('hm.' + k, v); } catch { /* private mode */ } } };
+const settings = { gfx: store.get('gfx', 'rich'), vib: store.get('vib', 'on') === 'on' };
+const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibrate(pattern); };
 const debug = new URLSearchParams(location.search).has('debug');
 const t0 = performance.now();
 
 const renderer = new THREE.WebGLRenderer({ canvas: $('view'), antialias: true, powerPreference: 'high-performance' });
-let pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+let pixelRatio = Math.min(window.devicePixelRatio || 1, settings.gfx === 'rich' ? 2 : 1.25);
 renderer.setPixelRatio(pixelRatio);
 renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
 
@@ -64,24 +72,47 @@ async function load() {
   world.update(0, 0); placeCamera(1, true);
   renderer.compile(scene, camera);
   state.loadMs = Math.round(performance.now() - t0);
-  ready('Lanka sleeps. One guard has seen you.', 'Run');
+  if (document.fonts) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]);      // lettering in place before the menu shows
+  state.mode = 'ready'; screen('menu');
 }
 
-function ready(line, label) {
-  state.mode = 'ready';
-  ui.screen.classList.remove('loading'); ui.screen.hidden = false; ui.bar.hidden = true;
-  ui.line.textContent = line; ui.go.textContent = label; ui.go.hidden = false; ui.how.hidden = false;
+// One full-screen layer at a time: 'loading' | 'menu' | 'panel' | 'result', or none while running.
+function screen(name) {
+  for (const k of ['loading', 'menu', 'panel', 'result']) ui[k].hidden = k !== name;
+  const inRun = state.mode === 'run' || state.mode === 'paused';
+  ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
+  if (!inRun) ui.alert.hidden = true;
+}
+
+function pause() {
+  if (state.mode !== 'run') return;
+  state.mode = 'paused'; $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
+}
+function openSettings() { $('panelTitle').textContent = 'Settings'; $('resume').textContent = 'Done'; $('quit').hidden = true; screen('panel'); }
+function resume() { if (state.mode === 'paused') { state.mode = 'run'; last = performance.now(); screen(null); } else screen('menu'); }
+
+// Back to the title: the street as it was before the run.
+function home() {
+  world.reset(); hero.reset();
+  Object.assign(state, { mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0 });
+  tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); world.behind = 3;
+  world.update(0, 0); screen('menu');
+}
+
+function result(title, thirdLabel, third) {
+  const best = Math.max(+store.get('best', 0), Math.round(state.dist)); store.set('best', best);
+  $('resultTitle').textContent = title; $('rDist').textContent = Math.round(state.dist).toLocaleString(); $('rLamps').textContent = state.gold;
+  $('rThirdLabel').textContent = thirdLabel; $('rThird').textContent = (third ?? best).toLocaleString();
+  state.mode = 'ready'; screen('result');
 }
 
 function start() {
   world.reset(); hero.reset();
   Object.assign(state, { mode: 'run', speed: START_SPEED, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, meter: 0, giant: 0, big: 0, burned: 0, cine: 6, wind: 0, flight: 0, safe: 0 });
-  ui.goldLabel.textContent = 'lamps'; ui.meter.classList.remove('full');
   world.behind = 3;
-  tailFire.visible = false; tailLight.intensity = 0;
-  ui.title.textContent = 'Hanuman Mission';
-  ui.screen.hidden = true; ui.hud.hidden = false; ui.alert.hidden = true;
+  tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1);
+  screen(null); last = performance.now();
   world.update(0, 0);
   hero.play('fast_run', { fade: 0.15 });
 }
@@ -94,14 +125,13 @@ function hit(o, chunk) {
   if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; return; }
   if (state.big > 0.3) { state.shake = 0.3; return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
-  state.danger = 6; state.slow = 1; state.shake = 0.5;
+  state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50);
   hero.stumble(); say('The guards are closing in');
 }
 
 function caught() {
-  state.mode = 'over'; hero.play('hit_reaction', { once: true, fade: 0.08 });
-  ui.title.textContent = 'Caught';
-  ready(`You ran ${Math.round(state.dist)} metres through Lanka.`, 'Run again'); ui.hud.hidden = true; ui.alert.hidden = true;
+  hero.play('hit_reaction', { once: true, fade: 0.08 }); buzz([80, 60, 140]);
+  result('Captured', 'Best');
 }
 
 function ignite() {
@@ -110,9 +140,8 @@ function ignite() {
 }
 
 function won() {
-  state.mode = 'over'; hero.play('mutant_roaring', { once: true, fade: 0.2 });
-  ui.title.textContent = 'Lanka burns';
-  ready(`${Math.round(state.dist)} metres · ${state.gold} lamps · ${state.burned} burned`, 'Run again'); ui.hud.hidden = true; ui.alert.hidden = true;
+  hero.play('mutant_roaring', { once: true, fade: 0.2 });
+  result('Lanka burns', 'Burned', state.burned);
 }
 
 function rules(dt) {
@@ -167,7 +196,7 @@ function rules(dt) {
       k.got = true; k.mesh.visible = false; state.gold++;
       if (!state.fire && state.giant <= 0 && state.meter < 1) {
         state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
-        if (state.meter >= 1) { ui.meter.classList.add('full'); say('Strength is full. Tap to grow', 2.6); }
+        if (state.meter >= 1) say('Strength is full', 2.2);
       }
     }
   }
@@ -201,7 +230,7 @@ function useFlight() {
 // Strength meter full and a tap: he grows giant for a few seconds and nothing in the street can stop him.
 function usePower() {
   if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return;
-  state.meter = 0; state.giant = GIANT_SECS; state.danger = 0; ui.meter.classList.remove('full');
+  state.meter = 0; state.giant = GIANT_SECS; state.danger = 0;
   slowMotion(0.7, 0.35); state.low = 1.7; state.shake = 0.4;
 }
 
@@ -248,6 +277,8 @@ function placeCamera(dt, snap) {
 }
 
 let last = performance.now(), frames = 0, acc = 0, slowFrames = 0, shown = 0;
+const painted = {};      // the display is only touched when a value changes
+function paint(key, value, apply) { if (painted[key] !== value) { painted[key] = value; apply(value); } }
 function frame(now) {
   requestAnimationFrame(frame);
   const raw = (now - last) / 1000; last = now;
@@ -255,7 +286,7 @@ function frame(now) {
   if (!hero) return;
   if (state.slowT > 0) state.slowT -= real;
   state.tscale += ((state.slowT > 0 ? state.slowK : 1) - state.tscale) * Math.min(1, real * 7);
-  const dt = real * state.tscale;      // game time; the camera and the screen keep real time
+  const dt = state.mode === 'paused' ? 0 : real * state.tscale;      // game time; the camera and the screen keep real time
   if (state.intro > 0) { state.intro -= real; if (state.intro <= 0 && !state.fire) world.behind = 1; }
   if (state.low > 0) state.low -= real;
   const running = state.mode === 'run';
@@ -278,9 +309,16 @@ function frame(now) {
   renderer.render(scene, camera);
 
   if (running) {
-    ui.dist.textContent = Math.round(state.dist); ui.gold.textContent = state.fire ? state.burned : state.gold;
-    if (state.fire) ui.goldLabel.textContent = 'burned';
-    ui.fill2.style.width = `${Math.round((state.giant > 0 ? state.giant / GIANT_SECS : state.fire ? 1 : state.meter) * 100)}%`;
+    const giant = state.giant > 0 ? state.giant / GIANT_SECS : state.fire ? 1 : state.meter, fly = state.flight > 0 ? state.flight / FLIGHT_SECS : state.wind;
+    paint('dist', Math.round(state.dist), v => ui.dist.textContent = v);
+    paint('lamps', state.gold, v => ui.gold.textContent = v);
+    paint('meter', Math.round(giant * 100), v => ui.fill2.style.width = v + '%');
+    paint('full', state.meter >= 1 && state.giant <= 0 && !state.fire, v => ui.meter.classList.toggle('full', v));
+    // each power: dim until charged, glowing when ready, and a ring that fills with the charge then runs down while in use
+    paint('gRing', Math.round(giant * 50), v => ui.giant.style.setProperty('--p', v / 50));
+    paint('gState', state.giant > 0 ? 'active' : state.meter >= 1 && !state.fire ? 'ready' : '', v => ui.giant.className = 'medal power ' + v);
+    paint('fRing', Math.round(fly * 50), v => ui.fly.style.setProperty('--p', v / 50));
+    paint('fState', state.flight > 0 ? 'active' : state.wind >= 1 && !state.fire ? 'ready' : '', v => ui.fly.className = 'medal power ' + v);
   }
   if (state.alertT > 0) { state.alertT -= dt; if (state.alertT <= 0) ui.alert.hidden = true; }
 
@@ -297,13 +335,29 @@ function frame(now) {
 
 listen(window, dir => {
   if (state.mode !== 'run') return;
-  if (dir === 'tap' || dir === 'giant') usePower(); else if (dir === 'fly') useFlight(); else hero.move(dir);
+  if (dir === 'giant') usePower(); else if (dir === 'fly') useFlight(); else if (dir !== 'tap') hero.move(dir);
 });
-ui.go.addEventListener('click', () => { if (state.mode === 'ready' || state.mode === 'over') start(); });
-window.addEventListener('keydown', e => { if (e.key === 'Enter' && !ui.go.hidden && state.mode !== 'run') start(); });
+const press = (id, fn) => $(id).addEventListener('click', fn);
+press('go', start); press('again', start); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); fn(); });      // on touch down, not on release
+// settings
+function showSettings() {
+  for (const b of $('gfx').children) b.classList.toggle('on', b.dataset.v === settings.gfx);
+  $('vib').classList.toggle('on', settings.vib); $('vib').setAttribute('aria-checked', settings.vib);
+}
+$('gfx').addEventListener('click', e => {
+  const v = e.target.dataset.v; if (!v) return;
+  settings.gfx = v; store.set('gfx', v); pixelRatio = Math.min(window.devicePixelRatio || 1, v === 'rich' ? 2 : 1.25); renderer.setPixelRatio(pixelRatio); resize(); showSettings();
+});
+press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
+showSettings();
+window.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start();
+  if (e.key === 'Escape' || e.key === 'p') { if (state.mode === 'run') pause(); else if (state.mode === 'paused') resume(); }
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });      // never keep running behind another app
 
-ui.screen.classList.add('loading');
-load().catch(err => { ui.line.textContent = 'Could not load the game. Check the connection and reload.'; console.error(err); });
+load().catch(err => { ui.loadLine.textContent = 'Could not load. Check the connection and reload'; console.error(err); });
 requestAnimationFrame(frame);
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js');

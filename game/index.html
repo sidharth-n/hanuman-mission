@@ -16,20 +16,58 @@
 </head>
 <body>
 <canvas id="view"></canvas>
+
 <div id="hud" hidden>
-  <div class="stat"><span id="dist">0</span><small>metres</small></div>
-  <div id="meter" title="Strength"><i></i></div>
-  <div class="stat right"><span id="gold">0</span><small id="goldLabel">lamps</small></div>
+  <div class="count"><span id="dist">0</span><small>m</small></div>
+  <div id="meter" aria-label="Strength"><img src="ui/mace.jpg" alt=""><div class="track"><i></i></div></div>
+  <div class="count"><img src="ui/lamp.jpg" alt=""><span id="gold">0</span></div>
+  <button id="pause" class="medal" aria-label="Pause"><img src="ui/pause.jpg" alt=""></button>
 </div>
+<button id="fly" class="medal power" hidden aria-label="Fly"><img src="ui/wings.jpg" alt=""><i class="ring"></i></button>
+<button id="giant" class="medal power" hidden aria-label="Grow giant"><img src="ui/giant.jpg" alt=""><i class="ring"></i></button>
 <div id="alert" hidden></div>
 <div id="fps" hidden></div>
-<div id="screen">
-  <h1>Hanuman Mission</h1>
-  <p id="line">Entering Lanka…</p>
+
+<section id="loading" class="veil">
+  <div class="emblem"><img src="ui/mace.jpg" alt=""></div>
   <div id="bar"><i></i></div>
-  <button id="go" hidden>Run</button>
-  <p id="how" hidden>Swipe left or right to change lane · up to jump · down to slide · collect lamps, then tap to grow</p>
-</div>
+  <p class="caps" id="loadLine">Loading</p>
+</section>
+
+<section id="menu" class="veil" hidden>
+  <div class="group">
+    <h1 class="logo">Hanuman<span>Mission</span></h1>
+    <div class="trim"></div>
+    <p class="lead">A search for Sita in Lanka</p>
+  </div>
+  <div class="group">
+    <button id="go" class="plaque">Play</button>
+    <button id="openSettings" class="plaque quiet">Settings</button>
+    <p class="hint">Swipe left or right to change lane, up to jump, down to slide</p>
+  </div>
+</section>
+
+<section id="panel" class="veil dim" hidden>
+  <div class="tablet">
+    <h2 id="panelTitle">Paused</h2>
+    <div class="row"><img src="ui/gear.jpg" alt=""><span>Graphics</span>
+      <div class="pick" id="gfx"><button data-v="smooth">Smooth</button><button data-v="rich">Rich</button></div></div>
+    <div class="row"><img src="ui/speaker.jpg" alt=""><span>Vibration</span><button class="switch" id="vib" role="switch" aria-label="Vibration"></button></div>
+    <div class="row help"><img src="ui/giant.jpg" alt=""><p>Lamps fill the mace. When it is full, press the giant to grow and break through.</p></div>
+    <div class="row help"><img src="ui/wings.jpg" alt=""><p>Two gusts of wind charge the wings. Press them to fly over everything.</p></div>
+    <div class="acts"><button id="resume" class="plaque">Resume</button><button id="quit" class="plaque quiet">Quit</button></div>
+  </div>
+</section>
+
+<section id="result" class="veil dim" hidden>
+  <h2 id="resultTitle" class="logo small">Captured</h2>
+  <div class="tablet stats">
+    <div class="stat"><span>Distance</span><b id="rDist">0</b></div>
+    <div class="stat"><span>Lamps</span><b id="rLamps">0</b></div>
+    <div class="stat"><span id="rThirdLabel">Best</span><b id="rThird">0</b></div>
+  </div>
+  <div class="acts"><button id="again" class="plaque">Run again</button><button id="home" class="plaque quiet">Home</button></div>
+</section>
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>
