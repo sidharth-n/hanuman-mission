@@ -1,5 +1,6 @@
 # Merge a Mixamo-rigged character and its animation FBXs into one game GLB, with the original Lux3D texture.
-# blender -b -P tools/build_character.py -- <skin.fbx> <anim_dir> <texture_source.glb> <out.glb> <target_tris> <tex_px>
+# blender -b -P tools/build_character.py -- <skin.fbx> <anim_dir> <texture_source.glb> <out.glb> <target_tris> <tex_px> [fix]
+# "fix" repairs the Mixamo weights first (head follows the Head bone, the tail gets its own bones): see fix_weights.py
 import bpy, sys, os, re
 
 argv = sys.argv[sys.argv.index('--') + 1:]
@@ -19,6 +20,12 @@ base_action = arm.animation_data.action if arm.animation_data else None
 if base_action:
     base_action.name = snake(os.path.splitext(os.path.basename(skin_fbx))[0])
     base_action.use_fake_user = True
+
+if len(argv) > 6 and argv[6] == 'fix':
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import fix_weights
+    for m in meshes:
+        fix_weights.fix(arm, m)
 
 # 2. Original texture from the Lux3D GLB (same UV layout, Mixamo drops embedded textures)
 before = set(bpy.data.images)
