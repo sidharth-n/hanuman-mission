@@ -15,9 +15,13 @@ bpy.ops.object.parent_clear(type='CLEAR_KEEP_TRANSFORM')
 for o in [o for o in bpy.context.scene.objects if o.type == 'EMPTY']: bpy.data.objects.remove(o)
 bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
 tris = sum(len(p.vertices) - 2 for p in ob.data.polygons)
+# glTF splits vertices along UV seams; weld them first or the decimation tears the surface open along every seam
+bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+bpy.ops.mesh.remove_doubles(threshold=1e-5); bpy.ops.object.mode_set(mode='OBJECT')
 if tris > target:
     mod = ob.modifiers.new('dec', 'DECIMATE'); mod.ratio = target / tris
     bpy.ops.object.modifier_apply(modifier='dec')
+bpy.ops.object.shade_smooth()
 maps = []
 for img in bpy.data.images:
     if img.size[0] > 0:

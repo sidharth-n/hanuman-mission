@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Hanuman Mission</title>
+<meta name="description" content="Run through the golden city of Lanka as Hanuman. A chase game from the Ramayana.">
+<meta name="theme-color" content="#070b1c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="hud" hidden>
+  <div class="stat"><span id="dist">0</span><small>metres</small></div>
+  <div class="stat right"><span id="gold">0</span><small>gold</small></div>
+</div>
+<div id="alert" hidden></div>
+<div id="fps" hidden></div>
+<div id="screen">
+  <h1>Hanuman Mission</h1>
+  <p id="line">Entering Lanka…</p>
+  <div id="bar"><i></i></div>
+  <button id="go" hidden>Run</button>
+  <p id="how" hidden>Swipe left or right to change lane · up to jump · down to slide</p>
+</div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>

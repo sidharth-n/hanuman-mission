@@ -182,6 +182,70 @@
       "status": "3d",
       "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
       "pick": "concepts-flow/chudamani/chudamani-1.clean.jpg"
+    },
+    {
+      "id": "palace-pillar",
+      "name": "Palace pillar",
+      "group": "Palace kit",
+      "where": "Rows down both sides of the palace halls",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "palace-wall",
+      "name": "Palace wall panel",
+      "group": "Palace kit",
+      "where": "Repeated to build the corridors and halls",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "palace-doorway",
+      "name": "Palace doorway",
+      "group": "Palace kit",
+      "where": "Marks the passage between halls, run through it",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "palace-stairs",
+      "name": "Palace stair flight",
+      "group": "Palace kit",
+      "where": "Steps up and down inside the palace and on the grand stairway",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "palace-beam",
+      "name": "Low lamp beam",
+      "group": "Palace kit",
+      "where": "Obstacle across the hall, slide under it",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "banquet-table",
+      "name": "Banquet table",
+      "group": "Palace kit",
+      "where": "Obstacle in the hall, jump over it or dodge",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "throne",
+      "name": "Ravana's throne",
+      "group": "Palace kit",
+      "where": "The hall where Hanuman's tail is set on fire",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "treasure-pile",
+      "name": "Treasure chests",
+      "group": "Palace kit",
+      "where": "Obstacle in the palace corridors, dodge it",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
     }
   ]
 }

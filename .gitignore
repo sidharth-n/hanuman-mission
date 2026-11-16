@@ -14,3 +14,4 @@ assets/prompts/flow/PROJECT_URL
 assets/rig/
 state-log.md
 __pycache__/
+game/dist/
