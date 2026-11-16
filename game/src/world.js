@@ -5,6 +5,7 @@ import { LANES } from './hero.js';
 import { rng } from './build.js';
 import { kit, footpath, lampBeam, arrowVolley, greatArrow, streetGate, SLOT } from './buildings.js';
 import * as palace from './palace.js';
+import * as places from './places.js';
 import ROUTE from './route.json';
 import { speedAt, room, rollLead, REACT, MAX_SPEED } from './pace.js';
 
@@ -35,6 +36,8 @@ function layout(route) {
 const { list: PLAN, marks: SECTIONS } = layout(ROUTE);
 export { SECTIONS };
 export const FIRE_AT = SECTIONS.find(s => s.fire).from, END_AT = PLAN.length * CHUNK;
+// Where the grove and Ravana's court begin (metres along the route).
+export const GROVE_AT = SECTIONS.find(s => s.id === 'grove').from, THRONE_AT = SECTIONS.find(s => s.id === 'throne').from;
 // Where the run stops for the fight in the palace court, and the middle of the floor it is fought on (metres along the route).
 export const FIGHT_AT = PLAN.findIndex(c => c.kind === 'court' && !c.fire && c.n === 3) * CHUNK + 4, FIGHT_MID = FIGHT_AT + 9;
 const BEFORE = { kind: 'city', sec: 'gate', n: 0, of: 1, from: 0, base: 0, rise: 0, dir: 1, fire: false, gap: null, rows: false };
@@ -47,6 +50,7 @@ const planAt = i => i < 0 ? BEFORE : PLAN[i] || AFTER;
 // after the one before, and never so near a fixed row ahead that the rule would be broken there. On the stairway a row
 // must stand on a landing. A row may hold things that roll toward him only if it has the extra road that costs.
 const DOOR_EVERY = 5, ROLL = { vz: 5, from: 27 };
+export const LANKINI_AT = 58, LANKINI_MID = 70;      // where Lankini stops him just inside the gate, and the middle of the floor they fight on
 const FIGHT_N = 3;      // the stretch of the palace court where the guards make their stand
 function placeRows() {
   const rows = [], r = rng(977);
@@ -62,6 +66,7 @@ function placeRows() {
       if (i >= PLAN.length || c.fire) return Infinity;
       if (!c.rows) d = (i + 1) * CHUNK;
       else if (c.kind === 'stairs' && Math.abs(s - 13) > 0.01) d = s < 13 ? i * CHUNK + 13 : (i + 1) * CHUNK;      // the middle landing only
+      else if (d < LANKINI_MID + 26) d = LANKINI_MID + 26;      // the street inside the gate is kept bare: Lankini bars the way there
       else if (c.kind === 'court' && c.n === 0 && s < 8) d = i * CHUNK + 8;      // clear of the bell gate
       else if (c.kind === 'court' && ((c.n === FIGHT_N - 1 && s > 14) || c.n === FIGHT_N)) d = (i + 1) * CHUNK + 10;      // the floor where the guards make their stand is kept bare, and the road they come in by
       else if (c.kind === 'court' && c.n === FIGHT_N + 1 && s < 10) d = i * CHUNK + 10;
@@ -107,7 +112,7 @@ const AHEAD = 4;
 const KIT = {
   'market-stall': [2.7, 0],
   'rakshasa-statue': [4.6, 0], 'brazier': [2.3, 0], 'cart': [1.75, 0], 'pots': [1.05, 0], 'barricade': [1.15, 0],
-  'palace': [70, 0],
+  'palace': [70, 0], 'ashoka-tree': [8, 0], 'courtier': [1.95, 0],
 };
 
 // rows of obstacles across the three lanes; every row leaves a way through
@@ -506,6 +511,9 @@ export class World {
     }
   }
 
+  grove(chunk, c, r) { places.grove(this, chunk, c, r); }
+  throne(chunk, c, r) { places.throne(this, chunk, c, r); }
+
   drop(chunk) { this.scene.remove(chunk.group); }
 
   reset() { for (const c of this.chunks.values()) this.drop(c); this.chunks.clear(); }
@@ -556,6 +564,7 @@ export class World {
 
     const near = [];
     for (const c of this.chunks.values()) {
+      if (c.fx) places.animate(c, this.time);
       for (const f of c.flames) { const s = 1.7 + Math.sin(this.time * 11 + f.userData.seed) * 0.22 + Math.sin(this.time * 23 + f.userData.seed * 3) * 0.12; const b = f.userData.base; f.scale.set(s * b, s * 1.25 * b, 1); }
       for (const a of c.live) if (a.t <= 1) this.animate(c, a, dt, heroZ);
       for (const w of c.winds) if (!w.got) { w.mesh.material.rotation = this.time * 2.2; w.mesh.position.y = w.floor + 1.35 + Math.sin(this.time * 2 + w.z) * 0.12; }
@@ -573,8 +582,8 @@ export class World {
     this.torches.forEach((l, n) => { const b = near[n]; if (b) { l.position.copy(b); l.intensity = 42 * flick; } else l.intensity = 0; });
     this.far.position.z = heroZ;
     const here = planAt(at), end = planAt(at + AHEAD);
-    if (this.hill) this.hill.visible = !(here.fire || here.kind === 'court' || here.kind === 'hall');
-    this.cap.visible = end.kind === 'hall';
+    if (this.hill) this.hill.visible = !(here.fire || ['court', 'hall', 'grove', 'throne'].includes(here.kind));
+    this.cap.visible = end.kind === 'hall' || end.kind === 'throne';
     if (this.cap.visible) this.cap.position.set(0, end.base + palace.HALL_TOP / 2, -(at + AHEAD + 1) * CHUNK + 0.2);
   }
 

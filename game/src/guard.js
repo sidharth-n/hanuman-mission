@@ -1,13 +1,23 @@
-// A palace guard of Lanka: one rigged model shared by every guard, each with his own bones, sword and strength.
-// The fight (fight.js) decides where he stands and what he does; this only shows it.
+// Those who fight Hanuman: the palace guards of Lanka (one rigged model shared by all, each with his own bones, sword
+// and strength, in four kinds that fight differently) and Lankini, the guardian of the city.
+// The fight (fight.js) decides where each stands and what he does; this only shows it.
 import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 import { pinHips } from './hero.js';
 
-export const GUARD_HP = 5;      // a full row of three blows and one more
-const TALL = 1.12;      // a head taller than the build: he should loom over Hanuman
+// The kinds. hp: blows he can take (a great blow counts two). size: against the model as built. pace: how fast he closes.
+// tell: seconds added to the warning before his blow. reach: metres. firm: light blows do not stagger him.
+// wound: lives his blow costs. twice: he strikes twice in a row. tint: the cast of his armour.
+export const KINDS = {
+  guard:   { hp: 5, size: 1.12, pace: 1, tell: 0, reach: 2.6, wound: 1 },
+  rusher:  { hp: 3, size: 0.98, pace: 1.45, tell: -0.1, reach: 2.4, wound: 1, tint: 0xc9d6ff },                 // lean and quick: on him fast, little warning, soon down
+  brute:   { hp: 9, size: 1.34, pace: 0.7, tell: 0.24, reach: 3.0, wound: 2, firm: true, tint: 0xff9a80 },      // huge and slow: a long warning, a terrible blow
+  captain: { hp: 12, size: 1.24, pace: 1.1, tell: 0, reach: 2.8, wound: 1, twice: true, tint: 0xffe08a },       // the captain: two blows in a row
+  lankini: { hp: 14, size: 1, pace: 0.8, tell: 0.3, reach: 3.3, wound: 1, firm: true, boss: true, stays: true },
+};
+const GUARD_CLIPS = { idle: 'great_sword_idle', walk: 'great_sword_walk', run: 'great_sword_run', attack: 'great_sword_slash', hit: 'great_sword_impact', death: 'two_handed_sword_death' };
 
-// The clips walk and lunge by themselves; the fight alone decides where a guard is, so the hips stay over his feet.
+// The guard's clips walk and lunge by themselves; the fight alone decides where he is, so the hips stay over his feet.
 // Only the fall keeps its own movement, so that he really goes down.
 export function prepare(gltf) {
   if (gltf.userData.ready) return gltf.animations;
@@ -16,62 +26,82 @@ export function prepare(gltf) {
   return gltf.animations;
 }
 
-// A plain blade until the chosen sword is made: grip, cross-guard and a broad dark blade, about 1.3 m.
+// A plain blade, used only if the made sword is missing.
 function standInSword() {
   const steel = new THREE.MeshStandardMaterial({ color: 0x8d9299, metalness: 0.9, roughness: 0.32 });
-  const bronze = new THREE.MeshStandardMaterial({ color: 0x9a6b2c, metalness: 0.8, roughness: 0.45 });
   const g = new THREE.Group();
-  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.03, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x5c1410, roughness: 0.8 })); grip.position.y = 0.02;
-  const cross = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.05, 0.06), bronze); cross.position.y = 0.19;
   const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.02, 0.022), steel); blade.position.y = 0.72;
-  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.085, 0.16, 4), steel); tip.position.y = 1.31; tip.scale.z = 0.26; tip.rotation.y = Math.PI / 4;
-  const pommel = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 6), bronze); pommel.position.y = -0.15;
-  g.add(grip, cross, blade, tip, pommel);
+  const grip = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.03, 0.3, 8), new THREE.MeshStandardMaterial({ color: 0x5c1410, roughness: 0.8 })); grip.position.y = 0.02;
+  g.add(grip, blade);
   return g;
 }
 
 export class Guard {
-  // sword: the sword model (a scene to copy), or nothing for the plain stand-in blade
-  constructor(gltf, sword) {
+  // sword: the sword model (a scene to copy), or nothing. opt.lux: a Lux3D-rigged character (Lankini): stood to
+  // opt.height metres, unarmed, with her own clips { idle, walk, run, attack, hit, death } and the moment her blow lands.
+  constructor(gltf, sword, opt = {}) {
     this.root = new THREE.Group();
     this.model = clone(gltf.scene);
-    this.model.scale.multiplyScalar(TALL);
-    this.root.add(this.model);
-    this.model.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.6; } });
+    this.lux = !!opt.lux; this.clips = opt.clips || GUARD_CLIPS; this.blowAt = opt.blowAt ?? 0.73; this.hitPlay = opt.hitPlay || { from: 0.08, speed: 1.5 };
+    if (this.lux) {      // the model is centred on itself: stand it on the floor at its height
+      this.model.updateMatrixWorld(true);
+      const box = new THREE.Box3().setFromObject(this.model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+      this.model.position.set(-c.x, -box.min.y, -c.z);
+      this.body = new THREE.Group(); this.body.add(this.model); this.base = opt.height / size.y; this.tall = opt.height;
+    } else { this.body = this.model; this.base = this.model.scale.x; this.tall = 1.8; }
+    this.root.add(this.body);
+    this.meshes = []; this.model.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.6; this.meshes.push(o); } });
+    this.plain = this.meshes.map(m => m.material); this.gltf = gltf;
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
-    for (const clip of prepare(gltf)) this.actions[clip.name] = this.mixer.clipAction(clip);
+    for (const clip of this.lux ? gltf.animations : prepare(gltf)) this.actions[clip.name] = this.mixer.clipAction(clip);
     this.current = null;
 
-    // the sword rides in the right hand, the way Hanuman's mace does
-    const hand = this.model.getObjectByName('mixamorigRightHand');
-    this.root.updateWorldMatrix(true, true);
-    const unit = 1 / hand.getWorldScale(new THREE.Vector3()).x;
-    this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit, 0.03 * unit); this.sword.rotation.set(0, 0, -Math.PI / 2);
-    if (sword) {      // the made sword, stood on its pommel: sized to 1.35 m, held a little above the pommel
-      const s = sword.clone(); s.updateMatrixWorld(true);
-      const box = new THREE.Box3().setFromObject(s), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
-      s.position.set(-c.x, -box.min.y - size.y * 0.1, -c.z);
-      s.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.8; } });
-      const fit = new THREE.Group(); fit.add(s); fit.scale.setScalar(1.35 / size.y); this.sword.add(fit);
-    } else this.sword.add(standInSword());
-    hand.add(this.sword);
-
+    this.hand = this.model.getObjectByName('mixamorigRightHand'); this.arm = this.model.getObjectByName('mixamorigRightForeArm');
+    if (!this.lux) {      // the sword rides in the right hand, the way Hanuman's mace does
+      this.root.updateWorldMatrix(true, true);
+      const unit = 1 / this.hand.getWorldScale(new THREE.Vector3()).x;
+      this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit, 0.03 * unit); this.sword.rotation.set(0, 0, -Math.PI / 2);
+      if (sword) {      // the made sword, stood on its pommel: sized to 1.35 m, held a little above the pommel
+        const s = sword.clone(); s.updateMatrixWorld(true);
+        const box = new THREE.Box3().setFromObject(s), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
+        s.position.set(-c.x, -box.min.y - size.y * 0.1, -c.z);
+        s.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.8; } });
+        const fit = new THREE.Group(); fit.add(s); fit.scale.setScalar(1.35 / size.y); this.sword.add(fit);
+      } else this.sword.add(standInSword());
+      this.hand.add(this.sword);
+    }
     const blob = new THREE.Mesh(new THREE.CircleGeometry(0.85, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.45, depthWrite: false }));
-    blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.root.add(blob);
+    blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.blob = blob; this.root.add(blob);
 
     // how much fight is left in him, shown over his head
     const back = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x1a0d08, depthTest: false, fog: false, transparent: true, opacity: 0.85 }));
     const fill = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xff5a2a, depthTest: false, fog: false }));
-    back.scale.set(0.9, 0.1, 1); fill.scale.set(0.86, 0.06, 1);
     back.renderOrder = 10; fill.renderOrder = 11;
-    this.bar = new THREE.Group(); this.bar.add(back, fill); this.fill = fill; this.bar.position.y = 2.42; this.root.add(this.bar);
-    this.reset();
+    this.bar = new THREE.Group(); this.bar.add(back, fill); this.back = back; this.fill = fill; this.root.add(this.bar);
+    this.kind(opt.kind || 'guard'); this.reset();
+  }
+
+  // What kind of fighter he is this time: his size, his strength and the cast of his armour.
+  kind(name) {
+    const k = this.k = KINDS[name]; this.hp = this.max = k.hp;
+    const s = this.lux ? 1 : k.size; this.body.scale.setScalar(this.base * s);
+    const high = this.tall * s, wide = k.boss ? 2.2 : 0.9 * Math.max(1, s / 1.12);
+    this.wide = wide; this.back.scale.set(wide, k.boss ? 0.16 : 0.1, 1); this.fill.scale.set(wide - 0.04, k.boss ? 0.11 : 0.06, 1); this.bar.position.y = high + 0.42;
+    this.blob.scale.setScalar(this.lux ? this.tall * 0.42 : s / 1.12);
+    if (!this.lux) {
+      const tints = this.gltf.userData.tints || (this.gltf.userData.tints = {});
+      this.meshes.forEach((m, i) => {
+        if (!k.tint) { m.material = this.plain[i]; return; }
+        const key = name + i; if (!tints[key]) { tints[key] = this.plain[i].clone(); tints[key].color.set(k.tint); }
+        m.material = tints[key];
+      });
+    }
   }
 
   reset() {
-    this.hp = GUARD_HP; this.st = 'idle'; this.t = 0; this.vx = 0; this.vz = 0; this.yaw = 0; this.struck = false; this.gone = 0;
-    this.root.visible = false; this.bar.visible = true; this.fill.scale.x = 0.86;
+    this.hp = this.max; this.st = 'idle'; this.t = 0; this.vx = 0; this.vz = 0; this.yaw = 0; this.struck = false; this.second = false; this.token = false;
+    this.root.visible = false; this.bar.visible = true; this.fill.scale.x = this.wide - 0.04;
     if (this.current) this.current.stop(); this.current = null; this.name = null;
   }
 
@@ -90,12 +120,14 @@ export class Guard {
     let d = yaw - this.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
     this.yaw += d * Math.min(1, dt * rate); this.root.rotation.y = this.yaw;
   }
+  // Stood at a place facing a heading, for the scenes.
+  place(x, y, z, yaw = 0) { this.root.position.set(x, y, z); this.yaw = yaw; this.root.rotation.y = yaw; this.root.visible = true; return this; }
 
-  showHp() { this.fill.scale.x = 0.86 * Math.max(0, this.hp) / GUARD_HP; this.bar.visible = this.hp > 0; }
+  showHp() { this.fill.scale.x = (this.wide - 0.04) * Math.max(0, this.hp) / this.max; this.bar.visible = this.hp > 0; }
 
-  // The point and the hilt of the sword in the world, for the trail of a slash and the sparks where it lands.
+  // The two ends of what he strikes with, in the world, for the trail of the blow: the sword's point and hilt, or her fist and forearm.
   swordEnds(tip, base) {
-    this.sword.updateWorldMatrix(true, false);
-    tip.set(0, 1.2, 0).applyMatrix4(this.sword.matrixWorld); base.set(0, 0.2, 0).applyMatrix4(this.sword.matrixWorld);
+    if (this.sword) { this.sword.updateWorldMatrix(true, false); tip.set(0, 1.2, 0).applyMatrix4(this.sword.matrixWorld); base.set(0, 0.2, 0).applyMatrix4(this.sword.matrixWorld); }
+    else { this.hand.updateWorldMatrix(true, false); this.hand.getWorldPosition(tip); this.arm.getWorldPosition(base); }
   }
 }

@@ -4,7 +4,10 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero, LANES as LANE_X } from './hero.js';
 import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, groundAt } from './world.js';
-import { Fight, LIVES } from './fight.js';
+import { Fight, LIVES, PLANS } from './fight.js';
+import { Director } from './scene.js';
+import { createStory } from './story.js';
+import STORY from './story.json';
 import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen, fightControls } from './input.js';
@@ -14,19 +17,20 @@ import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
-const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
-const CAST = ['hanuman', 'guard'];      // the characters, kept beside the world's pieces
+const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace', 'ashoka-tree', 'courtier'];
+const CAST = ['hanuman', 'guard', 'lankini', 'sita', 'ravana'];      // the characters, kept beside the world's pieces
 const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 3, WIND_SECS = 60, OPEN_FLIGHT = 3.6;      // gusts that charge a flight; seconds for it to charge by itself; the flight every run opens with
 //   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
+const GROVE_SKY = new THREE.Color(0x0b1a33), FOG_GROVE = new THREE.Color(0x1c3a5c), GROVE_LIGHT = new THREE.Color(0xa9c8ff);      // the grove: a clear moonlit blue
 const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d1208);      // inside the palace: lamplit dark instead of night sky
 const SKY_LIGHT = new THREE.Color(0x7f95d8), LAMP_LIGHT = new THREE.Color(0xd9a25e), FIRE_LIGHT = new THREE.Color(0xff9a5a), MOON_LIGHT = new THREE.Color(0xb4c4ff), tint = new THREE.Color();
 
 const $ = id => document.getElementById(id);
 const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
   hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant'),
-  pad: $('pad'), strike: $('strike'), dodge: $('dodge'), lives: $('lives') };
+  pad: $('pad'), strike: $('strike'), dodge: $('dodge'), lives: $('lives'), card: $('card'), fade: $('fade') };
 // what the player chose last time, kept on the device
 const store = { get(k, d) { try { return localStorage.getItem('hm.' + k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem('hm.' + k, v); } catch { /* private mode */ } } };
 const phone = window.matchMedia('(pointer: coarse)').matches;
@@ -58,8 +62,8 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   tscale: 1, slowT: 0, slowK: 1, intro: 0, low: 0,        // slow motion, opening sweep, low hero shot
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
   wind: 0, flight: 0, safe: 0,
-  sec: 0, from: 0, inside: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
-let hero, world, tailFire, tailLight, aura, fight;
+  sec: 0, from: 0, inside: 0, garden: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
+let hero, world, tailFire, tailLight, aura, fight, director, story;
 let queued = null;      // a leap asked for a moment before he could make it: made as soon as he can
 let stick = null;       // the fight's thumb stick
 
@@ -83,9 +87,12 @@ async function load() {
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
   ui.lives.innerHTML = '<img src="ui/lotus.jpg" alt="">'.repeat(LIVES);
-  fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, sound, buzz, groundAt, more: () => { say(LINES.more, 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
+  fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, lankini: models.lankini, sound, buzz, groundAt, more: what => { say(STORY.alerts[what], 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()) }); fight.stick = stick;
 
+  director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') });
+  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done) => { state.fightDone = done; startFight(mid, plan); },
+    fade, light: on => { tailFire.visible = on; }, ablaze, finish: () => { result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; } });
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
   tailLight = new THREE.PointLight(0xff7a2a, 0, 20, 1.8); scene.add(tailLight);
@@ -111,7 +118,7 @@ function screen(name) {
 }
 
 function pause() {
-  if (state.mode !== 'run' && state.mode !== 'fight') return;
+  if (state.mode !== 'run' && state.mode !== 'fight' && state.mode !== 'scene') return;
   state.was = state.mode; state.mode = 'paused'; sound.pause(); if (stick) stick.release(); $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
 }
 function openSettings() { $('panelTitle').textContent = 'Settings'; $('resume').textContent = 'Done'; $('quit').hidden = true; screen('panel'); }
@@ -119,8 +126,8 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); fight.clear(); hero.reset(); sound.stop();
-  Object.assign(state, { orbit: null, mode: 'ready', fought: false, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
+  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); hero.reset(); sound.stop();
+  Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
 }
@@ -136,11 +143,12 @@ function result(title, thirdLabel, third) {
 }
 
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
-function start(from = 0) {
+function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
+  story.reset(fresh);
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
-  Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+  Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
@@ -150,9 +158,18 @@ function start(from = 0) {
   sound.start();      // the chant as he sets off, then the song
   // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
   state.opening = true; state.flight = OPEN_FLIGHT; hero.startFlight(); slowMotion(1.4, 0.45); sound.fx('wing');
+  card(SECTIONS[from].id);
 }
 
 function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = false; state.alertT = secs; }
+// The name of a place as he comes to it, with its line of the story.
+function card(id, secs = 4.2) {
+  const sec = SECTIONS.find(s => s.id === id); if (!sec) return;
+  ui.card.firstElementChild.textContent = sec.name; ui.card.lastElementChild.textContent = STORY.cards[id] || '';
+  ui.card.hidden = false; ui.card.style.animation = 'none'; void ui.card.offsetWidth; ui.card.style.animation = ''; state.cardT = secs;
+}
+// A cut through black, for going from one place of the story to another.
+function fade(then) { ui.fade.classList.add('on'); setTimeout(() => { then(); setTimeout(() => ui.fade.classList.remove('on'), 260); }, 460); }
 
 function hit(o, chunk) {
   o.done = true;
@@ -176,20 +193,37 @@ function fell() {
 
 // The palace court: the guards make their stand. The run stops, the fight's controls come up, and he must put all three
 // down to go on. If they take all his lives he is captured, and the next run takes up from the gate of the court.
-function startFight() {
-  state.fought = true; state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null;
+function startFight(mid = FIGHT_MID, plan = PLANS.court) {
+  state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null;
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
-  fight.begin(FIGHT_MID); painted.lives = null;
-  say(LINES.guards, 2.6); sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
+  fight.begin(mid, plan); painted.lives = null;
+  say(STORY.alerts.guards, 2.6); sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
 }
 function endFight(how) {
   fight.result = null; if (stick) stick.release();
+  const then = state.fightDone; state.fightDone = null;
   if (how === 'lost') { screen(null); return caught(); }      // he stays where he fell, among them, until the next run
-  const p = hero.root.position; hero.free = false;
+  sound.fx('power'); buzz([40, 40, 120]);
+  if (then) return then(how);      // the story goes on from here
+  say(STORY.alerts.cleared, 2.4); resumeRun();
+}
+// A scene of the story begins: the run stops where it is, and nothing of the play is on screen.
+function hold() {
+  state.mode = 'scene'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; state.tscale = 1; state.slowT = 0;
+  if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }
+  hero.free = true; if (stick) stick.release(); ui.card.hidden = true; screen(null);
+}
+// The run goes on from where he stands: after a fight, after a scene.
+function resumeRun() {
+  const p = hero.root.position; hero.free = false; hero.floor = 0;
   hero.root.rotation.y = 0; hero.lane = [0, 1, 2].reduce((a, b) => Math.abs(LANE_X[b] - p.x) < Math.abs(LANE_X[a] - p.x) ? b : a);
-  state.mode = 'run'; state.ramp = state.speed; state.speed = 7; state.safe = 2; state.dist = -p.z; last = performance.now();
-  state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
-  say(LINES.cleared, 2.4); sound.fx('power'); buzz([40, 40, 120]); screen(null);
+  state.mode = 'run'; state.ramp = Math.max(state.speed, speedAt(-p.z)); state.speed = 7; state.safe = 2; state.dist = -p.z; last = performance.now(); view.join = 1;
+  state.kept = { gold: state.gold, meter: state.meter, wind: state.wind }; screen(null);
+}
+// Out of Ravana's court with his tail alight: the fire run begins.
+function ablaze() {
+  hero.root.position.set(0, groundAt(-FIRE_AT), -FIRE_AT); state.dist = FIRE_AT; world.update(0, -FIRE_AT);
+  resumeRun(); placeCamera(1, true); card('fire');
 }
 
 function ignite() {
@@ -197,10 +231,7 @@ function ignite() {
   say(LINES.ignite, 3.2); sound.fx('fire'); sound.blaze(true); buzz([40, 40, 90]);
 }
 
-function won() {
-  hero.play('mutant_roaring', { once: true, fade: 0.2 }); sound.fx('power'); buzz([60, 40, 60, 40, 160]);
-  result('Lanka burns', 'Burned', state.burned);
-}
+function won() { story.ending(); }      // the last scene; it ends in the result
 
 function rules(dt) {
   state.speed = Math.min(MAX_SPEED, state.speed + ACCEL * dt);
@@ -209,6 +240,7 @@ function rules(dt) {
   if (state.slow > 0) state.slow = Math.max(0, state.slow - dt * 1.1);
   const p = hero.root.position;
   state.dist = -p.z;
+  if (!explore && story.check(state.dist, state.fire)) return;
   if (state.giant > 0) state.giant -= dt;
   if (state.safe > 0) state.safe -= dt;
   if (state.flight > 0) { state.flight -= dt; if (state.flight <= 0) { hero.endFlight(); state.safe = 1.1; if (state.opening) { state.opening = false; state.wind = 1; } } }
@@ -218,9 +250,9 @@ function rules(dt) {
   const sec = SECTIONS.findLastIndex(s => state.dist >= s.from);
   if (sec > state.sec) {
     state.sec = sec; state.from = sec; state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
-    if (!SECTIONS[sec].fire) say(SECTIONS[sec].name, 2.4);
+    if (!SECTIONS[sec].fire) card(SECTIONS[sec].id);
   }
-  if (!state.fought && !state.fire && !explore && state.dist >= FIGHT_AT && state.dist < FIGHT_MID + 6) return startFight();
+  if (!state.fought && !state.fire && !explore && state.dist >= FIGHT_AT && state.dist < FIGHT_MID + 6) { state.fought = true; return startFight(); }
   if (!state.fire && state.dist >= FIRE_AT) ignite();
   if (state.fire) {
     state.blaze = Math.min(1, state.blaze + dt * 0.35);
@@ -229,7 +261,8 @@ function rules(dt) {
     state.burned += world.igniteUpTo(p.z);
     if (state.dist >= END_AT) return won();
   }
-  hero.root.scale.setScalar(1 + state.grow * 0.9);      // his strength shows as a glow, not as size
+  state.vast += ((state.fire ? 1 : 0) - state.vast) * Math.min(1, dt * 1.1);
+  hero.root.scale.setScalar(1 + state.vast * 1.4 + state.grow * 3.1);      // set alight, he grows vast: half as tall again as the doors allow in the palace, a giant over the roofs at the last
   aura.visible = state.big > 0.02; aura.material.opacity = state.big * 0.55; aura.scale.setScalar(3.4 + Math.sin(performance.now() * 0.012) * 0.25);
   const smash = state.fire || state.big > 0.3, pace = state.speed * (state.fire ? 1.15 : 1);
   const reach = 0.82 * hero.root.scale.x;
@@ -365,7 +398,9 @@ function placeCamera(dt, snap) {
     lookY += (flyCam.lookY - lookY) * f; ahead += (flyCam.ahead - ahead) * f; fov += ((tall ? flyCam.fov + 10 : flyCam.fov) - fov) * f;
   }
 
-  if (state.shot) {
+  if (director.active && director.cam) {      // a scene of the story: the director holds the camera
+    fov = director.frame(); look.copy(director.look); view.back = back; view.join = 1; view.fov = fov;
+  } else if (state.shot) {
     const s = state.shot; s.t += dt;
     const [at, to, f] = SHOTS[s.type](p, k, Math.min(1, s.t / s.secs));
     camera.position.set(...at); camera.position.y = Math.max(camera.position.y + G, groundAt(camera.position.z) + 0.5);      // never under a stairway
@@ -423,6 +458,9 @@ function frame(now) {
   if (running) rules(dt);
   if (fighting) { fight.update(dt, real); if (fight.result) endFight(fight.result); }
   fight.tick(dt, state.mode === 'paused' ? 0 : real);
+  if (state.mode === 'scene') director.update(real);
+  story.update(state.mode === 'paused' ? 0 : real);
+  if (state.cardT > 0) { state.cardT -= real; if (state.cardT <= 0) ui.card.hidden = true; }
   if (running && queued) { queued.t -= real; const went = hero.move('up'); if (went) sound.fx('leap'); if (went || queued.t <= 0) queued = null; }
   const falling = state.mode === 'fall';
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
@@ -433,9 +471,12 @@ function frame(now) {
   if (state.shake > 0) state.shake = Math.max(0, state.shake - real * 1.6);
 
   // night outside, lamplight inside the palace, firelight once the city burns
-  state.inside += ((world.kindAt(hero.root.position.z) === 'hall' ? 1 : 0) - state.inside) * Math.min(1, real * 2.5);
-  scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_BLAZE, state.blaze);
-  hemi.intensity = 1.0 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(FIRE_LIGHT, state.blaze * 0.7);
+  const kind = world.kindAt(hero.root.position.z);
+  state.inside += ((kind === 'hall' || kind === 'throne' ? 1 : 0) - state.inside) * Math.min(1, real * 2.5);
+  state.garden += ((kind === 'grove' ? 1 : 0) - state.garden) * Math.min(1, real * 1.5);
+  scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(GROVE_SKY, state.garden).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_GROVE, state.garden).lerp(FOG_BLAZE, state.blaze);
+  hemi.intensity = 1.0 + state.garden * 0.9 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
+  moon.intensity = 2.4 + state.garden * 1.6;
   moon.color.copy(MOON_LIGHT).lerp(LAMP_LIGHT, state.inside);
   world.cap.material.color.copy(scene.fog.color); world.heavens.visible = state.inside < 0.5;
   if (tailFire.visible) {
@@ -474,6 +515,7 @@ function frame(now) {
 }
 
 listen(window, dir => {
+  if (state.mode === 'scene') return director.tap();      // any touch or key goes on to the next line
   if (state.mode === 'fight' && dir === 'giant') return press2('giant', usePower);
   if (state.mode !== 'run') return;
   if (dir === 'giant') press2('giant', usePower); else if (dir === 'fly') press2('fly', useFlight);
@@ -485,7 +527,7 @@ function press2(id, fn) {
   el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); if (ok) buzz([30, 30, 60]);
 }
 const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
-press('go', () => start(startAt)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+press('go', () => start(startAt, true)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
 function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }
@@ -505,7 +547,7 @@ press('mute', () => { sound.toggle(); showSound(); sound.fx('tap'); }); showSoun
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
 window.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start(ui.menu.hidden ? state.from : startAt);
+  if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start(ui.menu.hidden ? state.from : startAt, !ui.menu.hidden);
   if (e.key === 'Escape' || e.key === 'p') { if (state.mode === 'run') pause(); else if (state.mode === 'paused') resume(); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });      // never keep running behind another app
@@ -520,5 +562,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { get fight() { return fight; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };

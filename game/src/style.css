@@ -157,3 +157,22 @@ body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + va
 #lives { position: fixed; left: calc(12px + var(--left)); top: calc(60px + var(--top)); display: flex; gap: 6px; pointer-events: none; }
 #lives img { width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid var(--gold); box-shadow: 0 2px 6px rgba(0, 0, 0, .7); transition: filter .2s, opacity .2s, transform .2s; }
 #lives img.lost { filter: grayscale(1) brightness(.3); opacity: .75; transform: scale(.82); }
+
+/* ── the short dramas: bars top and bottom, the speaker's name and the line, a way to skip ── */
+#drama { position: fixed; inset: 0; pointer-events: none; }
+#drama .bar { position: absolute; left: 0; right: 0; top: 0; height: calc(8vh + var(--top)); background: #000; }
+#drama .bar.low { top: auto; bottom: 0; height: calc(8vh + var(--bottom)); }
+#drama .say { position: absolute; left: 50%; bottom: calc(8vh + 16px + var(--bottom)); transform: translateX(-50%); width: min(92vw, 640px); text-align: center; padding: 18px 14px 10px;
+  background: radial-gradient(ellipse at 50% 60%, rgba(8, 6, 4, .78), rgba(8, 6, 4, 0) 72%); animation: line .35s ease-out; }
+#who { display: block; font: 700 13px/1.2 var(--head); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); padding-left: .22em; margin-bottom: 4px; text-shadow: 0 1px 3px #000; }
+#line { margin: 0; font: 500 23px/1.22 var(--text); color: var(--ink); text-shadow: 0 2px 6px #000, 0 0 2px #000; text-wrap: balance; }
+#drama .say.told #line { font-style: italic; color: var(--gold-light); }
+#skip { position: absolute; right: calc(12px + var(--right)); top: calc(8px + var(--top)); pointer-events: auto; min-width: 68px; min-height: 44px; padding: 0 14px;
+  font: 700 12px/1 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--gold-light); background: rgba(26, 22, 19, .72); border: 1px solid var(--gold-deep); border-radius: 4px; }
+@keyframes line { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }
+/* the name of each place as he enters it, and one line of the story under it */
+#card { position: fixed; left: 50%; top: calc(112px + var(--top)); transform: translateX(-50%); width: min(90vw, 520px); text-align: center; pointer-events: none; animation: line .5s ease-out; }
+#card b { display: block; font: 900 22px/1.1 var(--head); letter-spacing: .18em; text-transform: uppercase; color: var(--gold); text-shadow: 0 1px 0 var(--gold-shadow), 0 3px 10px #000; padding-left: .18em; }
+#card p { margin: 6px 0 0; font: 500 italic 19px/1.25 var(--text); color: var(--ink); text-shadow: 0 2px 6px #000, 0 0 2px #000; text-wrap: balance; }
+#fade { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; transition: opacity .4s; z-index: 5; }
+#fade.on { opacity: 1; }

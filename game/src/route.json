@@ -73,14 +73,14 @@
         { "at": 220, "type": "pickup", "what": "wind" },
         { "at": 290, "type": "fight", "who": "three guards and a captain", "what": "second fight" }
       ] },
-    { "id": "grove", "name": "The Grove", "length": 90, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 0,
+    { "id": "grove", "name": "The Grove", "kind": "grove", "length": 96, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 0,
       "obstacles": [],
       "events": [
         { "at": 10, "type": "shot", "what": "quiet walk under the trees" },
         { "at": 60, "type": "story", "what": "he gives Sita the ring and receives her hair jewel" },
         { "at": 85, "type": "fight", "who": "Ravana's captains", "what": "he wrecks the grove and fights; ends when he is bound and taken before Ravana" }
       ] },
-    { "id": "throne", "name": "The Throne", "length": 0, "place": "Ravana's throne hall", "speed": 0, "rowGap": 0,
+    { "id": "throne", "name": "The Throne", "kind": "throne", "length": 48, "place": "Ravana's throne hall", "speed": 0, "rowGap": 0,
       "obstacles": [],
       "events": [
         { "at": 0, "type": "story", "what": "before Ravana; his tail is wrapped and set on fire" }
