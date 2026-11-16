@@ -1,6 +1,6 @@
 // Builds assets/library/index.html from assets/manifest.json plus whatever files exist on disk.
 // Run: node tools/library.mjs   then serve the repo root over http (GLB previews need http).
-import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, statSync } from 'node:fs';
 const root = new URL('../', import.meta.url).pathname;
 const m = JSON.parse(readFileSync(root + 'assets/manifest.json', 'utf8'));
 const esc = (s = '') => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -36,10 +36,22 @@ const card = a => {
       ${existsSync(root + glb) ? `<model-viewer src="../lux3d/${a.test3d}/model.glb" camera-controls auto-rotate shadow-intensity="1" exposure="1.1"></model-viewer>` : ''}
       <p class="meta">Lux3D ${esc(t.version)} · ${t.secs} s · 13 credits · 287k triangles, 18.6 MB (must be cut to about a tenth for the web)</p></div>`;
   }
+  const label = d => d.endsWith('-g1-multiview') ? 'Lux3D G1 · 3 views · 300k faces' : d.endsWith('-g1') ? 'Lux3D G1 · 1 view · 300k faces' : 'Lux3D Turbo · 1 view';
+  const models3d = list('assets/lux3d').filter(d => d.startsWith(a.id + '-') && d !== a.test3d && existsSync(`${root}assets/lux3d/${d}/model.glb`))
+    .sort((x, y) => (y.includes('g1') - x.includes('g1')) || x.localeCompare(y))
+    .map(d => {
+      const t = readJson(`assets/lux3d/${d}/task.json`) || {};
+      const mb = (statSync(`${root}assets/lux3d/${d}/model.glb`).size / 1e6).toFixed(1);
+      const poster = existsSync(`${root}assets/lux3d/${d}/preview-1.png`) ? `poster="../lux3d/${d}/preview-1.png"` : '';
+      return `<figure class="m3d"><model-viewer src="../lux3d/${d}/model.glb" ${poster} loading="lazy" reveal="interaction" camera-controls auto-rotate shadow-intensity="1" exposure="1.1"></model-viewer>
+        <figcaption><b>${label(d)}</b><span>${t.secs ? t.secs + ' s · ' : ''}${mb} MB raw · tap to load and turn</span></figcaption></figure>`;
+    }).join('');
+  const picked = a.pick ? `<p class="picked">Approved image: option ${esc(a.pick.match(/-(\d+)\.clean/)?.[1] || '?')}</p>` : '';
   return `<article class="card" id="${a.id}">
     <header><h3>${esc(a.name)}</h3><span class="chip ${a.status}">${a.status === 'concept' ? 'awaiting your pick' : esc(a.status)}</span></header>
     <p class="where">${esc(a.where)}</p>
-    <h4 class="round">Round 3 · Flow, realistic${flow ? ' · pick 1 or 2' : ''}</h4>
+    ${models3d ? `<h4 class="round">3D from Lux3D</h4><div class="models">${models3d}</div>${picked}` : ''}
+    <h4 class="round">Round 3 · Flow, realistic${flow && !a.pick ? ' · pick 1 or 2' : ''}</h4>
     <div class="concepts">${flow || '<p class="empty">Generating…</p>'}</div>
     ${prompt ? `<details class="p"><summary>prompt</summary><p>${esc(prompt)}</p></details>` : ''}
     ${a.note ? `<p class="note">${esc(a.note)}</p>` : ''}
@@ -77,6 +89,8 @@ details{width:100%}summary{cursor:pointer}details p{margin:4px 0 0;color:var(--m
 .model{margin-top:12px;border-top:1px dashed var(--line);padding-top:10px}.model h4{margin:0 0 6px;font-size:13px;color:var(--mute);font-weight:500}
 model-viewer{width:100%;height:340px;background:#cfcfcf;border-radius:8px}.meta{color:var(--mute);font-size:12px;margin:6px 0 0}
 .round{margin:4px 0 8px;font-size:13px;color:var(--gold);font-weight:600}.r1{margin-top:10px;color:var(--mute);font-size:13px}.r1 .concepts{margin-top:8px}.small{grid-template-columns:repeat(auto-fit,minmax(120px,160px))}
+.models{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}.m3d{margin:0}.m3d model-viewer{height:300px}
+.picked{color:#7fd17f;font-size:12px;margin:6px 0 0}
 details.p{font-size:12px;color:var(--mute);margin-top:6px}
 .rules{margin:16px 0 0;background:#1f1810;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;color:var(--mute)}.rules b{color:var(--ink)}
 @media (max-width:560px){.top,main{padding-left:14px;padding-right:14px}.grid{grid-template-columns:1fr}}
