@@ -20,7 +20,7 @@ export function createStory(g) {
   const sita = new Actor(g.models.sita, 1.72), ravana = new Actor(g.models.ravana, 2.75);
   g.scene.add(sita.root, ravana.root);
   sita.knees = 0.8; sita.model.traverse(o => { if (o.isMesh) o.material.side = THREE.DoubleSide; });      // seated, the folds of her sari open: their inner side must show as cloth, not as holes
-  const lankini = fight.boss, escort = [fight.guards[6], fight.guards[7]];
+  const lankini = fight.boss, escort = [fight.guards[6], fight.guards[7]], wardens = [fight.guards[4], fight.guards[5]];      // the two who lead him, the two who stand by the throne
   // a small bright thing passed from hand to hand: Rama's ring, Sita's jewel
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
   gift.visible = false; g.scene.add(gift);
@@ -39,7 +39,7 @@ export function createStory(g) {
     hero.play(clip, { fade: 0.25 });
   }
   function give(from, to, color, secs = 1.3) { pass.from.set(...from); pass.to.set(...to); pass.t = 0; pass.secs = secs; gift.material.color.set(color); gift.visible = true; }
-  function standGuards(list) { list.forEach(([x, z, yaw], i) => { const e = escort[i]; e.kind('guard'); e.reset(); e.place(x, g.groundAt(z), z, yaw); e.st = 'idle'; e.bar.visible = false; e.play('great_sword_idle', { fade: 0 }); }); }
+  function standGuards(list, who = escort, up = 0) { list.forEach(([x, z, yaw], i) => { const e = who[i]; e.kind('guard'); e.reset(); e.place(x, g.groundAt(z) + up, z, yaw); e.st = 'idle'; e.bar.visible = false; e.play('great_sword_idle', { fade: 0 }); }); }
 
   // ── the gate: Lankini bars the way ──
   function gate() {
@@ -142,6 +142,7 @@ export function createStory(g) {
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     standGuards([[-1.6, hz + 0.7, Math.PI], [1.6, hz + 0.7, Math.PI]]);
+    standGuards([[-3.3, tz + 0.6, 0.5], [3.3, tz + 0.6, -0.5]], wardens, T - 0.35);      // on the second step of the dais
     ravana.place(0, G + T + 0.34, tz + 0.62, 0); ravana.play('sit', { fade: 0 });
     g.card('throne');
     const wide = shot(v(0, 2.3, -THRONE_AT - 3), v(0, 3.2, tz), { to: v(0, 2.0, -THRONE_AT - 15), fov: 56 });
@@ -168,7 +169,7 @@ export function createStory(g) {
         { ...shot(v(2.2, 0.9, hz + 3.2), v(0, 1.3, hz), { to: v(1.6, 1.1, hz + 2.6), fov: 48 }), do: () => { g.light(true); escort.forEach(e => e.reset()); } },
         { ...shot(v(-1.8, 0.6, hz - 3.4), v(0, 1.9, hz), { to: v(-1.4, 0.7, hz - 2.8), fov: 54 }), do: () => { hero.bind(false); hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.fx('power'); g.buzz([60, 40, 160]); } },
       ]),
-    ], () => g.fade(() => { hero.bind(false); ravana.hide(); escort.forEach(e => e.reset()); g.ablaze(); }));
+    ], () => g.fade(() => { hero.bind(false); ravana.hide(); [...escort, ...wardens].forEach(e => e.reset()); g.ablaze(); }));
   }
 
   // ── the end: grown vast, he roars in the middle of the burning city, then leaps for the sea ──

@@ -157,13 +157,10 @@ export function throne(world, chunk, c, r) {
     }
   }
   if (!last) return;
-  // the dais and the throne on it (palace.js), its guards, and a fire on each side
+  // the dais and the throne on it (palace.js), and a fire on each side
   const Z = THRONE.z, T = THRONE.top;
   g.add(world.part(k.throneGeo));
-  for (const s of [-1, 1]) {
-    world.brazier(chunk, s * 5, 0, Z + 5.6, r() * 10);
-    const guard = world.spawn('courtier'); guard.position.set(s * 3.3, T - 0.35, Z + 0.6); guard.rotation.y = s > 0 ? -0.5 : 0.5; guard.scale.setScalar(1.12); g.add(guard);
-  }
+  for (const s of [-1, 1]) world.brazier(chunk, s * 5, 0, Z + 5.6, r() * 10);
   // behind him the wall of the hall, and in its great doorway a disc of beaten gold that catches every flame
   const wall = world.part(world.geo.front); wall.rotation.y = Math.PI; wall.position.z = Z - 3.2; g.add(wall);
   const dark = new THREE.Mesh(new THREE.PlaneGeometry(2 * palace.HALL_HALF, palace.HALL_TOP), k.black); dark.position.set(0, palace.HALL_TOP / 2, Z - 4.6); g.add(dark);
