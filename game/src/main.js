@@ -82,7 +82,7 @@ async function load() {
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
   ui.lives.innerHTML = '<img src="ui/lotus.jpg" alt="">'.repeat(LIVES);
-  fight = new Fight({ scene, hero, gltf: models.guard, sound, buzz, groundAt, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
+  fight = new Fight({ scene, hero, gltf: models.guard, sound, buzz, groundAt, more: () => { say(LINES.more, 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()) }); fight.stick = stick;
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
@@ -373,8 +373,8 @@ function placeCamera(dt, snap) {
   } else if (fight.active && state.mode !== 'ready') {
     // the fight: the view stands off, behind and above, the way action games hold it, so the whole floor and every guard are seen
     const c = fight.focus;
-    want.set(c.x * 0.8, G + (tall ? 5.3 : 3.7), c.z + (tall ? 6.6 : 5.6));
-    lookWant.set(c.x * 0.92, G + 0.9, c.z - (tall ? 2.6 : 2.2));      // he stands in the lower middle of the screen, clear of the thumbs, with the guards above him
+    want.set(c.x * 0.8, G + (tall ? 6.0 : 3.9), c.z + (tall ? 7.4 : 5.9));
+    lookWant.set(c.x * 0.92, G + 0.9, c.z - (tall ? 0 : 1.6));      // he stands just below the middle of the screen, clear of the thumbs, with room to see a guard coming up behind him
     camera.position.lerp(want, Math.min(1, dt * 4.5)); look.lerp(lookWant, Math.min(1, dt * 5.5));
     fov = tall ? 62 : 50; view.back = back; view.join = 1;
   } else if (state.mode === 'ready' || state.intro > 0) {
