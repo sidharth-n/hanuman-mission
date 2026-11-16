@@ -401,7 +401,6 @@ function placeCamera(dt, snap) {
   if (director.active && director.cam) {      // a scene of the story: the director holds the camera
     fov = director.frame(); if (tall) fov = Math.min(80, fov * 1.6);      // an upright phone sees a narrow slice: a wider lens keeps both speakers in it
     look.copy(director.look); view.back = back; view.join = 1; view.fov = fov;
-    if (tall) camera.position.sub(look).multiplyScalar(1.35).add(look);      // and stands a little further off
   } else if (state.shot) {
     const s = state.shot; s.t += dt;
     const [at, to, f] = SHOTS[s.type](p, k, Math.min(1, s.t / s.secs));

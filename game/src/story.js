@@ -29,6 +29,8 @@ export function createStory(g) {
 
   const v = (x, y, z) => [x, G + y, z];
   const shot = (at, look, o = {}) => ({ cam: { at, look, ...o } });
+  // A shot of two people side by side does not fit an upright phone: there the same moment is taken along the line between them.
+  const either = (wide, upright) => (window.innerHeight > window.innerWidth ? upright : wide);
   const beats = (key, shots = []) => S[key].map((l, i) => ({ who: l.who, line: l.line, ...(shots[i] || {}) }));
   function putHero(x, z, yaw, clip = 'breathing_idle', up = 0) {
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.flying = false; hero.fly = 0;
@@ -48,7 +50,7 @@ export function createStory(g) {
       { ...shot(v(1.9, 1.1, hz - 4.6), v(0, 2.2, lz), { to: v(1.5, 1.3, hz - 5.4), fov: 46 }), do: () => lankini.play('talk') },
       { ...shot(v(-1.4, 1.5, hz - 3.4), v(0, 1.35, hz), { to: v(-1.1, 1.5, hz - 2.9), fov: 42 }), do: () => lankini.play('fold_arms') },
       { ...shot(v(1.3, 2.1, hz + 2.6), v(0, 2.0, lz), { to: v(1.0, 2.0, hz + 2.0), fov: 50 }), do: () => lankini.play('talk') },
-      { ...shot(v(6.4, 1.5, hz - 4), v(0, 1.5, hz - 4.3), { to: v(5.6, 1.5, hz - 4), fov: 52 }), do: () => lankini.play('idle') },
+      { ...either(shot(v(6.4, 1.5, hz - 4), v(0, 1.5, hz - 4.3), { to: v(5.6, 1.5, hz - 4), fov: 52 }), shot(v(1.9, 2.7, hz + 3.6), v(0, 1.7, lz), { to: v(1.5, 2.5, hz + 3.0), fov: 46 })), do: () => lankini.play('idle') },
     ]), () => g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? yields() : null));
   }
   function yields() {
@@ -84,7 +86,7 @@ export function createStory(g) {
       { ...shot(v(sx - 1.5, 1.1, sz + 1.0), v(sx, 1.05, sz + 0.2), { to: v(sx - 1.2, 1.08, sz + 0.8), fov: 36 }), do: () => sita.play('sit_talk') },
       shot(v(sx + 1.2, 1.45, sz - 1.2), v(rx, 2.2, rz), { to: v(sx + 0.9, 1.4, sz - 0.9), fov: 48 }),
       { ...onRavana, do: () => { sita.play('sit'); ravana.play('command', { once: true }); ravana.rise = 1.3; } },
-      { ...shot(v(sx - 6.5, 1.8, sz - 2.5), v(sx - 1.2, 1.3, sz + 2.2), { to: v(sx - 5.6, 1.9, sz - 3.4), fov: 54 }), do: () => { ravana.walk(sx - 5.5, sz + 13, 4.2); escort.forEach((e, i) => { e.root.rotation.y = 0; e.play('great_sword_walk'); e.leave = 1.9 + i * 0.3; }); } },
+      { ...either(shot(v(sx - 6.5, 1.8, sz - 2.5), v(sx - 1.2, 1.3, sz + 2.2), { to: v(sx - 5.6, 1.9, sz - 3.4), fov: 54 }), shot(v(sx - 1.2, 2.4, sz - 3.6), v(sx - 3.4, 1.5, sz + 6), { to: v(sx - 0.8, 2.6, sz - 4.4), fov: 50 })), do: () => { ravana.walk(sx - 5.5, sz + 13, 4.2); escort.forEach((e, i) => { e.root.rotation.y = 0; e.play('great_sword_walk'); e.leave = 1.9 + i * 0.3; }); } },
       onHanuman,
     ]), meets);
   }
@@ -98,11 +100,11 @@ export function createStory(g) {
     const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0, sz + 0.5];
     const onHero = shot(v(sx - 0.5, 1.25, sz + 0.2), v(hx, 1.45, hz), { to: v(sx - 0.7, 1.3, sz + 0.4), fov: 40 });
     const onSita = shot(v(hx + 0.2, 1.3, hz - 0.2), v(sx, 1.1, sz + 0.2), { to: v(hx + 0.4, 1.25, hz - 0.4), fov: 38 });
-    const two = shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 });
+    const two = either(shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 }), shot(v(hx - 2.1, 1.9, hz + 0.9), v(sx - 0.5, 1.05, sz + 0.5), { to: v(hx - 1.8, 1.85, hz + 0.7), fov: 46 }));
     director.play(beats('grove_sita', [
       shot(v(sx - 3.6, 4.6, sz + 4.4), v(sx, 0.9, sz + 0.3), { to: v(sx - 2.9, 3.9, sz + 3.6), fov: 44 }),
       shot(v(perch[0] - 2.2, perch[2] + 1.2, perch[1] + 2.3), v(perch[0], perch[2] + 0.9, perch[1]), { fov: 40 }),
-      { ...shot(v(sx - 4.6, 1.3, sz - 0.6), v(sx - 1.1, 0.9, sz + 1.2), { to: v(sx - 4.0, 1.2, sz - 1.2), fov: 50 }), do: down },
+      { ...either(shot(v(sx - 4.6, 1.3, sz - 0.6), v(sx - 1.1, 0.9, sz + 1.2), { to: v(sx - 4.0, 1.2, sz - 1.2), fov: 50 }), shot(v(hx - 1.8, 1.6, hz + 3.0), v(sx - 0.7, 0.9, sz + 0.7), { to: v(hx - 1.5, 1.5, hz + 2.5), fov: 48 })), do: down },
       { ...onHero, do: () => hero.play('breathing_idle', { fade: 0.4 }) },
       { ...onSita, do: () => sita.play('sit_talk') },
       { ...two, do: () => { sita.play('sit'); give(hand, hers, 0xffd36a); } },
