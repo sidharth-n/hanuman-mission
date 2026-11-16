@@ -7,6 +7,7 @@ import { World, SECTIONS, FIRE_AT, END_AT, groundAt } from './world.js';
 import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen } from './input.js';
+import { createSound } from './sound.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
@@ -29,6 +30,7 @@ const phone = window.matchMedia('(pointer: coarse)').matches;
 const settings = { gfx: store.get('gfx', phone ? 'smooth' : 'rich'), vib: store.get('vib', 'on') === 'on' };
 const sharpest = () => Math.min(window.devicePixelRatio || 1, settings.gfx === 'rich' ? (phone ? 1.75 : 2) : 1.25);
 const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibrate(pattern); };
+const sound = createSound(store);      // the song under the game and the chant over its big moments
 const query = new URLSearchParams(location.search), debug = query.has('debug');
 const explore = query.has('explore');      // ?explore: the whole route with nothing in his way, for looking round
 const startAt = debug || explore ? Math.max(0, SECTIONS.findIndex(s => s.id === query.get('at'))) : 0;      // &at=court starts a run at that section
@@ -135,6 +137,7 @@ function start(from = 0) {
   queued = null; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
   hero.play('fast_run', { fade: 0.15 });
+  sound.chant();      // the chant as he sets off
 }
 
 function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = false; state.alertT = secs; }
@@ -145,18 +148,18 @@ function hit(o, chunk) {
   if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; return; }
   if (state.big > 0.3) { state.shake = 0.3; return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
-  state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50);
+  state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50); sound.chant();
   hero.stumble(); say(LINES.stumble);
 }
 
 function caught() {
-  hero.play('hit_reaction', { once: true, fade: 0.08 }); buzz([80, 60, 140]);
+  hero.play('hit_reaction', { once: true, fade: 0.08 }); buzz([80, 60, 140]); sound.chant();
   result('Captured', 'Best');
 }
 
 // He ran off the raised drawbridge: down into the moat.
 function fell() {
-  state.mode = 'fall'; state.fallT = 0.85; hero.floor = -30; hero.vy = -2; hero.play('falling_idle', { fade: 0.1 }); buzz([120, 40, 60]);
+  state.mode = 'fall'; state.fallT = 0.85; hero.floor = -30; hero.vy = -2; hero.play('falling_idle', { fade: 0.1 }); buzz([120, 40, 60]); sound.chant();
 }
 
 function ignite() {
@@ -252,7 +255,7 @@ const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
 // The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
 const flyCam = { back: 2.3, up: 1.5, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close, then closer twice
 const ease = t => t * t * (3 - 2 * t);
-function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
+function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; sound.chant(); }      // every slow-motion moment carries the chant
 
 // Cinematic shots: for a few seconds the camera leaves the chase view. He keeps running and the player keeps control.
 const SHOTS = {
@@ -418,6 +421,8 @@ $('gfx').addEventListener('click', e => {
   const v = e.target.dataset.v; if (!v) return;
   settings.gfx = v; store.set('gfx', v); pixelRatio = sharpest(); renderer.setPixelRatio(pixelRatio); resize(); showSettings();      // the shading itself changes the next time the game is opened
 });
+function showSound() { $('mute').classList.toggle('off', !sound.on); $('mute').setAttribute('aria-pressed', !sound.on); }
+press('mute', () => { sound.toggle(); showSound(); buzz(20); }); showSound();
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
 window.addEventListener('keydown', e => {
@@ -436,5 +441,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { flyCam, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
