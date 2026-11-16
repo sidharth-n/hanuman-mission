@@ -206,6 +206,43 @@ export function lampBeam() {
   return b.geometry();
 }
 
+// A gate across the street: two carved piers, a heavy lintel with a tiled roof, lamps hanging in the opening.
+export function streetGate() {
+  const b = new Builder(), o = { ground: false };
+  for (const s of [-1, 1]) {
+    const x0 = s > 0 ? 4.3 : -5.5, x1 = x0 + 1.2;
+    b.box(x0 - 0.15, x1 + 0.15, 0, 0.6, -0.75, 0.75, 'stone', { faces: 'fblrt', top: 'paving', tile: [1.5, 1.5] });
+    b.box(x0, x1, 0.6, 7.2, -0.6, 0.6, 'tower', { faces: 'fblr', tile: [2.4, 2.4] });
+    b.box(x0 - 0.14, x1 + 0.14, 7.2, 7.5, -0.74, 0.74, 'lotus', { ...o, faces: 'fblrd', tile: [2.4, 0.3] });
+    b.box(s > 0 ? 3.7 : -4.3, s > 0 ? 4.3 : -3.7, 6.7, 7.5, -0.3, 0.3, 'frieze', { ...o, faces: 'fblrd', tile: [1.6, 0.8] });      // bracket
+  }
+  b.box(-5.75, 5.75, 7.5, 8.7, -0.58, 0.58, 'frieze', { ...o, faces: 'fblrd', tile: [4.8, 1.2] });
+  b.box(-5.9, 5.9, 8.7, 8.96, -0.72, 0.72, 'lotus', { ...o, faces: 'fblrd', tile: [2.08, 0.26] });
+  const top = b.hip(-6.2, 6.2, -1.05, 1.05, 8.96, 1.15);
+  for (const x of [-3.6, 0, 3.6]) b.finial(x, 0, top - 0.04, 0.85);
+  for (const x of [-2.4, 0, 2.4]) {
+    b.box(x - 0.02, x + 0.02, 6.75, 7.5, -0.02, 0.02, 'dark', { ...o, faces: 'fblr' });
+    b.lathe(x, 0, 6.3, [[0.03, 0], [0.17, 0.12], [0.17, 0.36], [0.05, 0.47]], 'lamp', 8);
+    b.lathe(x, 0, 6.76, [[0.2, 0], [0.03, 0.1]], 'gold', 8);
+  }
+  return b.geometry();
+}
+
+// A volley of arrows stuck in the paving, shot from the walls ahead.
+export function arrowVolley() {
+  const b = new Builder(), o = { ground: false }, r = rng(77);
+  for (let i = 0; i < 6; i++) {
+    const x = (r() - 0.5) * 1.5, z = (r() - 0.5) * 1.0, h = 1.15 + r() * 0.35, dx = (r() - 0.5) * 0.3, dz = -0.35 - r() * 0.3, w = 0.034;
+    const foot = [[x - w, 0, z + w], [x + w, 0, z + w], [x + w, 0, z - w], [x - w, 0, z - w]], top = foot.map(([px, , pz]) => [px + dx, h, pz + dz]);
+    for (let k = 0; k < 4; k++) { const n = (k + 1) % 4; b.poly([foot[k], foot[n], top[n], top[k]], 'wood', { ...o, fit: true, shade: 0.9 }); }
+    // feathers at the tail
+    const f = 0.09, tx = x + dx, tz = z + dz;
+    b.poly([[tx - f, h - 0.28, tz + 0.07], [tx + f, h - 0.28, tz + 0.07], [tx + f, h, tz], [tx - f, h, tz]], 'ember', o);
+    b.poly([[tx + f, h - 0.28, tz + 0.07], [tx - f, h - 0.28, tz + 0.07], [tx - f, h, tz], [tx + f, h, tz]], 'ember', o);
+  }
+  return b.geometry();
+}
+
 Builder.prototype.done = function (height, depth) { return { builder: this, height, depth, triangles: this.triangles }; };
 
 // The set of buildings the street is dealt from. Each comes in two versions, lit by the brazier at its left or right corner.

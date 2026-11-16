@@ -6,7 +6,7 @@ import { Hero } from './hero.js';
 import { World } from './world.js';
 import { listen } from './input.js';
 
-const KIT = ['market-stall', 'street-arch', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
+const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
 const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
 const FIRE_AT = 380, END_AT = 820;       // metres: where the tail catches fire, where the run ends
 const LAMPS_FOR_POWER = 20, GIANT_SECS = 5;   // lamps that fill the strength meter; how long he stays giant
