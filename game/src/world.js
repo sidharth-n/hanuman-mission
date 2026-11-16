@@ -64,8 +64,16 @@ export class World {
     this.flameMat = new THREE.SpriteMaterial({ map: this.flameTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.poolMat = new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,150,60,0.32)', 'rgba(255,110,30,0.12)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     this.poolGeo = new THREE.CircleGeometry(6.5, 24).rotateX(-Math.PI / 2);
-    this.coinGeo = new THREE.CylinderGeometry(0.24, 0.24, 0.06, 20).rotateX(Math.PI / 2);
-    this.coinMat = new THREE.MeshStandardMaterial({ color: 0xffc64a, emissive: 0xb87a14, emissiveIntensity: 1, metalness: 0.55, roughness: 0.35 });
+    // what he collects: small oil lamps, each a single picture that always faces the camera
+    this.lampMat = new THREE.SpriteMaterial({ depthWrite: false, map: canvasTexture(128, (g, s) => {
+      const glow = g.createRadialGradient(s / 2, s * 0.42, 0, s / 2, s * 0.42, s * 0.5);
+      glow.addColorStop(0, 'rgba(255,190,90,0.75)'); glow.addColorStop(0.45, 'rgba(255,130,30,0.28)'); glow.addColorStop(1, 'rgba(255,110,20,0)');
+      g.fillStyle = glow; g.fillRect(0, 0, s, s);
+      g.fillStyle = '#c9902e'; g.beginPath(); g.ellipse(s / 2, s * 0.66, s * 0.2, s * 0.11, 0, 0, Math.PI); g.fill();      // the bowl
+      g.fillStyle = '#f2c35a'; g.fillRect(s * 0.3, s * 0.64, s * 0.4, s * 0.035);
+      const flame = (w, h, c) => { g.fillStyle = c; g.beginPath(); g.moveTo(s / 2, s * 0.64 - h); g.bezierCurveTo(s / 2 + w, s * 0.64 - h * 0.45, s / 2 + w * 0.8, s * 0.64, s / 2, s * 0.64); g.bezierCurveTo(s / 2 - w * 0.8, s * 0.64, s / 2 - w, s * 0.64 - h * 0.45, s / 2, s * 0.64 - h); g.fill(); };
+      flame(s * 0.13, s * 0.4, '#ff9a2a'); flame(s * 0.08, s * 0.28, '#ffe08a'); flame(s * 0.04, s * 0.16, '#fffbe6');
+    }) });
 
     this.torches = [new THREE.PointLight(0xff8a3c, 0, 26, 1.6), new THREE.PointLight(0xff8a3c, 0, 26, 1.6)];
     this.torches.forEach(l => scene.add(l));
@@ -175,7 +183,7 @@ export class World {
       });
       const arc = row[coinLane] && KIND[row[coinLane]] === 'low';
       if (r() < 0.8) for (let k = 0; k < 5; k++) {
-        const c = new THREE.Mesh(this.coinGeo, this.coinMat), dz = (k - 2) * 1.5;
+        const c = new THREE.Sprite(this.lampMat), dz = (k - 2) * 1.5; c.scale.setScalar(0.85);
         c.position.set(LANES[coinLane], 1.0 + (arc ? Math.max(0, 1.5 - Math.abs(dz) * 0.5) : 0), z - dz); g.add(c);
         chunk.coins.push({ mesh: c, x: c.position.x, y: c.position.y, z: g.position.z + c.position.z, got: false });
       }
@@ -199,7 +207,7 @@ export class World {
     this.twinkle[0].opacity = 0.55 + Math.sin(this.time * 2.3) * 0.35; this.twinkle[1].opacity = 0.55 + Math.sin(this.time * 1.7 + 2) * 0.35;
 
     for (const f of this.flames) { const s = 1.7 + Math.sin(this.time * 11 + f.userData.seed) * 0.22 + Math.sin(this.time * 23 + f.userData.seed * 3) * 0.12; const b = f.userData.base; f.scale.set(s * b, s * 1.25 * b, 1); }
-    for (const c of this.chunks.values()) for (const k of c.coins) if (!k.got) k.mesh.rotation.y += dt * 4;
+    for (const c of this.chunks.values()) for (const k of c.coins) if (!k.got) k.mesh.position.y = k.y + Math.sin(this.time * 3 + k.z) * 0.07;
 
     // two real lights ride on the nearest braziers ahead of him; the rest of the glow is painted on
     const near = [];

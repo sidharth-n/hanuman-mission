@@ -9,12 +9,13 @@ import { listen } from './input.js';
 const KIT = ['market-stall', 'street-arch', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
 const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
 const FIRE_AT = 380, END_AT = 820;       // metres: where the tail catches fire, where the run ends
+const LAMPS_FOR_POWER = 20, GIANT_SECS = 5;   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
 
 const $ = id => document.getElementById(id);
 const ui = { screen: $('screen'), line: $('line'), bar: $('bar'), fill: $('bar').firstElementChild, go: $('go'), how: $('how'),
-  hud: $('hud'), dist: $('dist'), gold: $('gold'), alert: $('alert'), fps: $('fps'), title: document.querySelector('#screen h1') };
+  hud: $('hud'), dist: $('dist'), gold: $('gold'), goldLabel: $('goldLabel'), meter: $('meter'), fill2: $('meter').firstElementChild, alert: $('alert'), fps: $('fps'), title: document.querySelector('#screen h1') };
 const debug = new URLSearchParams(location.search).has('debug');
 const t0 = performance.now();
 
@@ -33,7 +34,8 @@ const moon = new THREE.DirectionalLight(0xb4c4ff, 2.4); moon.position.set(-18, 4
 const camera = new THREE.PerspectiveCamera(56, 1, 0.3, 700);
 
 const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, alertT: 0, falling: [],
-  tscale: 1, slowT: 0, slowK: 1, intro: 0, low: 0 };      // slow motion, opening sweep, low hero shot
+  tscale: 1, slowT: 0, slowK: 1, intro: 0, low: 0,        // slow motion, opening sweep, low hero shot
+  meter: 0, giant: 0, big: 0, burned: 0 };                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
 let hero, world, tailFire, tailLight;
 
 function resize() {
@@ -72,7 +74,8 @@ function ready(line, label) {
 function start() {
   world.reset(); hero.reset();
   Object.assign(state, { mode: 'run', speed: START_SPEED, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
-    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false });
+    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, meter: 0, giant: 0, big: 0, burned: 0 });
+  ui.goldLabel.textContent = 'lamps'; ui.meter.classList.remove('full');
   world.behind = 3;
   tailFire.visible = false; tailLight.intensity = 0;
   ui.title.textContent = 'Hanuman Mission';
@@ -86,7 +89,8 @@ function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = 
 function hit(o, chunk) {
   o.done = true;
   state.falling.push({ mesh: o.mesh, t: 0, dir: o.x <= hero.root.position.x ? -1 : 1 });
-  if (state.fire) { world.burn(o, chunk); state.gold += 3; state.shake = 0.25; return; }
+  if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; return; }
+  if (state.big > 0.3) { state.shake = 0.3; return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
   state.danger = 6; state.slow = 1; state.shake = 0.5; slowMotion(0.14, 0.12);
   hero.stumble(); say('The guards are closing in');
@@ -106,7 +110,7 @@ function ignite() {
 function won() {
   state.mode = 'over'; hero.play('mutant_roaring', { once: true, fade: 0.2 });
   ui.title.textContent = 'Lanka burns';
-  ready(`${Math.round(state.dist)} metres, ${state.gold} gold. Sita's message is on its way to Rama.`, 'Run again'); ui.hud.hidden = true; ui.alert.hidden = true;
+  ready(`${Math.round(state.dist)} metres · ${state.gold} lamps · ${state.burned} burned`, 'Run again'); ui.hud.hidden = true; ui.alert.hidden = true;
 }
 
 function rules(dt) {
@@ -115,22 +119,25 @@ function rules(dt) {
   if (state.slow > 0) state.slow = Math.max(0, state.slow - dt * 1.1);
   const p = hero.root.position;
   state.dist = -p.z;
+  if (state.giant > 0) state.giant -= dt;
+  state.big += ((state.giant > 0 ? 1 : 0) - state.big) * Math.min(1, dt * 4);
   if (!state.fire && state.dist >= FIRE_AT) ignite();
   if (state.fire) {
     state.blaze = Math.min(1, state.blaze + dt * 0.35);
     state.grow = Math.min(1, Math.max(0, (state.dist - FIRE_AT - 140) / 160));
     if (state.grow > 0 && !state.grown) { state.grown = true; slowMotion(1.1, 0.35); state.low = 2.4; }
-    hero.root.scale.setScalar(1 + state.grow * 0.9);
-    state.gold += world.igniteUpTo(p.z);
+    state.burned += world.igniteUpTo(p.z);
     if (state.dist >= END_AT) return won();
   }
+  hero.root.scale.setScalar(1 + Math.max(state.grow, state.big) * 0.9);
+  const smash = state.fire || state.big > 0.3;
   const reach = 1.05 * hero.root.scale.x;
   for (const c of world.nearby(p.z)) {
     for (const o of c.obstacles) {
       if (o.done || Math.abs(o.z - p.z) > o.hd + 0.35 || Math.abs(o.x - p.x) > reach) continue;
-      const clear = !state.fire && (o.kind === 'low' ? hero.y > 0.75 : o.kind === 'high' ? hero.sliding : false);
+      const clear = !smash && (o.kind === 'low' ? hero.y > 0.75 : o.kind === 'high' ? hero.sliding : false);
       if (!clear) hit(o, c);
-      else if (!o.near && !state.fire) {       // cleared it: if he left it late, slow the moment down
+      else if (!o.near && !smash) {       // cleared it: if he left it late, slow the moment down
         o.near = true;
         if ((o.kind === 'low' ? hero.jumpZ : hero.slideZ) - o.z < 3.3) slowMotion(0.3, 0.38);
       }
@@ -139,6 +146,10 @@ function rules(dt) {
     for (const k of c.coins) {
       if (k.got || Math.abs(k.z - p.z) > 0.8 || Math.abs(k.x - p.x) > reach || Math.abs(k.y - (hero.y + 1)) > 1.3 * hero.root.scale.x) continue;
       k.got = true; k.mesh.visible = false; state.gold++;
+      if (!state.fire && state.giant <= 0 && state.meter < 1) {
+        state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
+        if (state.meter >= 1) { ui.meter.classList.add('full'); say('Strength is full. Tap to grow', 2.6); }
+      }
     }
   }
 }
@@ -149,6 +160,13 @@ const view = { fov: 60, dip: 0, air: false };
 const ease = t => t * t * (3 - 2 * t);
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
 
+// Strength meter full and a tap: he grows giant for a few seconds and nothing in the street can stop him.
+function usePower() {
+  if (state.meter < 1 || state.fire || state.giant > 0) return;
+  state.meter = 0; state.giant = GIANT_SECS; state.danger = 0; ui.meter.classList.remove('full');
+  slowMotion(0.7, 0.35); state.low = 1.7; state.shake = 0.4;
+}
+
 // The chase camera: close behind and above so he fills the lower third; it lags a little on lane changes, rises less
 // than he does on a jump, drops with a slide, widens with speed and pushes in during slow motion.
 function placeCamera(dt, snap) {
@@ -157,8 +175,9 @@ function placeCamera(dt, snap) {
   const slow = 1 - state.tscale, low = ease(Math.min(1, state.low));
   if (view.air && !hero.airborne) view.dip = 0.28;      // landing
   view.air = hero.airborne; view.dip *= Math.exp(-dt * 9);
-  let back = (tall ? 5.2 : 4.3) * (0.55 + 0.45 * k) + state.grow * 2.6;
-  let height = (tall ? 3.3 : 2.55) * (0.6 + 0.4 * k) + state.grow * 2.0 + hero.y * 0.4 - (hero.sliding ? 0.45 : 0) - view.dip;
+  const big = Math.max(state.grow, state.big);
+  let back = (tall ? 5.2 : 4.3) * (0.55 + 0.45 * k) + big * 2.6;
+  let height = (tall ? 3.3 : 2.55) * (0.6 + 0.4 * k) + big * 2.0 + hero.y * 0.4 - (hero.sliding ? 0.45 : 0) - view.dip;
   back = back * (1 - 0.32 * low) - slow * 0.8; height *= 1 - 0.62 * low;
   const lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8;
 
@@ -210,7 +229,11 @@ function frame(now) {
   placeCamera(real, false);
   renderer.render(scene, camera);
 
-  if (running) { ui.dist.textContent = Math.round(state.dist); ui.gold.textContent = state.gold; }
+  if (running) {
+    ui.dist.textContent = Math.round(state.dist); ui.gold.textContent = state.fire ? state.burned : state.gold;
+    if (state.fire) ui.goldLabel.textContent = 'burned';
+    ui.fill2.style.width = `${Math.round((state.giant > 0 ? state.giant / GIANT_SECS : state.fire ? 1 : state.meter) * 100)}%`;
+  }
   if (state.alertT > 0) { state.alertT -= dt; if (state.alertT <= 0) ui.alert.hidden = true; }
 
   // keep it smooth: if frames run long, render fewer pixels rather than stutter
@@ -225,7 +248,8 @@ function frame(now) {
 }
 
 listen(window, dir => {
-  if (state.mode === 'run' && dir !== 'tap') hero.move(dir);
+  if (state.mode !== 'run') return;
+  if (dir === 'tap') usePower(); else hero.move(dir);
 });
 ui.go.addEventListener('click', () => { if (state.mode === 'ready' || state.mode === 'over') start(); });
 window.addEventListener('keydown', e => { if (e.key === 'Enter' && !ui.go.hidden && state.mode !== 'run') start(); });

@@ -6,6 +6,11 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--night)
 #hud { position: fixed; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; pointer-events: none;
   padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 0 calc(16px + env(safe-area-inset-left)); }
 #hud[hidden], #alert[hidden], #fps[hidden], #screen[hidden], #go[hidden], #how[hidden], #bar[hidden] { display: none; }
+#meter { align-self: flex-start; margin-top: 8px; width: min(40vw, 230px); height: 12px; border-radius: 7px; overflow: hidden;
+  background: rgba(0, 0, 0, .5); border: 1px solid rgba(232, 180, 76, .75); box-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+#meter i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #e8b44c, #ff8a2a); }
+#meter.full { animation: ready .7s ease-in-out infinite alternate; }
+@keyframes ready { from { box-shadow: 0 0 4px rgba(255, 170, 60, .5); } to { box-shadow: 0 0 18px 4px rgba(255, 170, 60, .95); } }
 .stat { display: flex; flex-direction: column; text-shadow: 0 2px 8px #000; }
 .stat.right { align-items: flex-end; }
 .stat span { font: 700 30px/1 Georgia, serif; color: var(--gold); font-variant-numeric: tabular-nums; }

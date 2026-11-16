@@ -18,7 +18,8 @@
 <canvas id="view"></canvas>
 <div id="hud" hidden>
   <div class="stat"><span id="dist">0</span><small>metres</small></div>
-  <div class="stat right"><span id="gold">0</span><small>gold</small></div>
+  <div id="meter" title="Strength"><i></i></div>
+  <div class="stat right"><span id="gold">0</span><small id="goldLabel">lamps</small></div>
 </div>
 <div id="alert" hidden></div>
 <div id="fps" hidden></div>
@@ -27,7 +28,7 @@
   <p id="line">Entering Lanka…</p>
   <div id="bar"><i></i></div>
   <button id="go" hidden>Run</button>
-  <p id="how" hidden>Swipe left or right to change lane · up to jump · down to slide</p>
+  <p id="how" hidden>Swipe left or right to change lane · up to jump · down to slide · collect lamps, then tap to grow</p>
 </div>
 <script type="module" src="/src/main.js"></script>
 </body>
