@@ -107,6 +107,9 @@ const allModels = m.assets.flatMap(a => list('assets/lux3d')
   .sort((x, y) => (y.includes('g1') - x.includes('g1')) || x.localeCompare(y))
   .map(d => ({ id: d, name: a.name, kind: d === a.test3d ? 'Text-to-3D test' : d.endsWith('-g1-multiview') ? 'G1 · 3 views' : d.endsWith('-g1') ? 'G1 · best' : 'Turbo',
     mb: (statSync(`${root}assets/lux3d/${d}/model.glb`).size / 1e6).toFixed(1) })));
+const games = list('game-assets').filter(f => f.endsWith('.glb')).map(f => ({ id: 'game-' + f.replace('.glb',''), src: '../../game-assets/' + f,
+  name: f.replace('.glb','').replace(/^./, c => c.toUpperCase()), kind: 'Game version · rigged + animated', mb: (statSync(`${root}game-assets/${f}`).size / 1e6).toFixed(1) }));
+allModels.unshift(...games);
 const viewer = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(m.game)} · 3D viewer</title>
 <script type="module" src="https://unpkg.com/@google/model-viewer@4/dist/model-viewer.min.js"></script>
@@ -117,15 +120,18 @@ button{display:block;width:100%;text-align:left;background:#18130e;color:#f3e9d8
 button span{display:block;color:#a8977f;font-size:12px}button.on{border-color:#e8b44c;background:#2a1f12}
 main{position:relative}model-viewer{width:100%;height:100%;background:radial-gradient(#3b3530,#141110)}
 .cap{position:absolute;left:16px;top:12px;font:600 20px Georgia,serif;color:#e8b44c;text-shadow:0 1px 4px #000}.cap span{display:block;font:13px system-ui;color:#d8c9b0}
+.anims{position:absolute;right:12px;top:12px;bottom:12px;width:190px;overflow:auto;display:flex;flex-direction:column;gap:4px}.anims button{margin:0;padding:6px 10px;font-size:12px;text-transform:capitalize;background:#18130ecc}
 .load{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:#000a;padding:6px 12px;border-radius:99px;color:#e8b44c;font-size:13px}
 a{color:#e8b44c}@media (max-width:700px){.wrap{grid-template-columns:1fr;grid-template-rows:42% 58%}nav{order:2;border:0;border-top:1px solid #3a2c1c}}</style></head><body>
 <div class="wrap"><nav><h1>3D viewer</h1><p class="hint">Real Lux3D models. Drag to turn, scroll or pinch to zoom, right-drag to move. <a href="index.html">Back to library</a></p><div id="list"></div></nav>
 <main><model-viewer id="mv" camera-controls auto-rotate shadow-intensity="1" exposure="1.15" environment-image="neutral" interaction-prompt="none"></model-viewer>
-<div class="cap" id="cap"></div><div class="load" id="load">Loading…</div></main></div>
-<script>const M=${JSON.stringify(allModels)};const mv=document.getElementById('mv'),list=document.getElementById('list');
-function show(i){const x=M[i];mv.src='../lux3d/'+x.id+'/model.glb';document.getElementById('cap').innerHTML=x.name+'<span>'+x.kind+' · '+x.mb+' MB raw</span>';
+<div class="cap" id="cap"></div><div class="anims" id="anims"></div><div class="load" id="load">Loading…</div></main></div>
+<script>const M=${JSON.stringify(allModels)};const mv=document.getElementById('mv'),list=document.getElementById('list'),anims=document.getElementById('anims');
+function show(i){const x=M[i];mv.src=x.src||('../lux3d/'+x.id+'/model.glb');anims.innerHTML='';document.getElementById('cap').innerHTML=x.name+'<span>'+x.kind+' · '+x.mb+' MB raw</span>';
 document.getElementById('load').style.display='block';[...list.children].forEach((b,j)=>b.classList.toggle('on',i===j));history.replaceState(null,'','#'+x.id)}
-mv.addEventListener('load',()=>document.getElementById('load').style.display='none');
+mv.addEventListener('load',()=>{document.getElementById('load').style.display='none';const a=mv.availableAnimations||[];
+if(a.length){a.forEach(n=>{const b=document.createElement('button');b.textContent=n.replace(/_/g,' ');b.onclick=()=>{mv.animationName=n;mv.currentTime=0;mv.play();[...anims.children].forEach(c=>c.classList.toggle('on',c===b))};anims.appendChild(b)});
+const first=a.includes('fast_run')?'fast_run':a[0];mv.animationName=first;mv.play();[...anims.children].forEach(c=>c.classList.toggle('on',c.textContent===first.replace(/_/g,' ')));}});
 mv.addEventListener('progress',e=>{document.getElementById('load').textContent='Loading '+Math.round(e.detail.totalProgress*100)+'%'});
 M.forEach((x,i)=>{const b=document.createElement('button');b.innerHTML=x.name+'<span>'+x.kind+' · '+x.mb+' MB</span>';b.onclick=()=>show(i);list.appendChild(b)});
 const start=Math.max(0,M.findIndex(x=>x.id===location.hash.slice(1)));show(start);</script></body></html>`;
