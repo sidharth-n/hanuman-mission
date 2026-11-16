@@ -78,7 +78,8 @@ window.addEventListener('resize', resize); resize();
 async function load() {
   const loader = new GLTFLoader(); let done = 0;
   const names = [...CAST, 'gada', 'guard-sword', ...KIT];
-  const one = name => loader.loadAsync(`assets/${CAST.includes(name) ? '' : 'world/'}${name}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
+  const file = name => name === 'hanuman' && query.get('hero') === 'b' ? 'hanuman-b' : name;      // ?hero=b plays a second build of him, when one lies beside the first
+  const one = name => loader.loadAsync(`assets/${CAST.includes(name) ? '' : 'world/'}${file(name)}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
   const tl = new THREE.TextureLoader();
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);

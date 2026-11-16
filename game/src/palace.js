@@ -343,3 +343,60 @@ export function dropBeam() {
   for (const x of [-2.4, 0, 2.4]) for (const z of [-0.31, 0.31]) b.lathe(x, z, 0.24, [[0.07, 0], [0.07, 0.14]], 'gold', 6, 1.6);
   return b.geometry();
 }
+
+// ── Places of the story ─────────────────────────────────────────────────────────────────────────────────────────
+const ball = (r, n = 6) => Array.from({ length: n + 1 }, (_, i) => [Math.sin(i / n * Math.PI) * r, (1 - Math.cos(i / n * Math.PI)) * r]);
+
+// Ravana's throne on its dais: three broad steps of marble with a runner up the middle, the seat between two
+// carved arms, and behind it a high back of beaten gold between two columns. z: where the seat stands in its
+// stretch; top: the height of the dais; seat: the height of the seat above it.
+export function throneModule(z, top, seat) {
+  const b = new Builder(), o = { ground: false }, lights = [], T = top, rise = top / 3;
+  [[12, 7.6], [10, 6.2], [8, 4.9]].forEach(([w, d], i) => {
+    const c = z + 1.6 - i * 0.2, y = i * rise, front = c + d / 2;
+    b.box(-w / 2, w / 2, y, y + rise, c - d / 2, front, 'lotus', { ...o, faces: 'flr', tile: [2.4, rise], shade: 1.05 });
+    b.box(-w / 2, w / 2, y, y + rise, c - d / 2, front, 'pfloor', { ...o, faces: 't', tile: [2.5, 2.5], shade: 1.15 });
+    // the runner climbs the steps with him
+    b.box(-1.9, 1.9, y + rise, y + rise + 0.012, c - d / 2 + (i === 2 ? d / 2 - 0.7 : 0), front + 0.012, 'carpet', { ...o, faces: 't', tile: [1.9, 1.9], shade: 0.75 });
+    b.panel(-1.9, 1.9, y, y + rise + 0.012, front + 0.012, 'carpet', { fit: false, tile: [1.9, 1.9], shade: 0.6 });
+    for (const s of [-1, 1]) b.box(Math.min(s * 1.9, s * 2.02), Math.max(s * 1.9, s * 2.02), y, y + rise + 0.016, front - 0.02, front + 0.016, 'gold', { ...o, faces: 'f', shade: 1.3 });
+  });
+  // the seat: a carved body, a slab of gold, a cushion
+  b.box(-1.26, 1.26, T, T + seat - 0.2, z - 0.72, z + 0.74, 'frieze', { ...o, faces: 'flr', tile: [2.52, seat - 0.2], shade: 1.05 });
+  b.box(-1.32, 1.32, T + seat - 0.2, T + seat, z - 0.78, z + 0.82, 'lotus', { ...o, faces: 'flrt', tile: [1.32, 0.2], top: 'gold', shade: 1.1 });
+  b.box(-1.1, 1.1, T + seat, T + seat + 0.1, z - 0.66, z + 0.74, 'carpet', { ...o, faces: 'flrt', tile: [1.1, 1.1], shade: 0.95 });
+  // the arms, each ending in a golden ball
+  for (const s of [-1, 1]) {
+    const x0 = Math.min(s * 1.26, s * 1.66), x1 = Math.max(s * 1.26, s * 1.66), y1 = T + seat + 0.56;
+    b.box(x0, x1, T, y1 - 0.14, z - 0.78, z + 0.86, 'ppillar', { ...o, faces: 'flr', tile: [0.9, 1.8], shade: 1.05 });
+    b.box(x0 - 0.04, x1 + 0.04, y1 - 0.14, y1, z - 0.82, z + 0.9, 'lotus', { ...o, faces: 'flrt', tile: [0.9, 0.14], top: 'gold', shade: 1.1 });
+    b.lathe(s * 1.46, z + 0.72, y1, ball(0.21), 'gold', 12, 1.15);
+    // a column on each side of the back, crowned with a finial
+    column(b, s * 2.42, z - 0.92, T, T + 6.5, 0.62);
+    b.finial(s * 2.42, z - 0.92, T + 6.5, 1.5);
+  }
+  // the high back: an arch of beaten gold, and over it a crown
+  b.box(-2.05, 2.05, T, T + 6.3, z - 1.16, z - 0.8, 'ppillar', { ...o, faces: 'lr', tile: [0.9, 1.8], shade: 1.1 });
+  b.panel(-2.05, 2.05, T, T + 6.3, z - 0.8, 'pdoor', { shade: 1.05 });
+  b.box(-2.3, 2.3, T + 6.3, T + 6.72, z - 1.2, z - 0.72, 'frieze', { ...o, faces: 'flrtd', tile: [2.3, 0.42], top: 'gold', shade: 1.1 });
+  b.box(-1.5, 1.5, T + 6.72, T + 7.0, z - 1.14, z - 0.78, 'lotus', { ...o, faces: 'flrt', tile: [1.5, 0.28], top: 'gold', shade: 1.15 });
+  b.finial(0, z - 0.96, T + 7.0, 1.9);
+  for (const s of [-1, 1]) b.finial(s * 1.2, z - 0.96, T + 7.0, 1.1);
+  // the flames before the throne are painted into the gold
+  lit(lights, 0, T + 3.2, z + 2.6, 5.5, 0.6);
+  for (const s of [-1, 1]) { lit(lights, s * 5, 1.9, z + 5.6, 5, 0.8); lit(lights, s * 3, T + 1.6, z + 1.6, 3, 0.3); }
+  return b.geometry(lights);
+}
+
+// A round seat of old stone with a carved rim. r: its radius; h: its height.
+export function stoneSeat(r, h) {
+  const b = new Builder(), N = 14, at = (k, rr, y) => [Math.cos(k / N * Math.PI * 2) * rr, y, Math.sin(k / N * Math.PI * 2) * rr], o = { ground: false, color: [0.74, 0.82, 1] };
+  for (let k = 0; k < N; k++) {
+    const m = (k + 0.5) / N * Math.PI * 2, out = [Math.cos(m), 0, Math.sin(m)], shade = 0.8 + 0.3 * Math.max(0, -out[0] * 0.6 + out[2] * 0.8);
+    b.face([at(k, r - 0.05, 0), at(k + 1, r - 0.05, 0), at(k + 1, r - 0.05, h - 0.13), at(k, r - 0.05, h - 0.13)], 'stone', out, { ...o, tile: [1.4, 1.4], shade });
+    b.face([at(k, r, h - 0.13), at(k + 1, r, h - 0.13), at(k + 1, r, h), at(k, r, h)], 'lotus', out, { ...o, fit: true, shade: shade * 0.95 });
+    b.face([at(k, r - 0.05, h - 0.13), at(k + 1, r - 0.05, h - 0.13), at(k + 1, r, h - 0.13), at(k, r, h - 0.13)], 'dark', [0, -1, 0], o);
+  }
+  b.face(Array.from({ length: N }, (_, k) => at(k, r, h)), 'stone', [0, 1, 0], { ...o, tile: [1.4, 1.4], shade: 1.1 });
+  return b.geometry();
+}

@@ -24,7 +24,7 @@ export function createSound(store) {
 
   if (ctx) {
     out.gain.value = on ? 1 : 0; out.connect(ctx.destination);
-    const get = (name, url) => fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => new Promise((ok, no) => ctx.decodeAudioData(b, ok, no)))
+    const get = (name, url) => fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => new Promise((ok, no) => { const p = ctx.decodeAudioData(b, ok, no); if (p && p.catch) p.catch(() => {}); }))      // a missing file must not raise an error of its own
       .then(buf => { buffers[name] = buf; }).catch(() => {});
     get('chant', TRACKS + 'chant.mp3');
     for (const name of Object.keys(LEVEL)) if (name !== 'chant') get(name, EFFECTS + name + '.mp3');

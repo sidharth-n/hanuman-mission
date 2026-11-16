@@ -5,6 +5,14 @@ import * as THREE from 'three';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
 const ease = t => t * t * (3 - 2 * t);
+const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
+// Turn a bone so that the line from it to the bone below points along dir in the world.
+function aim(bone, child, dir) {
+  bone.updateWorldMatrix(true, true); bone.getWorldQuaternion(_w);
+  bone.getWorldPosition(_a); child.getWorldPosition(_b).sub(_a).normalize();
+  _q.setFromUnitVectors(_b, dir.normalize());
+  bone.parent.getWorldQuaternion(_p); bone.quaternion.copy(_p.invert().multiply(_w.premultiply(_q)));
+}
 
 export class Actor {
   // height: how tall he or she stands in the world, in metres
@@ -19,6 +27,8 @@ export class Actor {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {}; for (const clip of gltf.animations) this.actions[clip.name] = this.mixer.clipAction(clip);
     this.current = null; this.name = null; this.moves = null;
+    this.legs = ['Left', 'Right'].map(side => ['UpLeg', 'Leg', 'Foot'].map(part => this.model.getObjectByName('mixamorig' + side + part)));
+    this.knees = 0;      // seated, how far the knees are brought together (0 as animated, 1 touching): a long skirt tears when they sit apart
     const blob = new THREE.Mesh(new THREE.CircleGeometry(height * 0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.blob = blob; this.root.add(blob);
   }
@@ -53,6 +63,15 @@ export class Actor {
       if (u >= 1) { this.moves = null; if (m.then !== null) this.root.rotation.y = m.then; this.play(m.after, { fade: 0.3 }); }
     }
     this.mixer.update(dt);
+    if (this.knees > 0 && this.name && this.name.startsWith('sit') && this.legs[0][0] && this.legs[1][0]) {
+      const at = this.legs.map(l => l.map(b => b.getWorldPosition(new THREE.Vector3())));
+      const mid = at[0][1].clone().add(at[1][1]).multiplyScalar(0.5);
+      this.legs.forEach(([up, low, foot], i) => {
+        const shin = at[i][2].clone().sub(at[i][1]);
+        aim(up, low, at[i][1].clone().lerp(mid, this.knees).sub(at[i][0]));
+        aim(low, foot, shin);      // the shin hangs as it did
+      });
+    }
   }
 }
 

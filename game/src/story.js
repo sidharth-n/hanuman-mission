@@ -19,6 +19,7 @@ export function createStory(g) {
   const { hero, fight, director } = g;
   const sita = new Actor(g.models.sita, 1.72), ravana = new Actor(g.models.ravana, 2.75);
   g.scene.add(sita.root, ravana.root);
+  sita.knees = 0.8; sita.model.traverse(o => { if (o.isMesh) o.material.side = THREE.DoubleSide; });      // seated, the folds of her sari open: their inner side must show as cloth, not as holes
   const lankini = fight.boss, escort = [fight.guards[6], fight.guards[7]];
   // a small bright thing passed from hand to hand: Rama's ring, Sita's jewel
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
@@ -70,7 +71,7 @@ export function createStory(g) {
     done.grove = true; g.hold(); G = g.groundAt(sitaAt.z);
     const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, perch = [sx + 1.7, sz - 1.5, 4.3];
     const yaw = yawTo(rx - sx, rz - sz);
-    sita.place(sx + Math.sin(yaw) * 0.32, G, sz + Math.cos(yaw) * 0.32, yaw); sita.play('sit', { fade: 0 });
+    sita.place(sx + Math.sin(yaw) * SITA.edge, G, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0 });
     ravana.place(sx - 5.5, G, sz + 10, 0); ravana.play('idle', { fade: 0 });
     standGuards([[rx - 2.2, rz + 2.6, yawTo(1, -0.9)], [rx + 0.6, rz + 3.6, yawTo(0.3, -1)]]);
     putHero(perch[0], perch[1], heroYaw(sx - perch[0], sz - perch[1]), 'crouched_walking', perch[2]); hero.current.timeScale = 0.02;      // crouched on a branch, still
@@ -81,7 +82,7 @@ export function createStory(g) {
     director.play(beats('grove_ravana', [
       onHanuman,
       { ...fromTree, do: () => ravana.walk(rx, rz, 3.4, { then: yawTo(sx - rx, sz - rz) }) },
-      { ...onRavana, do: () => ravana.play('talk') },
+      { ...onRavana, do: () => { ravana.place(rx, G, rz, yawTo(sx - rx, sz - rz)); ravana.play('talk'); } },      // there already, even if the line before was tapped past
       { ...onSita, do: () => { ravana.play('idle'); sita.play('sit_talk'); } },
       { ...shot(v(sx - 1.5, 1.1, sz + 1.0), v(sx, 1.05, sz + 0.2), { to: v(sx - 1.2, 1.08, sz + 0.8), fov: 36 }), do: () => sita.play('sit_talk') },
       shot(v(sx + 1.2, 1.45, sz - 1.2), v(rx, 2.2, rz), { to: v(sx + 0.9, 1.4, sz - 0.9), fov: 48 }),
@@ -94,7 +95,7 @@ export function createStory(g) {
     g.hold(); const sx = sitaAt.x, sz = sitaAt.z, hx = sx - 2.0, hz = sz + 2.1;
     ravana.hide(); escort.forEach(e => { e.reset(); e.leave = 0; });
     const yaw = yawTo(hx - sx, hz - sz);
-    sita.place(sx + Math.sin(yaw) * 0.32, G, sz + Math.cos(yaw) * 0.32, yaw); sita.play('sit', { fade: 0.2 });
+    sita.place(sx + Math.sin(yaw) * SITA.edge, G, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0.2 });
     const perch = [sx + 1.7, sz - 1.5, 4.3];
     const down = () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.1 }); };
     const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0, sz + 0.5];

@@ -6,7 +6,7 @@ import * as palace from './palace.js';
 
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
-export const SITA = { n: 2, x: 3.4, z: -11, seat: 0.5 };            // her stone seat under the great tree
+export const SITA = { n: 2, x: 3.4, z: -11, seat: 0.5, edge: 0.46 };      // her stone seat under the great tree, and how far forward of its middle she sits
 export const TREE = { n: 2, x: 7.2, z: -14.6 };                      // the great tree Hanuman hides in
 export const THRONE = { n: 1, z: -17, top: 1.05, seat: 0.92 };       // the dais and the seat of the throne
 export const STAND = { n: 1, z: -6 };                                // where Hanuman is made to stand before it
@@ -52,7 +52,7 @@ function garden(world) {
     haloMat: new THREE.SpriteMaterial({ map: glow('rgba(235,242,255,0.34)', 'rgba(150,185,255,0.13)'), blending: THREE.AdditiveBlending, ...common }),
     stoneMat: new Solid({ color: 0x4f5964, ...pbr }),
     mistMat: new THREE.SpriteMaterial({ map: glow('rgba(190,215,255,0.5)', 'rgba(140,180,255,0.16)'), blending: THREE.AdditiveBlending, opacity: 0.5, ...common }), pondGeo: new THREE.CircleGeometry(4.6, 28).rotateX(-Math.PI / 2),
-    seatGeo: new THREE.CylinderGeometry(1.25, 1.4, SITA.seat, 20), postGeo: new THREE.BoxGeometry(0.34, 1.05, 0.34), capGeo: new THREE.ConeGeometry(0.36, 0.3, 4),
+    seatGeo: palace.stoneSeat(0.8, SITA.seat), postGeo: new THREE.BoxGeometry(0.34, 1.05, 0.34), capGeo: new THREE.ConeGeometry(0.36, 0.3, 4),
   };
   return world.garden;
 }
@@ -96,10 +96,10 @@ export function grove(world, chunk, c, r) {
   }
   if (here) {      // the great tree, her seat beneath it, and a soft light that seems to come from her
     const t = world.spawn('ashoka-great'); t.position.set(TREE.x, 0, TREE.z); t.rotation.y = 2.2; g.add(t);
-    const seat = new THREE.Mesh(k.seatGeo, k.stoneMat); seat.position.set(SITA.x, SITA.seat / 2, SITA.z); g.add(seat);
+    const seat = world.part(k.seatGeo); seat.position.set(SITA.x, 0, SITA.z); g.add(seat);
     const halo = new THREE.Sprite(k.haloMat); halo.position.set(SITA.x, 1.7, SITA.z); halo.scale.setScalar(8.5); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 8.5 });
     const b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(SITA.x - 1.6, 8.6, SITA.z + 1.2); b.rotation.z = 0.2; g.add(b);
-    for (let i = 0; i < 10; i++) { const a = i / 10 * 6.3, l = new THREE.Sprite(k.lotusMat); l.position.set(SITA.x + Math.cos(a) * 1.75, 0.16, SITA.z + Math.sin(a) * 1.75); l.scale.setScalar(0.42); g.add(l); }
+    for (let i = 0; i < 10; i++) { const a = i / 10 * 6.3, l = new THREE.Sprite(k.lotusMat); l.position.set(SITA.x + Math.cos(a) * 1.5, 0.16, SITA.z + Math.sin(a) * 1.5); l.scale.setScalar(0.42); g.add(l); }
   }
 }
 
@@ -107,7 +107,6 @@ export function grove(world, chunk, c, r) {
 function court(world) {
   if (world.courtKit) return world.courtKit;
   const Solid = world.lite ? THREE.MeshLambertMaterial : THREE.MeshStandardMaterial;
-  const gold = world.lite ? { color: 0xe0a93e, emissive: 0x3a2406 } : { color: 0xe2ab45, metalness: 1, roughness: 0.28, envMapIntensity: 1.6, emissive: 0x241503 };
   const carpet = canvas(128, (g, s) => {
     g.fillStyle = '#6f0f14'; g.fillRect(0, 0, s, s); g.fillStyle = '#d7a23c'; g.fillRect(0, 0, 9, s); g.fillRect(s - 9, 0, 9, s);
     g.fillStyle = '#8f1a1c'; for (let y = 0; y < s; y += 32) { g.beginPath(); g.moveTo(s / 2, y + 4); g.lineTo(s / 2 + 22, y + 16); g.lineTo(s / 2, y + 28); g.lineTo(s / 2 - 22, y + 16); g.fill(); }
@@ -126,7 +125,7 @@ function court(world) {
     for (const q of [0.2, 0.34, 0.47]) { g.beginPath(); g.arc(s / 2, s / 2, s * q, 0, 7); g.stroke(); }
   });
   world.courtKit = {
-    gold: new Solid(gold), dark: new Solid({ color: 0x241a16, ...(world.lite ? {} : { roughness: 0.6, metalness: 0.2 }) }), red: new Solid({ color: 0x8a1418, ...(world.lite ? {} : { roughness: 0.85 }) }),
+    throneGeo: palace.throneModule(THRONE.z, THRONE.top, THRONE.seat),
     carpetMat: new Solid({ map: carpet, ...(world.lite ? {} : { roughness: 0.95, metalness: 0 }) }), carpetGeo: new THREE.PlaneGeometry(4.4, L).rotateX(-Math.PI / 2),
     bannerMat: new THREE.MeshBasicMaterial({ map: banner, side: THREE.DoubleSide }), bannerGeo: new THREE.PlaneGeometry(1.5, 4.8),
     sunMat: new THREE.MeshBasicMaterial({ map: sun, fog: false }), sunGeo: new THREE.CircleGeometry(4.5, 48),
@@ -138,7 +137,6 @@ function court(world) {
 
 export function throne(world, chunk, c, r) {
   const g = chunk.group, k = court(world); chunk.fx = [];
-  const box = (w, h, d, mat, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); m.position.set(x, y, z); g.add(m); return m; };
   g.add(world.part(world.geo.hall));
   if (c.n === 0) g.add(world.part(world.geo.front));
   const carpet = new THREE.Mesh(k.carpetGeo, k.carpetMat); carpet.position.set(0, 0.02, -L / 2); g.add(carpet);
@@ -159,26 +157,13 @@ export function throne(world, chunk, c, r) {
     }
   }
   if (!last) return;
-  // the dais: three broad steps of dark stone edged with gold
-  const Z = THRONE.z;
-  [[12, 7.6, 0], [10, 6.2, 0.35], [8, 4.9, 0.7]].forEach(([w, d, y], i) => { box(w, 0.35, d, k.dark, 0, y + 0.175, Z + 1.6 - i * 0.2); box(w + 0.1, 0.07, d + 0.1, k.gold, 0, y + 0.35, Z + 1.6 - i * 0.2); });
-  const T = THRONE.top;
-  box(2.5, 0.22, 1.6, k.gold, 0, T + THRONE.seat - 0.11, Z);                         // the seat
-  box(2.3, THRONE.seat - 0.22, 1.4, k.dark, 0, T + (THRONE.seat - 0.22) / 2, Z);     // its body
-  box(2.3, 0.1, 1.45, k.red, 0, T + THRONE.seat + 0.05, Z + 0.02);                   // a red cushion
-  box(2.9, 4.6, 0.36, k.gold, 0, T + 2.3, Z - 0.95);                                 // the high back
-  const arch = new THREE.Mesh(new THREE.CylinderGeometry(1.45, 1.45, 0.36, 28, 1, false, 0, Math.PI), k.gold); arch.rotation.set(Math.PI / 2, Math.PI / 2, 0); arch.position.set(0, T + 4.6, Z - 0.95); g.add(arch);
-  box(2.2, 3.4, 0.1, k.red, 0, T + 2.5, Z - 0.74);                                   // red cloth down the back
+  // the dais and the throne on it (palace.js), its guards, and a fire on each side
+  const Z = THRONE.z, T = THRONE.top;
+  g.add(world.part(k.throneGeo));
   for (const s of [-1, 1]) {
-    box(0.4, 0.5, 1.6, k.gold, s * 1.42, T + THRONE.seat + 0.3, Z);                  // armrests, each ending in a golden ball
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.3, 14, 10), k.gold); ball.position.set(s * 1.42, T + THRONE.seat + 0.62, Z + 0.8); g.add(ball);
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 6.6, 8), k.gold); pole.position.set(s * 2.4, T + 3.3, Z - 0.9); g.add(pole);
-    const fin = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.7, 8), k.gold); fin.position.set(s * 2.4, T + 6.95, Z - 0.9); g.add(fin);
     world.brazier(chunk, s * 5, 0, Z + 5.6, r() * 10);
     const guard = world.spawn('courtier'); guard.position.set(s * 3.3, T - 0.35, Z + 0.6); guard.rotation.y = s > 0 ? -0.5 : 0.5; guard.scale.setScalar(1.12); g.add(guard);
   }
-  const shade = new THREE.Mesh(new THREE.ConeGeometry(2.7, 0.9, 20, 1, true), k.red); shade.position.set(0, T + 6.9, Z - 0.2); g.add(shade);      // the royal parasol
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(2.7, 0.07, 6, 28), k.gold); rim.rotation.x = Math.PI / 2; rim.position.set(0, T + 6.46, Z - 0.2); g.add(rim);
   // behind him the wall of the hall, and in its great doorway a disc of beaten gold that catches every flame
   const wall = world.part(world.geo.front); wall.rotation.y = Math.PI; wall.position.z = Z - 3.2; g.add(wall);
   const dark = new THREE.Mesh(new THREE.PlaneGeometry(2 * palace.HALL_HALF, palace.HALL_TOP), k.black); dark.position.set(0, palace.HALL_TOP / 2, Z - 4.6); g.add(dark);
