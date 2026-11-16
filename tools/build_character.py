@@ -56,7 +56,18 @@ for m in meshes:
         bpy.ops.object.modifier_apply(modifier='dec')
     print('MESH', m.name, sum(len(p.vertices) - 2 for p in m.data.polygons), 'tris')
 
-# 4. Every animation FBX: import, keep its action, drop its armature
+# 4. Every animation FBX: import it, copy its motion onto the character, drop its armature.
+# An FBX saved without skin carries no bind pose, so Blender gives its armature a rest pose that differs from the
+# character's (forearms about 23 degrees apart on the guard). Its keyframes are offsets from that rest pose, so playing
+# them on the character bends every limb by the difference. Instead, read where each bone really is on every frame
+# and key the character's own bones to stand in the same place.
+scene = bpy.context.scene
+rest = {b.name: b.matrix_local.copy() for b in arm.data.bones}
+parent = {b.name: (b.parent.name if b.parent else None) for b in arm.data.bones}
+order = [b.name for b in arm.data.bones]  # parents come before children
+for pb in arm.pose.bones:
+    pb.rotation_mode = 'QUATERNION'
+arm.animation_data_create()
 for f in sorted(os.listdir(anim_dir)):
     if not f.lower().endswith('.fbx') or os.path.join(anim_dir, f) == skin_fbx:
         continue
@@ -65,9 +76,42 @@ for f in sorted(os.listdir(anim_dir)):
     new = [o for o in bpy.data.objects if o not in existing]
     a = next((o for o in new if o.type == 'ARMATURE'), None)
     if a and a.animation_data and a.animation_data.action:
-        act = a.animation_data.action
-        act.name = snake(os.path.splitext(f)[0]); act.use_fake_user = True
-        print('ACTION', act.name, int(act.frame_range[1] - act.frame_range[0]), 'frames')
+        src = a.animation_data.action
+        first, last = int(round(src.frame_range[0])), int(round(src.frame_range[1]))
+        act = bpy.data.actions.new(snake(os.path.splitext(f)[0])); act.use_fake_user = True
+        arm.animation_data.action = act
+        frames, prev = {}, {}
+        for fr in range(first, last + 1):
+            scene.frame_set(fr)
+            pose = {n: a.pose.bones[n].matrix.copy() for n in order if n in a.pose.bones}
+            frames[fr] = pose
+            for n in order:
+                if n not in pose:
+                    continue
+                p = parent[n]
+                if p and p in pose:
+                    basis = (rest[p].inverted() @ rest[n]).inverted() @ (pose[p].inverted() @ pose[n])
+                else:
+                    basis = rest[n].inverted() @ pose[n]
+                loc, rot, scl = basis.decompose()
+                if n in prev and rot.dot(prev[n]) < 0:
+                    rot.negate()
+                prev[n] = rot
+                pb = arm.pose.bones[n]
+                pb.location, pb.rotation_quaternion, pb.scale = loc, rot, scl
+                pb.keyframe_insert('location', frame=fr)
+                pb.keyframe_insert('rotation_quaternion', frame=fr)
+                pb.keyframe_insert('scale', frame=fr)
+        # Check: on every frame the character's bones must now sit where the animation's bones sit
+        off_pos = off_rot = 0.0
+        for fr, pose in frames.items():
+            scene.frame_set(fr)
+            for n, m in pose.items():
+                got = arm.pose.bones[n].matrix
+                off_pos = max(off_pos, (got.translation - m.translation).length * arm.scale[0])
+                off_rot = max(off_rot, got.to_quaternion().rotation_difference(m.to_quaternion()).angle * 57.2958)
+        print('ACTION', act.name, last - first, 'frames; furthest bone from the source: %.5f m, %.3f deg' % (off_pos, off_rot))
+        bpy.data.actions.remove(src)
     for o in new:
         bpy.data.objects.remove(o, do_unlink=True)
 
