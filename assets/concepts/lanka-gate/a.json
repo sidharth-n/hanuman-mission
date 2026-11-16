@@ -1,0 +1,17 @@
+{
+  "asset": "lanka-gate",
+  "variant": "a",
+  "prompt": "The colossal golden gate of the demon city of Lanka from the Ramayana: a huge carved gateway in towering gold and dark stone walls, demon-face carvings, bronze doors, torches on both sides. Single building game asset seen from the front at a slight angle, isolated on a plain light grey background, painterly style.",
+  "taskId": 8035784,
+  "secs": "39",
+  "result": {
+    "taskId": 8035784,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/a26/bdf/62841d7698aaa387c905a0bb6607829d33e2339.jpg"
+      }
+    ]
+  }
+}

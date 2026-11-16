@@ -1,0 +1,17 @@
+{
+  "asset": "palace",
+  "variant": "a",
+  "prompt": "A golden palace tower of Lanka from the Ramayana: tiered South Indian temple-style tower with gold domes, carved pillars, balconies and banners, glowing windows. Single building game asset at a slight angle, isolated on a plain light grey background, painterly style.",
+  "taskId": 8035788,
+  "secs": "39",
+  "result": {
+    "taskId": 8035788,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/d98/dff/3493472ab3e93ebbe7a51172e5223e996dc0b64.jpg"
+      }
+    ]
+  }
+}

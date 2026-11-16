@@ -1,0 +1,17 @@
+{
+  "asset": "ravana",
+  "variant": "a",
+  "prompt": "Ravana, the ten-headed demon king of Lanka from the Ramayana: ten crowned heads side by side, the central head proud and stern, muscular body in ornate gold and black armour, red and gold royal cloak, many gold necklaces, standing tall and imperious. Full body, front view, plain light grey studio background, no base, no text, game asset concept art, rich detailed painterly style.",
+  "taskId": 8035787,
+  "secs": "39",
+  "result": {
+    "taskId": 8035787,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/737/707/847dccd3883521d544ac6c1d9416f1d907a9de6.jpg"
+      }
+    ]
+  }
+}

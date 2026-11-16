@@ -36,7 +36,7 @@ const card = a => {
       ${existsSync(root + glb) ? `<model-viewer src="../lux3d/${a.test3d}/model.glb" camera-controls auto-rotate shadow-intensity="1" exposure="1.1"></model-viewer>` : ''}
       <p class="meta">Lux3D ${esc(t.version)} · ${t.secs} s · 13 credits · 287k triangles, 18.6 MB (must be cut to about a tenth for the web)</p></div>`;
   }
-  const label = d => d.endsWith('-g1-multiview') ? 'Lux3D G1 · 3 views · 300k faces' : d.endsWith('-g1') ? 'Lux3D G1 · 1 view · 300k faces' : 'Lux3D Turbo · 1 view';
+  const label = d => d.endsWith('-clean') ? 'Clean rebuild · 25k triangles · baked texture' : d.endsWith('-g1-multiview') ? 'Lux3D G1 · 3 views · 300k faces' : d.endsWith('-g1') ? 'Lux3D G1 · 1 view · 300k faces' : 'Lux3D Turbo · 1 view';
   const models3d = list('assets/lux3d').filter(d => d.startsWith(a.id + '-') && d !== a.test3d && existsSync(`${root}assets/lux3d/${d}/model.glb`))
     .sort((x, y) => (y.includes('g1') - x.includes('g1')) || x.localeCompare(y))
     .map(d => {
@@ -105,7 +105,7 @@ details.p{font-size:12px;color:var(--mute);margin-top:6px}
 const allModels = m.assets.flatMap(a => list('assets/lux3d')
   .filter(d => d.startsWith(a.id + '-') && existsSync(`${root}assets/lux3d/${d}/model.glb`))
   .sort((x, y) => (y.includes('g1') - x.includes('g1')) || x.localeCompare(y))
-  .map(d => ({ id: d, name: a.name, kind: d === a.test3d ? 'Text-to-3D test' : d.endsWith('-g1-multiview') ? 'G1 · 3 views' : d.endsWith('-g1') ? 'G1 · best' : 'Turbo',
+  .map(d => ({ id: d, name: a.name, kind: d === a.test3d ? 'Text-to-3D test' : d.endsWith('-clean') ? 'Option A · clean rebuild' : d.endsWith('-dense') ? 'Option B · clean + denser face and feet' : d.endsWith('-hero') ? 'Option C · B + concept-art face' : d.endsWith('-g1-multiview') ? 'G1 · 3 views' : d.endsWith('-g1') ? 'G1 · best' : 'Turbo',
     mb: (statSync(`${root}assets/lux3d/${d}/model.glb`).size / 1e6).toFixed(1) })));
 const games = list('game-assets').filter(f => f.endsWith('.glb')).map(f => ({ id: 'game-' + f.replace('.glb',''), src: '../../game-assets/' + f,
   name: f.replace('.glb','').replace(/^./, c => c.toUpperCase()), kind: 'Game version · rigged + animated', mb: (statSync(`${root}game-assets/${f}`).size / 1e6).toFixed(1) }));

@@ -1,0 +1,17 @@
+{
+  "asset": "lankini",
+  "variant": "a",
+  "prompt": "Lankini, the fierce demoness who guards the gate of the golden city of Lanka in the Ramayana. Tall, powerful rakshasi warrior: dark blue-grey skin, wild black hair, small tusks, glowing amber eyes, gold armour plates over a dark crimson wrap, heavy gold jewellery, holding a long spear. Menacing and regal. Standing in A-pose. Full body, front view, plain light grey studio background, no base, no text, game asset concept art, rich detailed painterly style.",
+  "taskId": 8035786,
+  "secs": "39",
+  "result": {
+    "taskId": 8035786,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/824/7d3/24dcda874b92f672e208011443bc55663890128.jpg"
+      }
+    ]
+  }
+}

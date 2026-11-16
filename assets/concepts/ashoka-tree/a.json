@@ -1,0 +1,17 @@
+{
+  "asset": "ashoka-tree",
+  "variant": "a",
+  "prompt": "A large Ashoka tree from the Ramayana's Ashoka grove: thick twisted trunk, dense dark green leaves, clusters of bright orange-red blossoms, roots spreading on the ground. Single tree game asset, isolated on a plain light grey background, painterly style.",
+  "taskId": 8035840,
+  "secs": "53",
+  "result": {
+    "taskId": 8035840,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/085/551/b77baaa69e79a04d7e44af8d7694328e5d45e93c.png"
+      }
+    ]
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "asset": "hanuman",
+  "variant": "a",
+  "prompt": "Concept art of Hanuman, the vanara monkey god of the Ramayana, full body front view standing in A-pose, arms angled down away from the body. A true monkey face: short golden muzzle, wide nostrils, bright intelligent eyes, no human beard. Muscular heroic body with golden-orange fur, long curled tail. Tall gold crown, gold armlets, bracelets and anklets, red silk dhoti with a gold sash, sacred thread across the chest. Stylized hand-painted game character, clean silhouette, plain light grey background, no base, no weapon.",
+  "taskId": 8035678,
+  "secs": "52",
+  "result": {
+    "taskId": 8035678,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/00e/e7a/bb8ebe08ca0a6b33f41e5b9fc8edbb832980e25.jpg"
+      }
+    ]
+  }
+}

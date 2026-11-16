@@ -1,0 +1,17 @@
+{
+  "asset": "guard",
+  "variant": "a",
+  "prompt": "A rakshasa demon soldier who guards the city of Lanka in the Ramayana. Bulky, green-grey skin, small horns and tusks, bronze and gold armour, horned helmet, curved sword and round shield, angry expression. Standing in A-pose. Full body, front view, plain light grey studio background, no base, no text, game asset concept art, rich detailed painterly style.",
+  "taskId": 8035785,
+  "secs": "39",
+  "result": {
+    "taskId": 8035785,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/729/876/dbfb149abf509bc96dc9e96ea0f67912c386e8b.jpg"
+      }
+    ]
+  }
+}

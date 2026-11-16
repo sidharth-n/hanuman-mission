@@ -1,0 +1,17 @@
+{
+  "asset": "gada",
+  "variant": "a",
+  "prompt": "Hanuman's golden mace (gada) from the Ramayana: a large round golden head with ornate engraved bands and a lotus pattern, a thick gold handle with a red grip wrap. Single weapon game asset, upright, isolated on a plain light grey background, painterly style.",
+  "taskId": 8035838,
+  "secs": "39",
+  "result": {
+    "taskId": 8035838,
+    "bizId": "LUX_3D",
+    "status": 3,
+    "outputs": [
+      {
+        "content": "https://qhmtl-cos.kujiale.com/materialtexture/018/0b3/7ff6aebdd9633ecbc421f6bc62571abce17242d.jpg"
+      }
+    ]
+  }
+}
