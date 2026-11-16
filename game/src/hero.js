@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 
 export const LANES = [-2.4, 0, 2.4];
-const GRAVITY = 28, JUMP_V = 10.4, SLIDE_TIME = 0.7;      // leap: 1.9 m high, 0.74 s in the air
+const GRAVITY = 28, JUMP_V = 10.4, SLIDE_TIME = 0.85, FLY_HEIGHT = 3.1;      // leap: 1.9 m high, 0.74 s in the air
 const AIR_TIME = 2 * JUMP_V / GRAVITY;
 const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
 
@@ -35,7 +35,7 @@ export class Hero {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const clip of gltf.animations) {
-      pinHips(clip, /jump/.test(clip.name));
+      pinHips(clip, /jump|hang/.test(clip.name));
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     this.current = null;
@@ -69,7 +69,8 @@ export class Hero {
 
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0;
-    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0;
+    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.flying = false; this.fly = 0;
+    this.model.rotation.x = 0; this.model.position.z = 0;
     this.root.scale.setScalar(1);
     this.play('breathing_idle', { fade: 0 });
   }
@@ -87,9 +88,18 @@ export class Hero {
   get airborne() { return this.y > this.floor + 0.02; }
   get sliding() { return this.slide > 0; }
 
+  // Wind flight: he rises above the street and flies level, mace arm forward, until the wind runs out.
+  startFlight() {
+    this.flying = true; this.slide = 0; this.vy = 0;
+    const clip = this.actions.braced_hang.getClip();
+    this.play('braced_hang', { once: true, from: clip.duration - 0.03, speed: 0.001, fade: 0.3 });      // hold the arms-up pose
+  }
+  endFlight() { this.flying = false; this.vy = 0; this.play('falling_idle', { fade: 0.25 }); }
+
   move(dir) {
     if (dir === 'left' && this.lane > 0) { this.lane--; return true; }
     if (dir === 'right' && this.lane < 2) { this.lane++; return true; }
+    if (this.flying) return false;
     if (dir === 'up' && !this.airborne) {
       this.vy = JUMP_V; this.y = this.floor + 0.03; this.slide = 0; this.jumpZ = this.root.position.z;
       const w = this.actions.running_jump.getClip().userData, lead = 0.06;      // start just before the feet leave the ground
@@ -99,8 +109,9 @@ export class Hero {
       if (this.airborne) { this.vy = -14; return true; }          // swipe down in the air drops him fast
       if (this.slide > 0.25) return false;                          // already down: a second swipe must not restart the move
       this.slide = SLIDE_TIME; this.slideZ = this.root.position.z;
-      const w = this.actions.running_slide.getClip().userData, lead = 0.1;
-      this.play('running_slide', { once: true, from: Math.max(0, w.from - lead), speed: (w.to - w.from + 2 * lead) / SLIDE_TIME, fade: 0.09 }); return true;
+      const clip = this.actions.running_slide.getClip(), from = Math.max(0, clip.userData.from - 0.1);
+      // paced so the clip reaches its last frame exactly as the slide ends: no held pose, no skipped frames
+      this.play('running_slide', { once: true, from, speed: (clip.duration - from) / SLIDE_TIME, fade: 0.1 }); return true;
     }
     return false;
   }
@@ -117,9 +128,13 @@ export class Hero {
     this.lean += ((-dx * 0.16) - this.lean) * Math.min(1, dt * 12);
     this.model.rotation.z = this.lean;
 
-    if (this.y > this.floor || this.vy > 0) { this.vy -= GRAVITY * dt; this.y += this.vy * dt; }
+    this.fly += ((this.flying ? 1 : 0) - this.fly) * Math.min(1, dt * 5);
+    if (this.flying) { this.y += (FLY_HEIGHT + Math.sin(this.time * 2.6) * 0.18 - this.y) * Math.min(1, dt * 3.5); this.vy = 0; }
+    else if (this.y > this.floor || this.vy > 0) { this.vy -= GRAVITY * dt; this.y += this.vy * dt; }
     if (this.y <= this.floor) { this.y = this.floor; this.vy = 0; }      // on the ground, or on top of something he came down on
-    this.model.position.y = this.y;
+    // tipped forward to fly level; the body is kept over the spot he is flying above
+    this.model.rotation.x = -this.fly * 1.22;
+    this.model.position.set(0, this.y + this.fly * 0.25, this.fly * 0.85);
     this.blob.position.y = this.floor + 0.03; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25));
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;

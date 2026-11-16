@@ -2,7 +2,7 @@
 import * as THREE from 'three';
 import { LANES } from './hero.js';
 import { rng } from './build.js';
-import { kit, footpath, lampBeam, arrowVolley, streetGate, SLOT } from './buildings.js';
+import { kit, footpath, lampBeam, arrowVolley, greatArrow, streetGate, SLOT } from './buildings.js';
 
 export const CHUNK = 24;
 const ROAD = 3.9;        // half width of the paved road (three lanes)
@@ -53,7 +53,7 @@ export class World {
     this.houses = this.kit.filter(k => k.type === 'house'); this.towers = this.kit.filter(k => k.type === 'tower');
     this.court = this.kit.find(k => k.type === 'court');
     this.footGeo = footpath(CHUNK, ROAD, FRONT + 0.75);
-    this.beamGeo = lampBeam(); this.arrowGeo = arrowVolley(); this.gateGeo = streetGate();
+    this.beamGeo = lampBeam(); this.arrowGeo = arrowVolley(); this.boltGeo = greatArrow(); this.gateGeo = streetGate();
     this.markMat = new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,90,40,0.55)', 'rgba(255,60,20,0.2)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     this.markGeo = new THREE.CircleGeometry(1.15, 20).rotateX(-Math.PI / 2);
     this.prefabs = {};
@@ -69,6 +69,13 @@ export class World {
     this.flameMat = new THREE.SpriteMaterial({ map: this.flameTex, blending: THREE.AdditiveBlending, depthWrite: false, fog: false });
     this.poolMat = new THREE.MeshBasicMaterial({ map: glowTexture('rgba(255,150,60,0.32)', 'rgba(255,110,30,0.12)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
     this.poolGeo = new THREE.CircleGeometry(6.5, 24).rotateX(-Math.PI / 2);
+    // the wind to gather for flight: a pale spinning swirl
+    this.windMat = new THREE.SpriteMaterial({ depthWrite: false, blending: THREE.AdditiveBlending, map: canvasTexture(128, (g, s) => {
+      const glow = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+      glow.addColorStop(0, 'rgba(210,245,255,0.9)'); glow.addColorStop(0.3, 'rgba(120,210,255,0.35)'); glow.addColorStop(1, 'rgba(80,160,255,0)');
+      g.fillStyle = glow; g.fillRect(0, 0, s, s); g.strokeStyle = 'rgba(235,250,255,0.95)'; g.lineWidth = 5; g.lineCap = 'round';
+      for (let arm = 0; arm < 3; arm++) { g.beginPath(); for (let t = 0; t <= 1.001; t += 0.05) { const a = arm * 2.094 + t * 3.6, rad = s * (0.07 + t * 0.33); g.lineTo(s / 2 + Math.cos(a) * rad, s / 2 + Math.sin(a) * rad); } g.stroke(); }
+    }) });
     // what he collects: small oil lamps, each a single picture that always faces the camera
     this.lampMat = new THREE.SpriteMaterial({ depthWrite: false, map: canvasTexture(128, (g, s) => {
       const glow = g.createRadialGradient(s / 2, s * 0.42, 0, s / 2, s * 0.42, s * 0.5);
@@ -136,18 +143,18 @@ export class World {
   beam() { return new THREE.Mesh(this.beamGeo, this.cityMat); }
 
   // Burning arrows: a red mark on the lane first, then the volley drops from the sky as he comes near.
-  arrows(g, x, z) {
-    const o = new THREE.Mesh(this.arrowGeo, this.cityMat); o.position.y = ARROW_SKY; o.visible = false;
+  arrows(g, x, z, big) {
+    const o = new THREE.Mesh(big ? this.boltGeo : this.arrowGeo, this.cityMat); o.position.y = ARROW_SKY; o.visible = false;
     const mark = new THREE.Mesh(this.markGeo, this.markMat); mark.position.set(x, 0.03, z); g.add(mark);
-    const fire = new THREE.Sprite(this.flameMat); fire.position.set(x, 0.75, z - 0.2); fire.visible = false; fire.userData.seed = x + z; fire.userData.base = 0.8; g.add(fire);
-    this.flames.push(fire); o.userData.volley = { fire, mark, t: -1 };
+    const fire = new THREE.Sprite(this.flameMat); fire.position.set(x, 0.75, z - 0.2); fire.visible = false; fire.userData.seed = x + z; fire.userData.base = big ? 1.5 : 0.8; if (big) fire.position.y = 1.3; g.add(fire);
+    this.flames.push(fire); o.userData.volley = { fire, mark, t: -1, big };
     return o;
   }
 
   build(i) {
     const g = new THREE.Group(); g.position.z = -i * CHUNK;
     const r = rng(i * 7919 + 13);
-    const chunk = { i, group: g, obstacles: [], coins: [], braziers: [], buildings: [] };
+    const chunk = { i, group: g, obstacles: [], coins: [], winds: [], braziers: [], buildings: [] };
     const road = new THREE.Mesh(this.roadGeo, this.roadMat); road.position.z = -CHUNK / 2; g.add(road);
     for (const s of [-1, 1]) { const side = new THREE.Mesh(this.sideGeo, this.sideMat); side.position.set(s * (ROAD + 13), -0.01, -CHUNK / 2); g.add(side); }
     g.add(new THREE.Mesh(this.footGeo, this.cityMat));
@@ -189,7 +196,7 @@ export class World {
       let coinLane = row.findIndex(x => x === null); if (coinLane < 0) coinLane = Math.floor(r() * 3);
       row.forEach((type, lane) => {
         if (!type) return;
-        const o = type === 'beam' ? this.beam() : type === 'arrows' ? this.arrows(g, LANES[lane], z) : this.spawn(type);
+        const o = type === 'beam' ? this.beam() : type === 'arrows' ? this.arrows(g, LANES[lane], z, r() < 0.35) : this.spawn(type);
         o.position.set(LANES[lane], 0, z);
         if (type === 'pots') o.rotation.y = r() * 6.3;
         g.add(o);
@@ -201,6 +208,11 @@ export class World {
         c.position.set(LANES[coinLane], 1.0 + (arc ? Math.max(0, 1.5 - Math.abs(dz) * 0.5) : 0), z - dz); g.add(c);
         chunk.coins.push({ mesh: c, x: c.position.x, y: c.position.y, z: g.position.z + c.position.z, got: false });
       }
+    }
+    // now and then a gust of wind to gather: two of them charge his flight
+    if (i >= 3 && r() < 0.38) {
+      const w = new THREE.Sprite(this.windMat), lane = Math.floor(r() * 3); w.scale.setScalar(1.5); w.position.set(LANES[lane], 1.35, -10); g.add(w);
+      chunk.winds.push({ mesh: w, x: LANES[lane], z: g.position.z - 10, got: false });
     }
     this.scene.add(g);
     return chunk;
@@ -223,11 +235,13 @@ export class World {
     for (const f of this.flames) { const s = 1.7 + Math.sin(this.time * 11 + f.userData.seed) * 0.22 + Math.sin(this.time * 23 + f.userData.seed * 3) * 0.12; const b = f.userData.base; f.scale.set(s * b, s * 1.25 * b, 1); }
     for (const c of this.chunks.values()) for (const ob of c.obstacles) {
       const v = ob.mesh.userData.volley; if (!v || v.t > 1) continue;
-      if (v.t < 0) { if (ob.z > heroZ - ARROWS_FROM) { v.t = 0; ob.mesh.visible = true; } else continue; }
+      if (v.t < 0) { if (ob.z > heroZ - ARROWS_FROM) { v.t = 0; ob.mesh.visible = true; v.z0 = ob.mesh.position.z; } else continue; }
       v.t += dt / 0.45; const k = Math.min(1, v.t);
       ob.mesh.position.y = ARROW_SKY * (1 - k * k);
+      if (v.big) ob.mesh.position.z = v.z0 - (1 - k) * 26;      // the great bolt comes in low from the walls ahead
       if (k >= 1) { v.fire.visible = true; v.t = 2; }
     }
+    for (const c of this.chunks.values()) for (const w of c.winds) if (!w.got) { w.mesh.material.rotation = this.time * 2.2; w.mesh.position.y = 1.35 + Math.sin(this.time * 2 + w.z) * 0.12; }
     for (const c of this.chunks.values()) for (const k of c.coins) if (!k.got) k.mesh.position.y = k.y + Math.sin(this.time * 3 + k.z) * 0.07;
 
     // two real lights ride on the nearest braziers ahead of him; the rest of the glow is painted on

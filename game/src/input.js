@@ -13,6 +13,6 @@ export function listen(target, on) {
   const end = () => { if (start && !start.fired && performance.now() - start.t < 350) on('tap'); start = null; };
   target.addEventListener('pointerup', end);
   target.addEventListener('pointercancel', () => { start = null; });
-  const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down', Enter: 'tap' };
+  const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down', Enter: 'tap', g: 'giant', f: 'fly', Shift: 'fly' };
   window.addEventListener('keydown', e => { const k = KEYS[e.key]; if (k && !e.repeat) { e.preventDefault(); on(k); } });
 }

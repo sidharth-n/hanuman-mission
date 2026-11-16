@@ -243,6 +243,19 @@ export function arrowVolley() {
   return b.geometry();
 }
 
+// One great burning bolt from the engines on the walls.
+export function greatArrow() {
+  const b = new Builder(), o = { ground: false }, h = 2.7, dz = -1.3, w = 0.07;
+  const foot = [[-w, 0, w], [w, 0, w], [w, 0, -w], [-w, 0, -w]], top = foot.map(([px, , pz]) => [px, h, pz + dz]);
+  for (let k = 0; k < 4; k++) { const n = (k + 1) % 4; b.poly([foot[k], foot[n], top[n], top[k]], 'wood', { ...o, fit: true }); }
+  b.box(-0.11, 0.11, 0, 0.5, -0.11, 0.11, 'gold', { ...o, faces: 'fblrt' });      // iron head sunk in the paving
+  for (const f of [0.3, -0.3]) {
+    b.poly([[0, h - 0.75, dz * 0.72], [f, h - 0.55, dz * 0.8], [f, h + 0.1, dz * 1.03], [0, h, dz]], 'ember', o);
+    b.poly([[0, h, dz], [f, h + 0.1, dz * 1.03], [f, h - 0.55, dz * 0.8], [0, h - 0.75, dz * 0.72]], 'ember', o);
+  }
+  return b.geometry();
+}
+
 Builder.prototype.done = function (height, depth) { return { builder: this, height, depth, triangles: this.triangles }; };
 
 // The set of buildings the street is dealt from. Each comes in two versions, lit by the brazier at its left or right corner.

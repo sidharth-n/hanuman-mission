@@ -9,7 +9,7 @@ import { listen } from './input.js';
 const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
 const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
 const FIRE_AT = 380, END_AT = 820;       // metres: where the tail catches fire, where the run ends
-const LAMPS_FOR_POWER = 20, GIANT_SECS = 5;   // lamps that fill the strength meter; how long he stays giant
+const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 2;   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
 
@@ -35,7 +35,8 @@ const camera = new THREE.PerspectiveCamera(56, 1, 0.3, 700);
 
 const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, alertT: 0, falling: [],
   tscale: 1, slowT: 0, slowK: 1, intro: 0, low: 0,        // slow motion, opening sweep, low hero shot
-  meter: 0, giant: 0, big: 0, burned: 0, cine: 0 };                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
+  meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
+  wind: 0, flight: 0, safe: 0 };                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
 let hero, world, tailFire, tailLight;
 
 let fixed = null;      // [width, height] when recording at an exact size
@@ -75,7 +76,7 @@ function ready(line, label) {
 function start() {
   world.reset(); hero.reset();
   Object.assign(state, { mode: 'run', speed: START_SPEED, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
-    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, meter: 0, giant: 0, big: 0, burned: 0, cine: 4 });
+    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, meter: 0, giant: 0, big: 0, burned: 0, cine: 6, wind: 0, flight: 0, safe: 0 });
   ui.goldLabel.textContent = 'lamps'; ui.meter.classList.remove('full');
   world.behind = 3;
   tailFire.visible = false; tailLight.intensity = 0;
@@ -121,6 +122,8 @@ function rules(dt) {
   const p = hero.root.position;
   state.dist = -p.z;
   if (state.giant > 0) state.giant -= dt;
+  if (state.safe > 0) state.safe -= dt;
+  if (state.flight > 0) { state.flight -= dt; if (state.flight <= 0) { hero.endFlight(); state.safe = 1.1; } }
   state.big += ((state.giant > 0 ? 1 : 0) - state.big) * Math.min(1, dt * 4);
   if (!state.fire && state.dist >= FIRE_AT) ignite();
   if (state.fire) {
@@ -135,25 +138,32 @@ function rules(dt) {
   const reach = 0.82 * hero.root.scale.x;
   let floor = 0;
   if (state.cine > 0) state.cine -= dt;
+  const flying = state.flight > 0;
   for (const c of world.nearby(p.z)) {
     for (const o of c.obstacles) {
       const dz = Math.abs(o.z - p.z);
-      if (o.done || dz > o.hd + 0.2 || Math.abs(o.x - p.x) > reach) continue;
+      if (flying || o.done || dz > o.hd + 0.2 || Math.abs(o.x - p.x) > reach) continue;
       // things on the ground: above them he is safe, and he can come down on top and run across.
       // a beam: safe only while sliding. Only the real footprint counts as a hit, not the space around it.
       const over = o.kind === 'high' ? hero.sliding : hero.y >= o.top - 0.45;
       if (smash) hit(o, c);
       else if (over) {
         if (o.kind !== 'high' && hero.vy <= 0) floor = Math.max(floor, o.top);      // coming down or standing on it
-        if (!o.near) {       // the first time he clears a row that blocks the whole street, slow the moment down
+        if (!o.near) {       // now and then a good leap is shown from the roadside in slow motion; never a slide
           o.near = true;
-          if (o.wall && state.cine <= 0) { slowMotion(0.6, 0.5); state.cine = 9; }
+          if (o.kind !== 'high' && hero.y > o.top && state.cine <= 0 && !state.shot) { shot('side', 1.3); slowMotion(1.05, 0.36); state.cine = 16 + Math.random() * 10; }
         }
-      } else if (dz <= o.hd - 0.05) hit(o, c);
+      } else if (dz <= o.hd - 0.05 && state.safe <= 0) hit(o, c);
       if (state.mode !== 'run') return;
     }
+    for (const w of c.winds) {
+      if (w.got || Math.abs(w.z - p.z) > 0.9 || Math.abs(w.x - p.x) > reach) continue;
+      w.got = true; w.mesh.visible = false;
+      if (state.wind < 1 && !flying) { state.wind = Math.min(1, state.wind + 1 / WINDS_FOR_FLIGHT); if (state.wind >= 1) say('The wind is with you. Fly', 2.4); }
+    }
     for (const k of c.coins) {
-      if (k.got || Math.abs(k.z - p.z) > 0.8 || Math.abs(k.x - p.x) > reach || Math.abs(k.y - (hero.y + 1)) > 1.3 * hero.root.scale.x) continue;
+      // in flight the lamps below come up to him
+      if (k.got || Math.abs(k.z - p.z) > 0.8 || Math.abs(k.x - p.x) > reach * (flying ? 1.5 : 1) || (!flying && Math.abs(k.y - (hero.y + 1)) > 1.3 * hero.root.scale.x)) continue;
       k.got = true; k.mesh.visible = false; state.gold++;
       if (!state.fire && state.giant <= 0 && state.meter < 1) {
         state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
@@ -166,24 +176,31 @@ function rules(dt) {
 
 const look = new THREE.Vector3(), want = new THREE.Vector3(), tip = new THREE.Vector3();
 const INTRO = 1.7;      // seconds for the opening sweep from in front of him to the chase view
-const view = { fov: 60, dip: 0, air: false, back: 5 };
+const view = { fov: 60, dip: 0, air: false, back: 5, duck: 0 };
 const ease = t => t * t * (3 - 2 * t);
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; }
 
 // Cinematic shots: for a few seconds the camera leaves the chase view. He keeps running and the player keeps control.
 const SHOTS = {
-  side:  (p, k, u) => [[p.x + (p.x > 0.5 ? -3.6 : 3.6), 1.25 * k, p.z - 0.6], [p.x, 1.15 * k, p.z - 0.9], 62],            // alongside him, like a runner filmed from the roadside
-  front: (p, k, u) => [[p.x * 0.4 + 1.1, 1.35 * k, p.z - 6.5 * k], [p.x, 1.3 * k, p.z], 50],                               // ahead of him, looking back at his face
-  low:   (p, k, u) => [[p.x + 1.6, 0.35, p.z - 4.2 * k], [p.x, 1.7 * k, p.z], 58],                                         // near the ground, looking up
+  side:  (p, k, u) => [[p.x + (p.x > 0.5 ? -3.6 : 3.6), 1.25 * k + hero.y * 0.85, p.z - 0.6], [p.x, 1.15 * k + hero.y, p.z - 0.9], 62],            // alongside him, like a runner filmed from the roadside
+  front: (p, k, u) => [[p.x * 0.4 + 1.1, 1.35 * k + hero.y * 0.7, p.z - 6.5 * k], [p.x, 1.3 * k + hero.y, p.z], 50],                               // ahead of him, looking back at his face
+  low:   (p, k, u) => [[p.x + 1.6, 0.35, p.z - 4.2 * k], [p.x, 1.7 * k + hero.y, p.z], 58],                                         // near the ground, looking up
   drone: (p, k, u) => [[p.x * 0.3 + 2 - u * 4, 15 + u * 5, p.z + 12], [0, 1, p.z - 16], 52],                               // high above the street
   hero:  (p, k, u) => [[p.x + (1.5 - u * 0.5) * k, (0.75 + u * 0.25) * k, p.z - (3.3 - u * 0.5) * k], [p.x, 1.3 * k, p.z], 46],                 // slow push-in on him from the front, low
-  orbit: (p, k, u) => [[p.x + Math.sin(u * 6.283 + 3.1) * 5 * k, (1.2 + u) * k, p.z + Math.cos(u * 6.283 + 3.1) * 5 * k], [p.x, 1.2 * k, p.z], 55],
+  orbit: (p, k, u) => [[p.x + Math.sin(u * 2.4 + 0.5) * 5.5 * k, hero.y + (1.0 + u) * k, p.z + Math.cos(u * 2.4 + 0.5) * 5.5 * k], [p.x, hero.y + 0.8 * k, p.z - 0.6], 58],      // swings round him from behind to the side
 };
 function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs }; }
 
+// Wind gathered: he flies above the street for a few seconds and nothing below can touch him.
+function useFlight() {
+  if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return;
+  state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight();
+  slowMotion(0.5, 0.45); shot('orbit', 1.1);
+}
+
 // Strength meter full and a tap: he grows giant for a few seconds and nothing in the street can stop him.
 function usePower() {
-  if (state.meter < 1 || state.fire || state.giant > 0) return;
+  if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return;
   state.meter = 0; state.giant = GIANT_SECS; state.danger = 0; ui.meter.classList.remove('full');
   slowMotion(0.7, 0.35); state.low = 1.7; state.shake = 0.4;
 }
@@ -194,13 +211,14 @@ function placeCamera(dt, snap) {
   const p = hero.root.position, k = hero.root.scale.x, tall = camera.aspect < 1;
   const fast = Math.min(1, Math.max(0, (state.speed - START_SPEED) / (MAX_SPEED - START_SPEED)));
   const slow = 1 - state.tscale, low = ease(Math.min(1, state.low));
-  if (view.air && !hero.airborne) view.dip = 0.28;      // landing
+  if (view.air && !hero.airborne && hero.fly < 0.2) view.dip = 0.28;      // landing
   view.air = hero.airborne; view.dip *= Math.exp(-dt * 9);
   const big = Math.max(state.grow, state.big);
-  let back = (tall ? 6.0 : 5.1) * (0.55 + 0.45 * k) + big * 2.6;
-  let height = (tall ? 3.3 : 2.55) * (0.6 + 0.4 * k) + big * 2.0 + hero.y * 0.4 - (hero.sliding ? 0.45 : 0) - view.dip;
+  view.duck += ((hero.sliding ? 1 : 0) - view.duck) * Math.min(1, dt * 6);      // ease down with a slide instead of dropping
+  let back = (tall ? 6.0 : 5.1) * (0.55 + 0.45 * k) + big * 2.6 + hero.fly * 1.6;
+  let height = (tall ? 3.3 : 2.55) * (0.6 + 0.4 * k) + big * 2.0 + hero.y * 0.4 - view.duck * 0.4 - view.dip;
   back = back * (1 - 0.32 * low) - slow * 0.8; height *= 1 - 0.62 * low;
-  const lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8;
+  const lookY = (1.25 + hero.y * 0.5) * k * (1 + 0.45 * low), fov = (tall ? 70 : 58) + fast * 6 - slow * 8 + hero.fly * 7;
 
   if (state.shot) {
     const s = state.shot; s.t += dt;
@@ -242,7 +260,7 @@ function frame(now) {
   if (state.low > 0) state.low -= real;
   const running = state.mode === 'run';
   if (running) rules(dt);
-  const speed = state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1);
+  const speed = state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
   hero.update(dt, speed, state.mode === 'run');
   world.update(dt, hero.root.position.z);
   for (const f of state.falling) { f.t += dt; f.mesh.rotation.z = f.dir * Math.min(1.35, f.t * 7); f.mesh.position.y = -Math.min(0.5, f.t * 1.2); }
@@ -279,7 +297,7 @@ function frame(now) {
 
 listen(window, dir => {
   if (state.mode !== 'run') return;
-  if (dir === 'tap') usePower(); else hero.move(dir);
+  if (dir === 'tap' || dir === 'giant') usePower(); else if (dir === 'fly') useFlight(); else hero.move(dir);
 });
 ui.go.addEventListener('click', () => { if (state.mode === 'ready' || state.mode === 'over') start(); });
 window.addEventListener('keydown', e => { if (e.key === 'Enter' && !ui.go.hidden && state.mode !== 'run') start(); });
@@ -295,5 +313,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, start, move: d => hero.move(d), shot, slowMotion, usePower,
+if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, start, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
