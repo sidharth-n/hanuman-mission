@@ -98,80 +98,90 @@
       "name": "Lanka town house",
       "group": "Street kit",
       "where": "Lines both sides of the street (repeated, burns in the fire run)",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/house/house-1.clean.jpg"
     },
     {
       "id": "tower-house",
       "name": "Lanka tower house",
       "group": "Street kit",
       "where": "Taller building mixed in with the houses for skyline variety",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/tower-house/tower-house-1.clean.jpg"
     },
     {
       "id": "market-stall",
       "name": "Bazaar stall",
       "group": "Street kit",
       "where": "Street dressing along the run, smashed through in the fire run",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/market-stall/market-stall-1.clean.jpg"
     },
     {
       "id": "street-arch",
       "name": "Street archway",
       "group": "Street kit",
       "where": "Spans the street between districts, run through it",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/street-arch/street-arch-1.clean.jpg"
     },
     {
       "id": "brazier",
       "name": "Fire brazier",
       "group": "Street kit",
       "where": "Street light every few metres, the main light source at night",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/brazier/brazier-1.clean.jpg"
     },
     {
       "id": "rakshasa-statue",
       "name": "Rakshasa guardian statue",
       "group": "Street kit",
       "where": "Landmark at crossroads and outside the palace",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/rakshasa-statue/rakshasa-statue-1.clean.jpg"
     },
     {
       "id": "cart",
       "name": "Loaded ox cart",
       "group": "Obstacles",
       "where": "Blocks a lane, jump over it",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/cart/cart-1.clean.jpg"
     },
     {
       "id": "pots",
       "name": "Stack of clay pots",
       "group": "Obstacles",
       "where": "Breakable obstacle, smash through or dodge",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/pots/pots-1.clean.jpg"
     },
     {
       "id": "barricade",
       "name": "Guard barricade",
       "group": "Obstacles",
       "where": "Set up by the guards across a lane, jump over it",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/barricade/barricade-1.clean.jpg"
     },
     {
       "id": "chudamani",
       "name": "Sita's jewel (chudamani)",
       "group": "Props",
       "where": "Sita gives it to Hanuman in the Ashoka grove; the story item of the game",
-      "status": "concept",
-      "needs": "Your pick (1 or 2), then Lux3D image-to-3D (Turbo)"
+      "status": "3d",
+      "needs": "Slim for the web (2 to 8k triangles, 1024 px texture), place in the Lanka street",
+      "pick": "concepts-flow/chudamani/chudamani-1.clean.jpg"
     }
   ]
 }
