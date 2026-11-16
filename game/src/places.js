@@ -7,7 +7,7 @@ import * as palace from './palace.js';
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
 export const SITA = { n: 2, x: 3.4, z: -11, seat: 0.5 };            // her stone seat under the great tree
-export const TREE = { n: 2, x: 6.4, z: -13.5 };                      // the great tree Hanuman hides in
+export const TREE = { n: 2, x: 7.2, z: -14.6 };                      // the great tree Hanuman hides in
 export const THRONE = { n: 1, z: -17, top: 1.05, seat: 0.92 };       // the dais and the seat of the throne
 export const STAND = { n: 1, z: -6 };                                // where Hanuman is made to stand before it
 
@@ -49,8 +49,9 @@ function garden(world) {
     flyMat: new THREE.PointsMaterial({ map: dot, color: 0xd9ff9c, size: 0.17, blending: THREE.AdditiveBlending, ...common }),
     petalMat: new THREE.PointsMaterial({ map: dot, color: 0xff7d8f, size: 0.13, opacity: 0.9, transparent: true, depthWrite: false }),
     lotusMat: new THREE.SpriteMaterial({ map: glow('rgba(255,235,245,1)', 'rgba(255,120,170,0.75)'), blending: THREE.AdditiveBlending, ...common }),
-    haloMat: new THREE.SpriteMaterial({ map: glow('rgba(235,242,255,0.75)', 'rgba(150,185,255,0.28)'), blending: THREE.AdditiveBlending, ...common }),
-    stoneMat: new Solid({ color: 0x8e98a6, ...pbr }), pondGeo: new THREE.CircleGeometry(4.6, 28).rotateX(-Math.PI / 2),
+    haloMat: new THREE.SpriteMaterial({ map: glow('rgba(235,242,255,0.34)', 'rgba(150,185,255,0.13)'), blending: THREE.AdditiveBlending, ...common }),
+    stoneMat: new Solid({ color: 0x4f5964, ...pbr }),
+    mistMat: new THREE.SpriteMaterial({ map: glow('rgba(190,215,255,0.5)', 'rgba(140,180,255,0.16)'), blending: THREE.AdditiveBlending, opacity: 0.5, ...common }), pondGeo: new THREE.CircleGeometry(4.6, 28).rotateX(-Math.PI / 2),
     seatGeo: new THREE.CylinderGeometry(1.25, 1.4, SITA.seat, 20), postGeo: new THREE.BoxGeometry(0.34, 1.05, 0.34), capGeo: new THREE.ConeGeometry(0.36, 0.3, 4),
   };
   return world.garden;
@@ -79,7 +80,9 @@ export function grove(world, chunk, c, r) {
     const p = new THREE.Points(geo, mat); p.frustumCulled = false; g.add(p); return p;
   };
   chunk.fx.push({ type: 'fly', obj: pts(world.lite ? 40 : 70, 12, 3.6, k.flyMat), seed: r() * 10, y: 0.5 });
-  chunk.fx.push({ type: 'fall', obj: pts(world.lite ? 50 : 90, 10, 18, k.petalMat), seed: r() * 9 });
+  chunk.fx.push({ type: 'fall', obj: pts(world.lite ? 70 : 130, 10, 18, k.petalMat), seed: r() * 9 });
+  // a low mist lying on the grass, catching the moon
+  for (let j = 0; j < (world.lite ? 4 : 7); j++) { const m = new THREE.Sprite(k.mistMat); m.position.set((r() < 0.5 ? -1 : 1) * (4.5 + r() * 9), 0.7 + r() * 0.5, -r() * L); m.scale.set(9 + r() * 6, 2.2 + r() * 1.2, 1); g.add(m); }
   // low stone lanterns beside the path
   for (const s of [-1, 1]) for (const z of [-6, -18]) {
     const post = new THREE.Mesh(k.postGeo, k.stoneMat); post.position.set(s * 4.7, 0.52, z); g.add(post);
@@ -92,10 +95,10 @@ export function grove(world, chunk, c, r) {
     for (let i = 0; i < 9; i++) { const a = r() * 6.3, d = r() * 3.6, l = new THREE.Sprite(k.lotusMat); l.position.set(-10 + Math.cos(a) * d, 0.28, -12 + Math.sin(a) * d); l.scale.setScalar(0.55 + r() * 0.4); g.add(l); }
   }
   if (here) {      // the great tree, her seat beneath it, and a soft light that seems to come from her
-    const t = world.spawn('ashoka-tree'); t.position.set(TREE.x, 0, TREE.z); t.scale.setScalar(1.75); t.rotation.y = 2.2; g.add(t);
+    const t = world.spawn('ashoka-great'); t.position.set(TREE.x, 0, TREE.z); t.rotation.y = 2.2; g.add(t);
     const seat = new THREE.Mesh(k.seatGeo, k.stoneMat); seat.position.set(SITA.x, SITA.seat / 2, SITA.z); g.add(seat);
     const halo = new THREE.Sprite(k.haloMat); halo.position.set(SITA.x, 1.7, SITA.z); halo.scale.setScalar(8.5); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 8.5 });
-    const b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(SITA.x - 1.2, 8.6, SITA.z + 0.4); b.rotation.z = 0.2; b.scale.set(1.5, 1, 1); g.add(b);
+    const b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(SITA.x - 1.6, 8.6, SITA.z + 1.2); b.rotation.z = 0.2; g.add(b);
     for (let i = 0; i < 10; i++) { const a = i / 10 * 6.3, l = new THREE.Sprite(k.lotusMat); l.position.set(SITA.x + Math.cos(a) * 1.75, 0.16, SITA.z + Math.sin(a) * 1.75); l.scale.setScalar(0.42); g.add(l); }
   }
 }

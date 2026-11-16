@@ -66,24 +66,24 @@ export function createStory(g) {
   const sitaAt = { x: SITA.x, z: -(GROVE_AT + SITA.n * CHUNK) + SITA.z }, treeAt = { x: TREE.x, z: -(GROVE_AT + TREE.n * CHUNK) + TREE.z };
   function grove() {
     done.grove = true; g.hold(); G = g.groundAt(sitaAt.z);
-    const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, perch = [sx + 1.9, sz - 0.9, 4.5];
+    const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, perch = [sx + 1.7, sz - 1.5, 4.3];
     const yaw = yawTo(rx - sx, rz - sz);
     sita.place(sx + Math.sin(yaw) * 0.32, G, sz + Math.cos(yaw) * 0.32, yaw); sita.play('sit', { fade: 0 });
     ravana.place(sx - 5.5, G, sz + 10, 0); ravana.play('idle', { fade: 0 });
     standGuards([[rx - 2.2, rz + 2.6, yawTo(1, -0.9)], [rx + 0.6, rz + 3.6, yawTo(0.3, -1)]]);
     putHero(perch[0], perch[1], heroYaw(sx - perch[0], sz - perch[1]), 'crouched_walking', perch[2]); hero.current.timeScale = 0.02;      // crouched on a branch, still
     const onHanuman = shot(v(perch[0] - 2.2, perch[2] + 1.2, perch[1] + 2.3), v(perch[0], perch[2] + 0.9, perch[1]), { to: v(perch[0] - 1.7, perch[2] + 1.1, perch[1] + 1.9), fov: 40 });
-    const fromTree = shot(v(perch[0] + 1.4, perch[2] + 2.2, perch[1] - 1.6), v(sx - 0.8, 0.9, sz + 1.2), { to: v(perch[0] + 0.9, perch[2] + 1.9, perch[1] - 1.2), fov: 52 });
+    const fromTree = shot(v(sx - 4.4, 5.4, sz + 5.0), v(sx - 0.8, 0.9, sz + 0.9), { to: v(sx - 3.8, 4.8, sz + 4.2), fov: 50 });      // looking down on them, as he does
     const onRavana = shot(v(sx - 0.4, 1.0, sz + 0.9), v(rx, 2.35, rz), { to: v(sx - 0.7, 1.2, sz + 0.6), fov: 44 });
     const onSita = shot(v(sx - 1.7, 1.15, sz + 1.5), v(sx, 1.02, sz + 0.2), { to: v(sx - 1.3, 1.1, sz + 1.2), fov: 40 });
     director.play(beats('grove_ravana', [
       onHanuman,
       { ...fromTree, do: () => ravana.walk(rx, rz, 3.4, { then: yawTo(sx - rx, sz - rz) }) },
       { ...onRavana, do: () => ravana.play('talk') },
-      { ...onSita, do: () => { ravana.play('idle'); sita.play('give', { once: true }); } },
+      { ...onSita, do: () => { ravana.play('idle'); sita.play('sit_talk'); } },
       { ...shot(v(sx - 1.5, 1.1, sz + 1.0), v(sx, 1.05, sz + 0.2), { to: v(sx - 1.2, 1.08, sz + 0.8), fov: 36 }), do: () => sita.play('sit_talk') },
       shot(v(sx + 1.2, 1.45, sz - 1.2), v(rx, 2.2, rz), { to: v(sx + 0.9, 1.4, sz - 0.9), fov: 48 }),
-      { ...onRavana, do: () => { sita.play('sit'); ravana.play('command', { once: true }); } },
+      { ...onRavana, do: () => { sita.play('sit'); ravana.play('command', { once: true }); ravana.rise = 1.3; } },
       { ...shot(v(sx - 6.5, 1.8, sz - 2.5), v(sx - 1.2, 1.3, sz + 2.2), { to: v(sx - 5.6, 1.9, sz - 3.4), fov: 54 }), do: () => { ravana.walk(sx - 5.5, sz + 13, 4.2); escort.forEach((e, i) => { e.root.rotation.y = 0; e.play('great_sword_walk'); e.leave = 1.9 + i * 0.3; }); } },
       onHanuman,
     ]), meets);
@@ -93,22 +93,22 @@ export function createStory(g) {
     ravana.hide(); escort.forEach(e => { e.reset(); e.leave = 0; });
     const yaw = yawTo(hx - sx, hz - sz);
     sita.place(sx + Math.sin(yaw) * 0.32, G, sz + Math.cos(yaw) * 0.32, yaw); sita.play('sit', { fade: 0.2 });
-    const perch = [sx + 1.9, sz - 0.9, 4.5];
+    const perch = [sx + 1.7, sz - 1.5, 4.3];
     const down = () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.1 }); };
     const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0, sz + 0.5];
     const onHero = shot(v(sx - 0.5, 1.25, sz + 0.2), v(hx, 1.45, hz), { to: v(sx - 0.7, 1.3, sz + 0.4), fov: 40 });
     const onSita = shot(v(hx + 0.2, 1.3, hz - 0.2), v(sx, 1.1, sz + 0.2), { to: v(hx + 0.4, 1.25, hz - 0.4), fov: 38 });
     const two = shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 });
     director.play(beats('grove_sita', [
-      shot(v(perch[0] + 1.4, perch[2] + 2.2, perch[1] - 1.6), v(sx, 0.9, sz + 0.4), { to: v(perch[0] + 0.9, perch[2] + 1.8, perch[1] - 1.2), fov: 46 }),
+      shot(v(sx - 3.6, 4.6, sz + 4.4), v(sx, 0.9, sz + 0.3), { to: v(sx - 2.9, 3.9, sz + 3.6), fov: 44 }),
       shot(v(perch[0] - 2.2, perch[2] + 1.2, perch[1] + 2.3), v(perch[0], perch[2] + 0.9, perch[1]), { fov: 40 }),
       { ...shot(v(sx - 4.6, 1.3, sz - 0.6), v(sx - 1.1, 0.9, sz + 1.2), { to: v(sx - 4.0, 1.2, sz - 1.2), fov: 50 }), do: down },
       { ...onHero, do: () => hero.play('breathing_idle', { fade: 0.4 }) },
-      { ...onSita, do: () => sita.play('no') },
+      { ...onSita, do: () => sita.play('sit_talk') },
       { ...two, do: () => { sita.play('sit'); give(hand, hers, 0xffd36a); } },
       { ...onSita, do: () => sita.play('sit_talk') },
       onHero,
-      { ...two, do: () => { sita.play('give', { once: true }); give(hers, hand, 0xbfe6ff); } },
+      { ...two, do: () => { sita.play('sit_talk'); give(hers, hand, 0xbfe6ff); } },
       { ...onHero, do: () => sita.play('sit') },
       { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => sita.play('sit_talk') },
     ]), wreck);
@@ -139,7 +139,7 @@ export function createStory(g) {
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0);
     standGuards([[-1.6, hz + 0.7, Math.PI], [1.6, hz + 0.7, Math.PI]]);
-    ravana.place(0, G + T, tz + 0.42, 0); ravana.play('sit', { fade: 0 });
+    ravana.place(0, G + T + 0.34, tz + 0.62, 0); ravana.play('sit', { fade: 0 });
     g.card('throne');
     const wide = shot(v(0, 2.3, -THRONE_AT - 3), v(0, 3.2, tz), { to: v(0, 2.0, -THRONE_AT - 15), fov: 56 });
     const crane = shot(v(-5.2, 7, hz + 9), v(0, 2.6, tz), { to: v(-3.4, 5.2, hz + 3), fov: 52 });
@@ -158,7 +158,7 @@ export function createStory(g) {
         { ...onRavana, do: () => ravana.play('sit_talk') },
         { ...onHero, do: () => ravana.play('sit') },
         { ...shot(v(-3.6, 1.2, hz - 1.5), v(0, 1.6, hz - 0.5), { to: v(-3.0, 1.3, hz - 2.2), fov: 50 }) },
-        { ...shot(v(-1.6, T + 1.9, tz + 4.4), v(0, T + 2.5, tz), { to: v(-1.2, T + 2.2, tz + 3.8), fov: 44 }), do: () => { ravana.play('sit_exit', { once: true }); ravana.rise = 1.1; } },
+        { ...shot(v(-1.6, T + 1.9, tz + 4.4), v(0, T + 2.5, tz), { to: v(-1.2, T + 2.2, tz + 3.8), fov: 44 }), do: () => { ravana.play('sit_exit', { once: true }); ravana.rise = 1.1; ravana.root.position.y = G + T; ravana.root.position.z = tz + 1.5; } },
         { ...over, do: () => ravana.play('command', { once: true, fade: 0.2 }) },
       ]),
       ...beats('ignite', [
@@ -168,30 +168,33 @@ export function createStory(g) {
     ], () => g.fade(() => { ravana.hide(); escort.forEach(e => e.reset()); g.ablaze(); }));
   }
 
-  // ── the end: grown vast, he roars in the middle of the burning city ──
+  // ── the end: grown vast, he roars in the middle of the burning city, then leaps for the sea ──
+  const VAST = 13;      // how many times his own height he stands at the last: head and shoulders over the towers of Lanka
+  const swell = { t: 0, secs: 0, from: 1, to: 1 }, leap = { on: false, t: 0 };
   function ending() {
-    done.end = true; g.hold(); const p = hero.root.position, k = hero.root.scale.x; G = g.groundAt(p.z);
-    putHero(0, p.z, heroYaw(0, 1), 'mutant_roaring'); hero.play('mutant_roaring', { once: true, fade: 0.2 });
+    done.end = true; g.hold(); const p = hero.root.position, z = p.z; G = g.groundAt(z);
+    putHero(0, z, heroYaw(0, 1), 'mutant_roaring'); hero.play('mutant_roaring', { once: true, fade: 0.2 });
+    swell.from = hero.root.scale.x; swell.to = VAST; swell.t = 0; swell.secs = 3.2; leap.on = false;
     g.sound.fx('power'); g.sound.chant(); g.buzz([80, 60, 80, 60, 200]);
-    const h = 1.9 * k;
+    const H = 1.9 * VAST;      // every shot stays over the street itself: the houses and towers stand close on both sides
     director.play([
       ...beats('roar', [
-        shot(v(1.6 * k, 0.5 * k, p.z + 3.6 * k), v(0, h * 0.85, p.z), { to: v(1.0 * k, 0.4 * k, p.z + 2.8 * k), fov: 58 }),
-        { ...shot(v(-3.4 * k, h * 0.9, p.z + 4.4 * k), v(0, h * 0.8, p.z), { to: v(3.2 * k, h * 1.1, p.z + 4.6 * k), fov: 54, secs: 5.5 }), do: () => { hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.chant(); } },
+        shot(v(1.6, 1.6, z + 20), v(0, H * 0.34, z), { to: v(2.2, 2.4, z + 33), lookTo: v(0, H * 0.6, z), fov: 64, secs: 4.6 }),
+        { ...shot(v(-3.4, H * 0.5, z + 15), v(0, H * 0.62, z), { to: v(3.4, H * 0.56, z + 17), fov: 56, secs: 5.5 }), do: () => { hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.chant(); g.sound.fx('power'); g.buzz([80, 60, 200]); } },
       ]),
       ...beats('ending', [
-        shot(v(2 * k, h * 1.6, p.z + 7 * k), v(0, h * 0.6, p.z - 4), { to: v(4 * k, h * 2.6, p.z + 11 * k), fov: 56 }),
-        { ...shot(v(-5 * k, h * 2.2, p.z + 9 * k), v(0, h * 0.7, p.z - 10), { to: v(-7 * k, h * 3.2, p.z + 12 * k), fov: 56 }), do: () => hero.play('victory', { fade: 0.4 }) },
-        shot(v(0, h * 3.4, p.z + 14 * k), v(0, h * 1.2, p.z - 30), { to: v(0, h * 5, p.z + 20 * k), fov: 58, secs: 6 }),
+        shot(v(0, H * 1.35, z + 44), v(0, H * 0.55, z), { to: v(0, H * 1.6, z + 52), fov: 58, secs: 5 }),
+        { ...shot(v(2.6, 3.2, z + 30), v(0, H * 0.7, z), { to: v(-2.6, 4.2, z + 36), fov: 66, secs: 5 }), do: () => hero.play('victory', { fade: 0.4 }) },
+        { ...shot(v(0, H * 0.5, z + 42), v(0, H * 0.75, z), { to: v(0, H * 0.9, z + 50), lookTo: v(0, H * 1.6, z - 60), fov: 60, secs: 5.5 }), secs: 5.2, do: () => { hero.root.rotation.y = 0; hero.flyHeight = 4.2; hero.startFlight(); leap.on = true; leap.t = 0; g.sound.fx('wing'); } },
       ]),
-    ], () => g.finish());
+    ], () => { leap.on = false; hero.flyHeight = 2.5; g.finish(); });
   }
 
   return {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; if (fresh) done.lankini = false; done.grove = false; done.end = false;
+      sita.hide(); ravana.hide(); gift.visible = false; if (fresh) done.lankini = false; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -205,6 +208,8 @@ export function createStory(g) {
     update(dt) {
       sita.update(dt); ravana.update(dt);
       if (ravana.rise > 0) { ravana.rise -= dt; if (ravana.rise <= 0) ravana.play('idle', { fade: 0.3 }); }
+      if (swell.t < swell.secs) { swell.t += dt; const u = Math.min(1, swell.t / swell.secs); hero.root.scale.setScalar(swell.from + (swell.to - swell.from) * u * u * (3 - 2 * u)); }      // he grows as the player watches
+      if (leap.on) { leap.t += dt; hero.root.position.z -= (2 + leap.t * leap.t * 2.2) * dt; }      // and at the last he leaps for the sea
       for (const e of escort) if (e.leave > 0 && e.root.visible) { e.root.position.z += 1.5 * dt; }
       if (gift.visible) {
         pass.t += dt; const u = Math.min(1, pass.t / pass.secs), e = u * u * (3 - 2 * u);

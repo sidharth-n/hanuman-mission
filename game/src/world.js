@@ -112,7 +112,7 @@ const AHEAD = 4;
 const KIT = {
   'market-stall': [2.7, 0],
   'rakshasa-statue': [4.6, 0], 'brazier': [2.3, 0], 'cart': [1.75, 0], 'pots': [1.05, 0], 'barricade': [1.15, 0],
-  'palace': [70, 0], 'ashoka-tree': [8, 0], 'courtier': [1.95, 0],
+  'palace': [70, 0], 'ashoka-tree': [8, 0], 'ashoka-great': [12.5, 0], 'courtier': [1.95, 0],
 };
 
 // rows of obstacles across the three lanes; every row leaves a way through

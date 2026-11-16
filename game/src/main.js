@@ -17,7 +17,7 @@ import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
-const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace', 'ashoka-tree', 'courtier'];
+const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace', 'ashoka-tree', 'ashoka-great', 'courtier'];
 const CAST = ['hanuman', 'guard', 'lankini', 'sita', 'ravana'];      // the characters, kept beside the world's pieces
 const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 3, WIND_SECS = 60, OPEN_FLIGHT = 3.6;      // gusts that charge a flight; seconds for it to charge by itself; the flight every run opens with
 //   // lamps that fill the strength meter; how long he stays giant
@@ -223,7 +223,7 @@ function resumeRun() {
 // Out of Ravana's court with his tail alight: the fire run begins.
 function ablaze() {
   hero.root.position.set(0, groundAt(-FIRE_AT), -FIRE_AT); state.dist = FIRE_AT; world.update(0, -FIRE_AT);
-  resumeRun(); placeCamera(1, true); card('fire');
+  resumeRun(); placeCamera(1, true);
 }
 
 function ignite() {
@@ -475,8 +475,8 @@ function frame(now) {
   state.inside += ((kind === 'hall' || kind === 'throne' ? 1 : 0) - state.inside) * Math.min(1, real * 2.5);
   state.garden += ((kind === 'grove' ? 1 : 0) - state.garden) * Math.min(1, real * 1.5);
   scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(GROVE_SKY, state.garden).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_GROVE, state.garden).lerp(FOG_BLAZE, state.blaze);
-  hemi.intensity = 1.0 + state.garden * 0.9 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
-  moon.intensity = 2.4 + state.garden * 1.6;
+  hemi.intensity = 1.0 + state.garden * 0.3 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
+  moon.intensity = 2.4 + state.garden * 0.5;
   moon.color.copy(MOON_LIGHT).lerp(LAMP_LIGHT, state.inside);
   world.cap.material.color.copy(scene.fog.color); world.heavens.visible = state.inside < 0.5;
   if (tailFire.visible) {
