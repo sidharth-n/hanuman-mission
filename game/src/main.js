@@ -105,12 +105,12 @@ function pause() {
   state.mode = 'paused'; sound.pause(); $('panelTitle').textContent = 'Paused'; $('resume').textContent = 'Resume'; $('quit').hidden = false; screen('panel');
 }
 function openSettings() { $('panelTitle').textContent = 'Settings'; $('resume').textContent = 'Done'; $('quit').hidden = true; screen('panel'); }
-function resume() { if (state.mode === 'paused') { state.mode = 'run'; sound.resume(); last = performance.now(); screen(null); } else screen('menu'); }
+function resume() { if (state.mode === 'paused') { state.mode = 'run'; sound.resume(); if (state.fire) sound.blaze(true); last = performance.now(); screen(null); } else screen('menu'); }
 
 // Back to the title: the street as it was before the run.
 function home() {
   world.reset(); hero.reset(); sound.stop();
-  Object.assign(state, { mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
+  Object.assign(state, { orbit: null, mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
 }
@@ -130,7 +130,7 @@ function start(from = 0) {
   if (typeof from !== 'number') from = 0;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   world.reset(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
-  Object.assign(state, { mode: 'run', speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+  Object.assign(state, { orbit: null, mode: 'run', speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
@@ -165,7 +165,7 @@ function fell() {
 
 function ignite() {
   state.fire = true; state.danger = 0; tailFire.visible = true; slowMotion(0.9, 0.3); state.low = 1.9; world.behind = 2;
-  say(LINES.ignite, 3.2); sound.fx('fire'); buzz([40, 40, 90]);
+  say(LINES.ignite, 3.2); sound.fx('fire'); sound.blaze(true); buzz([40, 40, 90]);
 }
 
 function won() {
@@ -206,7 +206,8 @@ function rules(dt) {
   const flying = state.flight > 0;
   for (const c of world.nearby(p.z)) {
     for (const o of c.obstacles) {
-      if (o.kind === 'gap' && !state.hinted && o.z < p.z && o.z > p.z - 34) { state.hinted = true; say(LINES.gap, 2.2); }      // the first raised drawbridge is called out
+      if (o.kind === 'gap' && !state.hinted && o.z < p.z && o.z > p.z - 34) { state.hinted = true; say(LINES.gap, 2.2); }
+      if (o.kind === 'gap' && !o.heard && o.z < p.z && o.z > p.z - 30) { o.heard = true; sound.fx('bridge', { gap: 1 }); }      // every raised drawbridge creaks on its chains as he nears it      // the first raised drawbridge is called out
       // on a long frame he and the thing coming at him cover more ground than it is deep: widen the test by what the frame skipped
       const dz = Math.abs(o.z - p.z), sweep = Math.max(0, (pace + (o.vz || 0)) * dt / 2 - 0.12);
       if (flying || o.done || o.off || dz > o.hd + 0.2 + sweep || (!o.wide && Math.abs(o.x - p.x) > reach)) continue;
@@ -241,9 +242,8 @@ function rules(dt) {
       // in flight the lamps below come up to him
       if (k.got || Math.abs(k.z - p.z) > 0.8 || Math.abs(k.x - p.x) > reach * (flying ? 1.5 : 1) || (!flying && Math.abs(k.y - (hero.y + 1)) > 1.3 * hero.root.scale.x)) continue;
       k.got = true; k.mesh.visible = false; state.gold++;
-      // lamps in a row ring a little higher each time
-      const t = performance.now(); state.chain = t - (state.lampT || 0) < 600 ? Math.min(10, (state.chain || 0) + 1) : 0; state.lampT = t;
-      sound.fx('lamp', { rate: 1 + state.chain * 0.05, gap: 0.04 });
+      const t = performance.now(); state.chain = t - (state.lampT || 0) < 600 ? (state.chain || 0) + 1 : 0; state.lampT = t;
+      if (state.chain % 4 === 0) sound.fx('lamp', { gap: 0.15 });      // a soft tick for the first of a row and every fourth after it, never a stream
       if (!state.fire && state.giant <= 0 && state.meter < 1) {
         state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
         if (state.meter >= 1) say(LINES.strength, 2.2);
@@ -269,8 +269,6 @@ const SHOTS = {
   drone: (p, k, u) => [[p.x * 0.3 + 2 - u * 4, 15 + u * 5, p.z + 12], [0, 1, p.z - 16], 52],                               // high above the street
   under: (p, k, u) => [[p.x + (p.x > 0.5 ? -2.2 : 2.2), 0.42, p.z - 3.0], [p.x, 0.6, p.z + 0.4], 56],                                              // low on the road ahead, as he slides toward it
   hero:  (p, k, u) => [[p.x + (1.5 - u * 0.5) * k, (0.75 + u * 0.25) * k, p.z - (3.3 - u * 0.5) * k], [p.x, 1.3 * k, p.z], 46],                 // slow push-in on him from the front, low
-  wing:  (p, k, u) => { const tall = camera.aspect < 1, a = 2.5 - ease(u) * 2.1, R = (tall ? 4.4 : 3.0) - u * 0.5, side = p.x > 0.5 ? -1 : 1;      // as he takes wing: from in front of him, past his side, to behind
-    return [[p.x + Math.sin(a) * R * side, 1.0 + hero.y * 0.75 + u * 1.1, p.z + Math.cos(a) * R], [p.x, hero.y + 0.85 - u * 0.25, p.z - 0.2 - u * 1.0], tall ? 62 : 50]; },
   orbit: (p, k, u) => [[p.x + Math.sin(u * 2.4 + 0.5) * 5.5 * k, hero.y + (1.0 + u) * k, p.z + Math.cos(u * 2.4 + 0.5) * 5.5 * k], [p.x, hero.y + 0.8 * k, p.z - 0.6], 58],      // swings round him from behind to the side
 };
 function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs }; }
@@ -279,7 +277,7 @@ function shot(type, secs = 3) { if (SHOTS[type]) state.shot = { type, t: 0, secs
 function useFlight() {
   if (state.mode !== 'run' || state.wind < 1 || state.flight > 0 || state.fire || state.giant > 0) return false;
   state.wind = 0; state.flight = FLIGHT_SECS; state.danger = 0; hero.startFlight(); sound.fx('wing');
-  slowMotion(1.0, 0.4); shot('wing', 1.5);      // as he rises the camera sweeps round him once, then settles behind with the road ahead in view
+  slowMotion(2.3, 0.32); state.shot = null; state.orbit = { t: 0, secs: 3.0, dir: hero.root.position.x > 0.5 ? -1 : 1 };      // as he rises the view is carried once round him, in slow motion, and home again
   return true;
 }
 
@@ -289,6 +287,24 @@ function usePower() {
   state.meter = 0; state.giant = GIANT_SECS; state.danger = 0;
   slowMotion(0.5, 0.4); state.shake = 0.4; sound.fx('power');
   return true;
+}
+
+// Taking wing: the chase view itself is carried once round him and back. It leaves from exactly where it was and arrives exactly
+// where it belongs, so there is no cut at either end; it comes in closer and lower as it passes his side and his face.
+const base = new THREE.Vector3(), pivot = new THREE.Vector3(), SIDE = 3.9;      // SIDE: how far from the middle of the road the view may swing
+function sweep(dt, p, G) {
+  const o = state.orbit; if (state.mode !== 'paused') o.t += dt;
+  const u = Math.min(1, o.t / o.secs), e = u * u * u * (u * (u * 6 - 15) + 10), w = Math.sin(Math.PI * u) ** 2;      // e: slow away, quicker through the middle, slow home; w: how far into the sweep it is
+  const a = e * Math.PI * 2 * o.dir, cs = Math.cos(a), sn = Math.sin(a), near = 1 + 0.1 * w;
+  const eye = ease(Math.min(1, u / 0.18)) * ease(Math.min(1, (1 - u) / 0.18));      // the view turns onto him early and lets go of him late, so he is never out of frame
+  base.copy(camera.position); view.swept = true;
+  pivot.set(p.x, G + hero.y + 0.75, p.z - 0.2);
+  const dx = base.x - pivot.x, dy = base.y - pivot.y, dz = base.z - pivot.z;
+  camera.position.set(pivot.x + (dx * cs + dz * sn) * near, pivot.y + dy * (1 - 0.6 * w), pivot.z + (dz * cs - dx * sn) * near);
+  camera.position.x = Math.max(-SIDE, Math.min(SIDE, camera.position.x));
+  camera.position.y = Math.max(camera.position.y, groundAt(camera.position.z) + 0.7);
+  look.lerp(pivot, eye);
+  if (u >= 1) state.orbit = null;
 }
 
 // The chase camera: close behind and above so he fills the lower third; it lags a little on lane changes, rises less
@@ -326,6 +342,7 @@ function placeCamera(dt, snap) {
     look.set(p.x * (1 - 0.15 * e), G + y0 + (lookY - y0) * e + slope * 0.5 * e, p.z - 9 * e);
     view.back = back;
   } else {
+    if (view.swept) { camera.position.copy(base); view.swept = false; }      // last frame's sweep is set aside before the chase view eases on
     // the distance behind him is held exactly (a camera that trails by speed shakes whenever a frame runs long); only the amount eases
     view.back = snap ? back : view.back + (back - view.back) * Math.min(1, dt * 7);
     want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), G + height, p.z + view.back);
@@ -333,6 +350,7 @@ function placeCamera(dt, snap) {
     if (snap) camera.position.copy(want);
     else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 9); c.z = want.z; }
     look.set(p.x * 0.85, G + lookY + slope * 0.5, p.z - ahead);      // the view tips up a climb and down a descent
+    if (state.orbit) sweep(dt, p, G);
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
   camera.lookAt(look); camera.rotateZ(-hero.lean * 0.3);

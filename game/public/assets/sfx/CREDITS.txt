@@ -1,7 +1,7 @@
 Sound effects in this folder. All are public domain (CC0 1.0) recordings from Freesound, trimmed and levelled for the game.
 
 leap.mp3: "Slow Swosh 40" by qubodup, https://freesound.org/people/qubodup/sounds/60027
-slide.mp3: "SLIDING ON GRAVEL.wav" by trexlasso, https://freesound.org/people/trexlasso/sounds/630008
+slide.mp3: "Boots Gravel Feet Slide 1_8" by Joao_Janz, https://freesound.org/people/Joao_Janz/sounds/504380 + "SLIDING ON GRAVEL.wav" by trexlasso, https://freesound.org/people/trexlasso/sounds/630008 + "Slow Swosh 40" by qubodup, https://freesound.org/people/qubodup/sounds/60027
 lamp.mp3: "ding.wav" by Dr. Macak, https://freesound.org/people/Dr.%20Macak/sounds/434627
 wind.mp3: "Swoosh 15 Windy" by qubodup, https://freesound.org/people/qubodup/sounds/60002
 bell.mp3: "Indian Temple Bell.WAV" by ganiket, https://freesound.org/people/ganiket/sounds/466652
@@ -16,3 +16,5 @@ spikes.mp3: "Sword Fast Unsheath.wav" by ethanchase7744, https://freesound.org/p
 beam.mp3: "Doorslam.wav" by CastIronCarousel, https://freesound.org/people/CastIronCarousel/sounds/216872
 fireball.mp3: "JM_FX_Fireball 02.wav" by Julien Matthey, https://freesound.org/people/Julien%20Matthey/sounds/346917
 stone.mp3: "Boulder Push" by IDLauncher, https://freesound.org/people/IDLauncher/sounds/513236
+bridge.mp3: "Wood Creak Single V6" by Rudmer_Rotteveel, https://freesound.org/people/Rudmer_Rotteveel/sounds/506661 + "Chain rattling" by georgesavic, https://freesound.org/people/georgesavic/sounds/593458
+blaze.mp3: "Fire_Loop.wav" by ReadeOnly, https://freesound.org/people/ReadeOnly/sounds/186924
