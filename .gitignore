@@ -21,3 +21,6 @@ assets/trailer/raw/
 assets/trailer/*.mp4
 assets/trailer/work/
 assets/trailer/music/*.mp3
+
+# sound candidates: downloads and listening copies (the chosen ones are copied into the game)
+assets/sound/**/*.mp3

@@ -1,0 +1,93 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Hanuman Mission · Sound shortlist</title>
+<style>
+:root{--bg:#0e0b08;--panel:#18130e;--line:#3a2c1c;--gold:#e8b44c;--ink:#f3e9d8;--mute:#a8977f}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,system-ui,Segoe UI,sans-serif}
+header{padding:28px 32px 16px;border-bottom:1px solid var(--line)}h1{margin:0;font:600 26px/1.2 Georgia,serif;color:var(--gold)}
+header p{color:var(--mute);max-width:900px;margin:6px 0 0}main{padding:8px 32px 60px;max-width:1300px}
+h2{font:600 20px Georgia,serif;color:var(--gold);margin:30px 0 4px}h2+p{color:var(--mute);margin:0 0 12px;max-width:900px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card b{color:var(--gold);font:600 17px Georgia,serif;display:block}.card span{color:var(--mute);display:block;margin:2px 0 10px}
+audio{width:100%;height:36px}
+table{border-collapse:collapse;width:100%}td,th{border-top:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:top}
+th{color:var(--mute);font-weight:500}td:first-child{width:230px}td:first-child small{display:block;color:var(--mute)}
+button{font:inherit;color:var(--ink);background:#241b12;border:1px solid var(--line);border-radius:999px;padding:6px 14px;margin:0 8px 8px 0;cursor:pointer}
+button:hover{border-color:var(--gold)}button.pick{border-color:var(--gold);color:var(--gold)}button.on{background:var(--gold);color:#1a1208}
+button small{opacity:.7;margin-left:6px}
+@media(max-width:600px){header,main{padding-left:14px;padding-right:14px}td:first-child{width:auto}}
+</style></head><body>
+<header><h1>Hanuman Mission · sound shortlist</h1>
+<p>Everything here is free to use in the game. These were chosen by name, length and measured loudness, not by ear, so the choice is yours. Answer with the letter for the music and the number for any effect you want changed, for example "music A, menu 1, bell 2". Effects with a gold outline go in unless you name another.</p></header>
+<main>
+<h2>Music under the run</h2>
+<p>Excerpts set to the same loudness. A and B need no credit line. C, D and E need a credit line in the game and under every video, and can be flagged by YouTube's music matching.</p>
+<div class="grid" id="music"></div>
+<h2>Menu and results</h2>
+<p>A quieter bed for the menu, pause and results screens. None of these need a credit line.</p>
+<div class="grid" id="menu"></div>
+<h2>Effects</h2>
+<p>One row per moment in the game. All are public domain, no credit line needed. Loops are marked.</p>
+<table id="fx"><tr><th>Moment</th><th>Candidates</th></tr></table>
+<h2>Looked at and left out</h2>
+<p>"Hanuman" by CHASMA: the recording is distorted from start to finish (measured about 12 times louder than the others) and it is tagged as angry metal. "Tribal Drum" by DjMaker: African bongo dance music, wrong place for Lanka. Temple chant recordings: real worshippers with words that cannot be checked, so not used for the Ram chant.</p>
+</main>
+<script>
+const A = '../sound/audition/';
+const music = [
+  ['A · War drums', 'Steady deep drums, about 100 beats a minute, the same strength from start to end, so it repeats cleanly under the effects. No credit needed.', 'music-A-war-drums-loop'],
+  ['B · Dhol tasha, street recording', 'Real Maharashtra dhol and tasha drummers recorded outdoors. The most Indian of the five, but it carries street noise and swells and fades. No credit needed.', 'music-B-dhol-tasha'],
+  ['C · Ancient Rama Empire Music', 'Sitar-led, medium pace, by CHASMA. Trailer option A. Credit line needed.', 'music-C-ancient-rama-empire'],
+  ['D · Beautiful Indian Music', 'Sitar-led, medium pace with quiet passages, by CHASMA. Trailer option B. Credit line needed.', 'music-D-beautiful-indian-music'],
+  ['E · Synth war drum', 'Electronic drums at about 122 beats a minute, very even, by sbatronico. Trailer option C. Credit line needed.', 'music-E-synth-war-drum'],
+];
+const menu = [
+  ['1 · Tanpura drone', 'A slow plucked tanpura, the sound behind Indian classical music.', 'menu-1-tanpura'],
+  ['2 · Tabla', 'A solo tabla pattern, light and unhurried.', 'menu-2-tabla'],
+  ['3 · Dhol, slow', 'A single dhol at an even, walking pace.', 'menu-3-dhol-adibashi'],
+];
+const fx = [
+  ['Run begins, flight, victory', 'conch', [['Long conch blow', 'conch-wav-3cf00936'], ['Short conch call', 'conch-middle-00-flac-9f8a878d'], ['Short conch call, brighter', 'conch-rhymer-00-flac-c899d0cb']]],
+  ['Alarm bell in the palace court', '', [['Indian temple bell', 'indian-temple-bell-wav-3c55fd2c'], ['Deep tolling gong', 'deep-gong-tolling-mp3-d9a15862'], ['Large tower bell', 'church-bell-wav-f6ea7db2'], ['Burmese bell', 'burmabell-aif-f01cdec2'], ['Many small temple bells', 'shiva-bells-wav-43cc88b8']]],
+  ['Caught, the run ends', '', [['Gong, full', 'gong-2-wav-5a7b220b'], ['Gong, sharper', 'anime-gong-1-wav-cb498e53']]],
+  ['Floor spikes shoot up', '', [['Blade drawn fast', 'sword-fast-unsheath-wav-18b4e02f'], ['Blade drawn', 'unsheath-sword-wav-7c17208f'], ['Blade sliding', 'sword-slide-wav-256687e2']]],
+  ['Door beam drops', '', [['Hard slam', 'doorslam-wav-89fad77e'], ['Stone impact with a tail', 'stein-aufschlag-mit-langem-decay-01-wav-64d4a190'], ['Heavy door, open and shut', 'heavy-door-open-and-close-wav-1b85a0fc']]],
+  ['Drawbridge ahead', '', [['Wood creak', 'wood-creak-single-v6-84658657'], ['Chain rattle', 'chain-rattling-aa542a84']]],
+  ['Leap', '', [['Slow swoosh', 'slow-swosh-40-1fbddd97'], ['Windy swoosh', 'swoosh-15-windy-7843f159']]],
+  ['Slide', '', [['Sliding on gravel', 'sliding-on-gravel-wav-1b999150'], ['Feet sliding on gravel', 'boots-gravel-feet-slide-1-8-048111fa']]],
+  ['Hit by an obstacle', '', [['Body hit, heavier', 'body-fall-04-wav-80894069'], ['Body hit, lighter', 'body-fall-01-wav-e5cabe55']]],
+  ['Fall into the moat', '', [['Big splash', 'big-splash-wav-60466366']]],
+  ['Fireball passes', '', [['Fireball', 'jm-fx-fireball-02-wav-0f416b9b'], ['Fireball, shorter', 'jm-fx-fireball-03-wav-d0edf5cb'], ['Flame whoosh', 'ese---whoosh---calm---fire-flame-wav-f9f4f88c']]],
+  ['Rolling stone, spiked log', '', [['Boulder pushed along', 'boulder-push-a880af4d'], ['Stone landing with a tail', 'stein-aufschlag-mit-langem-decay-09-wav-2062d9f6']]],
+  ['Lamp collected', '', [['Small bell', 'bell8-wav-b441f8c9'], ['Ding', 'ding-wav-343b70d8'], ['Hand bell, one ring', '1ring-7c01a270']]],
+  ['Flight take-off', '', [['Rising whoosh', 'red-whoosh-gladiator-04-wav-70a5e23e']]],
+  ['Wind while flying', 'loop', [['Cold wind', 'cold-wind-loop-294727d2'], ['Strong wind', 'wind-loop-300d070e']]],
+  ['Lanka burning, the run back', 'loop', [['Large fire', 'fire-loop-wav-f595e722'], ['Crackling fire', 'ambiance-campfire-loop-stereo-wav-9e752748']]],
+  ['Night air in the city', 'loop', [['Night insects', 'thailand-jungle-night-crickets-from-boat-23883d00']]],
+  ['Button press', '', [['Click, fuller', 'videogame-menu-button-clicking-sound-13-d2a785dc'], ['Click, tiny', 'videogame-menu-button-clicking-sound-18-958ba23f']]],
+];
+const card = ([t, d, f]) => `<div class="card"><b>${t}</b><span>${d}</span><audio controls preload="none" src="${A}${f}.mp3"></audio></div>`;
+document.getElementById('music').innerHTML = music.map(card).join('');
+document.getElementById('menu').innerHTML = menu.map(card).join('');
+let now = null, btn = null;
+const stop = () => { if (now) { now.pause(); now = null; } if (btn) { btn.classList.remove('on'); btn = null; } };
+const table = document.getElementById('fx');
+for (const [moment, note, list] of fx) {
+  const tr = table.insertRow();
+  tr.insertCell().innerHTML = moment + (note === 'loop' ? '<small>repeats while it lasts</small>' : '');
+  const td = tr.insertCell();
+  list.forEach(([name, file], i) => {
+    const b = document.createElement('button');
+    b.innerHTML = `${i + 1} · ${name}`;
+    if (i === 0) b.className = 'pick';
+    b.onclick = () => {
+      const same = btn === b; stop(); if (same) return;
+      now = new Audio(`${A}fx-${file}.mp3`); now.loop = note === 'loop'; btn = b; b.classList.add('on');
+      now.onended = stop; now.play();
+    };
+    td.appendChild(b);
+  });
+}
+document.addEventListener('play', e => { if (e.target.tagName === 'AUDIO') { stop(); document.querySelectorAll('audio').forEach(a => a !== e.target && a.pause()); } }, true);
+</script>
+</body></html>
