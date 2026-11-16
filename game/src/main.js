@@ -3,7 +3,8 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero } from './hero.js';
-import { World } from './world.js';
+import { World, SECTIONS, FIRE_AT, END_AT, groundAt } from './world.js';
+import LINES from './lines.json';
 import { listen } from './input.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
@@ -12,10 +13,11 @@ import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
 const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace'];
 const START_SPEED = 9.5, MAX_SPEED = 15.5, ACCEL = 0.11;
-const FIRE_AT = 380, END_AT = 820;       // metres: where the tail catches fire, where the run ends
 const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 2;   // lamps that fill the strength meter; how long he stays giant
 const NIGHT = new THREE.Color(0x070b1c), BLAZE = new THREE.Color(0x2b0d04);
 const FOG_NIGHT = new THREE.Color(0x0b1230), FOG_BLAZE = new THREE.Color(0x3a1407);
+const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d1208);      // inside the palace: lamplit dark instead of night sky
+const SKY_LIGHT = new THREE.Color(0x7f95d8), LAMP_LIGHT = new THREE.Color(0xd9a25e), FIRE_LIGHT = new THREE.Color(0xff9a5a), MOON_LIGHT = new THREE.Color(0xb4c4ff), tint = new THREE.Color();
 
 const $ = id => document.getElementById(id);
 const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
@@ -24,7 +26,8 @@ const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: 
 const store = { get(k, d) { try { return localStorage.getItem('hm.' + k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem('hm.' + k, v); } catch { /* private mode */ } } };
 const settings = { gfx: store.get('gfx', 'rich'), vib: store.get('vib', 'on') === 'on' };
 const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibrate(pattern); };
-const debug = new URLSearchParams(location.search).has('debug');
+const query = new URLSearchParams(location.search), debug = query.has('debug');
+const startAt = debug ? Math.max(0, SECTIONS.findIndex(s => s.id === query.get('at'))) : 0;      // ?debug&at=court starts a run at that section
 const t0 = performance.now();
 
 const renderer = new THREE.WebGLRenderer({ canvas: $('view'), antialias: true, powerPreference: 'high-performance' });
@@ -44,7 +47,8 @@ const camera = new THREE.PerspectiveCamera(56, 1, 0.3, 700);
 const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, alertT: 0, falling: [],
   tscale: 1, slowT: 0, slowK: 1, intro: 0, low: 0,        // slow motion, opening sweep, low hero shot
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
-  wind: 0, flight: 0, safe: 0 };                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
+  wind: 0, flight: 0, safe: 0,
+  sec: 0, from: 0, inside: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
 let hero, world, tailFire, tailLight;
 
 let fixed = null;      // [width, height] when recording at an exact size
@@ -63,6 +67,7 @@ async function load() {
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
   world = new World(scene, models, { city, glow, paving, sky });
+  world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); };
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
 
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
@@ -94,7 +99,7 @@ function resume() { if (state.mode === 'paused') { state.mode = 'run'; last = pe
 // Back to the title: the street as it was before the run.
 function home() {
   world.reset(); hero.reset();
-  Object.assign(state, { mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0 });
+  Object.assign(state, { mode: 'ready', speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); world.behind = 3;
   world.update(0, 0); screen('menu');
 }
@@ -103,17 +108,24 @@ function result(title, thirdLabel, third) {
   const best = Math.max(+store.get('best', 0), Math.round(state.dist)); store.set('best', best);
   $('resultTitle').textContent = title; $('rDist').textContent = Math.round(state.dist).toLocaleString(); $('rLamps').textContent = state.gold;
   $('rThirdLabel').textContent = thirdLabel; $('rThird').textContent = (third ?? best).toLocaleString();
+  // caught beyond the first stretch: the next run takes up from the start of the place he had reached
+  if (state.dist >= END_AT) { state.from = 0; state.kept = null; }
+  $('again').textContent = state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = state.from === 0;
   state.mode = 'ready'; screen('result');
 }
 
-function start() {
-  world.reset(); hero.reset();
-  Object.assign(state, { mode: 'run', speed: START_SPEED, dist: 0, gold: 0, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
-    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, meter: 0, giant: 0, big: 0, burned: 0, cine: 6, wind: 0, flight: 0, safe: 0 });
+// from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
+function start(from = 0) {
+  if (typeof from !== 'number') from = 0;
+  const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 0 };
+  world.reset(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
+  Object.assign(state, { mode: 'run', speed: Math.max(START_SPEED, Math.min(MAX_SPEED, START_SPEED + ACCEL * sec.from / 11.5)), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+    tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
+    inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1);
   screen(null); last = performance.now();
-  world.update(0, 0);
+  world.update(0, hero.root.position.z);
   hero.play('fast_run', { fade: 0.15 });
 }
 
@@ -126,7 +138,7 @@ function hit(o, chunk) {
   if (state.big > 0.3) { state.shake = 0.3; return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
   state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50);
-  hero.stumble(); say('The guards are closing in');
+  hero.stumble(); say(LINES.stumble);
 }
 
 function caught() {
@@ -134,9 +146,14 @@ function caught() {
   result('Captured', 'Best');
 }
 
+// He ran off the raised drawbridge: down into the moat.
+function fell() {
+  state.mode = 'fall'; state.fallT = 0.85; hero.floor = -30; hero.vy = -2; hero.play('falling_idle', { fade: 0.1 }); buzz([120, 40, 60]);
+}
+
 function ignite() {
   state.fire = true; state.danger = 0; tailFire.visible = true; slowMotion(0.9, 0.3); state.low = 1.9; world.behind = 2;
-  say('The tail is on fire. Burn Lanka!', 3.2);
+  say(LINES.ignite, 3.2);
 }
 
 function won() {
@@ -154,6 +171,12 @@ function rules(dt) {
   if (state.safe > 0) state.safe -= dt;
   if (state.flight > 0) { state.flight -= dt; if (state.flight <= 0) { hero.endFlight(); state.safe = 1.1; } }
   state.big += ((state.giant > 0 ? 1 : 0) - state.big) * Math.min(1, dt * 4);
+  // each new place along the route is named as he enters it, and becomes where the next run takes up from
+  const sec = SECTIONS.findLastIndex(s => state.dist >= s.from);
+  if (sec > state.sec) {
+    state.sec = sec; state.from = sec; state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
+    if (!SECTIONS[sec].fire) say(SECTIONS[sec].name, 2.4);
+  }
   if (!state.fire && state.dist >= FIRE_AT) ignite();
   if (state.fire) {
     state.blaze = Math.min(1, state.blaze + dt * 0.35);
@@ -163,32 +186,39 @@ function rules(dt) {
     if (state.dist >= END_AT) return won();
   }
   hero.root.scale.setScalar(1 + Math.max(state.grow, state.big) * 0.9);
-  const smash = state.fire || state.big > 0.3;
+  const smash = state.fire || state.big > 0.3, pace = state.speed * (state.fire ? 1.15 : 1);
   const reach = 0.82 * hero.root.scale.x;
   let floor = 0;
   if (state.cine > 0) state.cine -= dt;
   const flying = state.flight > 0;
   for (const c of world.nearby(p.z)) {
     for (const o of c.obstacles) {
-      const dz = Math.abs(o.z - p.z);
-      if (flying || o.done || dz > o.hd + 0.2 || Math.abs(o.x - p.x) > reach) continue;
+      if (o.kind === 'gap' && !state.hinted && o.z < p.z && o.z > p.z - 34) { state.hinted = true; say(LINES.gap, 2.2); }      // the first raised drawbridge is called out
+      // on a long frame he and the thing coming at him cover more ground than it is deep: widen the test by what the frame skipped
+      const dz = Math.abs(o.z - p.z), sweep = Math.max(0, (pace + (o.vz || 0)) * dt / 2 - 0.12);
+      if (flying || o.done || o.off || dz > o.hd + 0.2 + sweep || (!o.wide && Math.abs(o.x - p.x) > reach)) continue;
+      if (o.kind === 'gap') {      // the raised drawbridge: only a leap (or a giant's stride) carries him over
+        if (state.big < 0.3 && hero.y < 0.25 && dz < o.hd - 0.3) return fell();
+        continue;
+      }
       // things on the ground: above them he is safe, and he can come down on top and run across.
       // a beam: safe only while sliding. Only the real footprint counts as a hit, not the space around it.
-      const over = o.kind === 'high' ? hero.sliding : hero.y >= o.top - 0.45;
+      const lift = o.kind === 'high' ? 0 : groundAt(o.z) - p.y;      // on a stairway the thing stands on higher or lower ground than he does
+      const over = o.kind === 'high' ? hero.sliding : hero.y >= o.top + lift - 0.45;
       if (smash) hit(o, c);
       else if (over) {
-        if (o.kind !== 'high' && hero.vy <= 0) floor = Math.max(floor, o.top);      // coming down or standing on it
+        if (o.kind !== 'high' && !o.sharp && hero.vy <= 0) floor = Math.max(floor, o.top + lift);      // coming down or standing on it
         if (!o.near) {       // now and then a good leap is shown from the roadside in slow motion; never a slide
           o.near = true;
-          if (o.kind !== 'high' && hero.y > o.top && state.cine <= 0 && !state.shot) { shot('side', 1.3); slowMotion(1.05, 0.36); state.cine = 16 + Math.random() * 10; }
+          if (o.kind !== 'high' && hero.y > o.top + lift && state.cine <= 0 && !state.shot) { shot('side', 1.3); slowMotion(1.05, 0.36); state.cine = 16 + Math.random() * 10; }
         }
-      } else if (dz <= o.hd - 0.05 && state.safe <= 0) hit(o, c);
+      } else if (dz <= o.hd - 0.05 + sweep && state.safe <= 0) hit(o, c);
       if (state.mode !== 'run') return;
     }
     for (const w of c.winds) {
       if (w.got || Math.abs(w.z - p.z) > 0.9 || Math.abs(w.x - p.x) > reach) continue;
       w.got = true; w.mesh.visible = false;
-      if (state.wind < 1 && !flying) { state.wind = Math.min(1, state.wind + 1 / WINDS_FOR_FLIGHT); if (state.wind >= 1) say('The wind is with you. Fly', 2.4); }
+      if (state.wind < 1 && !flying) { state.wind = Math.min(1, state.wind + 1 / WINDS_FOR_FLIGHT); if (state.wind >= 1) say(LINES.wind, 2.4); }
     }
     for (const k of c.coins) {
       // in flight the lamps below come up to him
@@ -196,7 +226,7 @@ function rules(dt) {
       k.got = true; k.mesh.visible = false; state.gold++;
       if (!state.fire && state.giant <= 0 && state.meter < 1) {
         state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
-        if (state.meter >= 1) say('Strength is full', 2.2);
+        if (state.meter >= 1) say(LINES.strength, 2.2);
       }
     }
   }
@@ -238,6 +268,7 @@ function usePower() {
 // than he does on a jump, drops with a slide, widens with speed and pushes in during slow motion.
 function placeCamera(dt, snap) {
   const p = hero.root.position, k = hero.root.scale.x, tall = camera.aspect < 1;
+  const G = p.y, slope = groundAt(p.z - 9) - G;      // the floor under him, and how much it climbs or falls just ahead
   const fast = Math.min(1, Math.max(0, (state.speed - START_SPEED) / (MAX_SPEED - START_SPEED)));
   const slow = 1 - state.tscale, low = ease(Math.min(1, state.low));
   if (view.air && !hero.airborne && hero.fly < 0.2) view.dip = 0.28;      // landing
@@ -252,22 +283,24 @@ function placeCamera(dt, snap) {
   if (state.shot) {
     const s = state.shot; s.t += dt;
     const [at, to, f] = SHOTS[s.type](p, k, Math.min(1, s.t / s.secs));
-    camera.position.set(...at); look.set(...to); view.fovWant = f; view.back = back;
+    camera.position.set(...at); camera.position.y = Math.max(camera.position.y + G, groundAt(camera.position.z) + 0.5);      // never under a stairway
+    look.set(...to); look.y += G; view.fovWant = f; view.back = back;
     if (s.t >= s.secs) state.shot = null;
   } else if (state.mode === 'ready' || state.intro > 0) {
     // title: a slow drift in front of him. On Run the camera sweeps round behind as he takes off.
     const e = state.mode === 'ready' ? 0 : ease(1 - state.intro / INTRO);
     const a = (2.5 + Math.sin(performance.now() * 0.0004) * 0.16) * (1 - e), R = 4.0 * k + (back - 4.0 * k) * e, y0 = (tall ? 0.95 : 0.75) * k;
-    camera.position.set(p.x + Math.sin(a) * R, 1.3 * k + (height - 1.3 * k) * e, p.z + Math.cos(a) * R);
-    look.set(p.x * (1 - 0.15 * e), y0 + (lookY - y0) * e, p.z - 9 * e);
+    camera.position.set(p.x + Math.sin(a) * R, G + 1.3 * k + (height - 1.3 * k) * e, p.z + Math.cos(a) * R);
+    look.set(p.x * (1 - 0.15 * e), G + y0 + (lookY - y0) * e + slope * 0.5 * e, p.z - 9 * e);
     view.back = back;
   } else {
     // the distance behind him is held exactly (a camera that trails by speed shakes whenever a frame runs long); only the amount eases
     view.back = snap ? back : view.back + (back - view.back) * Math.min(1, dt * 5);
-    want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), height, p.z + view.back);
+    want.set(p.x * 0.72 + slow * (p.x > 0 ? -1 : 1), G + height, p.z + view.back);
+    want.y = Math.max(want.y, groundAt(want.z) + 1.4);      // coming down a stairway, the steps behind him are higher than he is
     if (snap) camera.position.copy(want);
-    else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 7); c.z = want.z; }
-    look.set(p.x * 0.85, lookY, p.z - 9);
+    else { const c = camera.position; c.x += (want.x - c.x) * Math.min(1, dt * 7); c.y += (want.y - c.y) * Math.min(1, dt * 9); c.z = want.z; }
+    look.set(p.x * 0.85, G + lookY + slope * 0.5, p.z - 9);      // the view tips up a climb and down a descent
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
   camera.lookAt(look); camera.rotateZ(-hero.lean * 0.3);
@@ -291,20 +324,26 @@ function frame(now) {
   if (state.low > 0) state.low -= real;
   const running = state.mode === 'run';
   if (running) rules(dt);
-  const speed = state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
-  hero.update(dt, speed, state.mode === 'run');
+  const falling = state.mode === 'fall';
+  if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
+  const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
+  hero.update(dt, speed, state.mode === 'run' || falling, groundAt);
   world.update(dt, hero.root.position.z);
   for (const f of state.falling) { f.t += dt; f.mesh.rotation.z = f.dir * Math.min(1.35, f.t * 7); f.mesh.position.y = -Math.min(0.5, f.t * 1.2); }
   if (state.shake > 0) state.shake = Math.max(0, state.shake - real * 1.6);
 
-  scene.background.copy(NIGHT).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_BLAZE, state.blaze);
-  hemi.intensity = 1.0 + state.blaze * 0.25; hemi.color.setHex(0x7f95d8).lerp(new THREE.Color(0xff9a5a), state.blaze * 0.7);
+  // night outside, lamplight inside the palace, firelight once the city burns
+  state.inside += ((world.kindAt(hero.root.position.z) === 'hall' ? 1 : 0) - state.inside) * Math.min(1, real * 2.5);
+  scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_BLAZE, state.blaze);
+  hemi.intensity = 1.0 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(FIRE_LIGHT, state.blaze * 0.7);
+  moon.color.copy(MOON_LIGHT).lerp(LAMP_LIGHT, state.inside);
+  world.cap.material.color.copy(scene.fog.color); world.heavens.visible = state.inside < 0.5;
   if (tailFire.visible) {
     hero.tailTip(tip); const k = hero.root.scale.x;
     tailFire.children.forEach((f, n) => { const s = f.userData.s * k * (1.5 + Math.sin(now * 0.02 + n * 2) * 0.25); f.scale.set(s, s * 1.3, 1); f.position.set(tip.x, tip.y + n * 0.35 * k, tip.z + n * 0.25 * k); });
     tailLight.position.set(tip.x, tip.y + 1.2 * k, tip.z + 1.5 * k); tailLight.intensity = 26 * k * (1 + Math.sin(now * 0.03) * 0.15);
   }
-  world.skyMat.color.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82);
+  tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); world.skyMat.color.copy(tint);
   placeCamera(real, false);
   renderer.render(scene, camera);
 
@@ -338,7 +377,7 @@ listen(window, dir => {
   if (dir === 'giant') usePower(); else if (dir === 'fly') useFlight(); else if (dir !== 'tap') hero.move(dir);
 });
 const press = (id, fn) => $(id).addEventListener('click', fn);
-press('go', start); press('again', start); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+press('go', () => start(startAt)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); fn(); });      // on touch down, not on release
 // settings
 function showSettings() {
@@ -352,7 +391,7 @@ $('gfx').addEventListener('click', e => {
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
 window.addEventListener('keydown', e => {
-  if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start();
+  if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start(ui.menu.hidden ? state.from : startAt);
   if (e.key === 'Escape' || e.key === 'p') { if (state.mode === 'run') pause(); else if (state.mode === 'paused') resume(); }
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });      // never keep running behind another app
@@ -367,5 +406,5 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, start, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };

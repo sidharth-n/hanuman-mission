@@ -118,10 +118,12 @@ export class Hero {
 
   stumble() { this.busy = 0.45; this.slide = 0; this.play('hit_reaction', { once: true, speed: 2.2, fade: 0.06 }); }
 
-  update(dt, speed, running) {
+  // groundAt: the height of the floor along the route; his own height (this.y) is measured from it.
+  update(dt, speed, running, groundAt) {
     this.time += dt;
     const p = this.root.position;
     if (running) p.z -= speed * dt;
+    if (groundAt) p.y = groundAt(p.z);
     const tx = LANES[this.lane];
     const dx = tx - p.x;
     p.x += dx * Math.min(1, dt * 13);
@@ -135,7 +137,7 @@ export class Hero {
     // tipped forward to fly level; the body is kept over the spot he is flying above
     this.model.rotation.x = -this.fly * 1.22;
     this.model.position.set(0, this.y + this.fly * 0.25, this.fly * 0.85);
-    this.blob.position.y = this.floor + 0.03; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25));
+    this.blob.position.y = this.floor + 0.05; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25)); this.blob.visible = this.floor > -1;
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;
 

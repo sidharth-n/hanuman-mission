@@ -1,5 +1,5 @@
 {
-  "about": "The route through Lanka, section by section: what each place looks like, what blocks the way, where the story beats, fights, forks and camera shots fall. Distances in metres. Difficulty rises along the route: obstacle rows get closer and the run gets faster.",
+  "about": "The route through Lanka, section by section: what each place looks like, what blocks the way, where the story beats, fights, forks and camera shots fall. Distances in metres. Difficulty rises along the route: obstacle rows get closer and the run gets faster. A section with a \"kind\" is built and playable, in whole 24 m stretches; the fire run goes back through the places listed in \"through\".",
   "sources": {
     "epic": "Valmiki Ramayana, Sundara Kanda (the search for Sita, the burning of Lanka) and Yuddha Kanda sarga 3 (Hanuman's own description of Lanka's defences: four gates with strong doors and locking beams, engines that hurl darts and stones, iron sataghnis kept by the hundred at the gates, deep moats with crocodiles, drawbridges worked by engines).",
     "fort": "Arthashastra fort chapter: triple moats with crocodiles, ramparts, towers, archers' positions, iron-pointed stakes."
@@ -36,14 +36,14 @@
     "falling-tower":   { "move": "dodge", "from": "fire",  "asset": "code" }
   },
   "sections": [
-    { "id": "gate", "name": "The Gate", "length": 80, "place": "sea gate of Lanka at night", "speed": 9, "rowGap": 0,
+    { "id": "gate", "name": "The Gate", "kind": "city", "length": 48, "place": "sea gate of Lanka at night", "speed": 9, "rowGap": 0,
       "obstacles": [],
       "events": [
         { "at": 0, "type": "shot", "what": "opening: slow pass over the gate and walls, down to Hanuman" },
         { "at": 30, "type": "boss", "who": "Lankini", "what": "the guardian of the city blocks the gate; one clean strike fells her (as in the epic)" },
         { "at": 70, "type": "spotted", "what": "a guard sees him; the chase begins" }
       ] },
-    { "id": "city", "name": "The City", "length": 380, "place": "torch-lit bazaar streets", "speed": 10, "rowGap": 12,
+    { "id": "city", "name": "The City", "kind": "city", "length": 288, "place": "torch-lit bazaar streets", "speed": 10, "rowGap": 12,
       "obstacles": ["water-channel", "fallen-pillar", "thrown-pots", "cart", "street-chain", "lamp-beam", "fire-arrows"],
       "events": [
         { "at": 120, "type": "turn", "dir": "left" },
@@ -51,21 +51,21 @@
         { "at": 300, "type": "pickup", "what": "wind" },
         { "at": 340, "type": "turn", "dir": "right" }
       ] },
-    { "id": "bridges", "name": "The Bridges", "length": 200, "place": "stone bridges over the moat, crocodiles below", "speed": 11, "rowGap": 11,
+    { "id": "bridges", "name": "The Bridges", "kind": "bridge", "length": 120, "place": "stone bridges over the moat, crocodiles below", "speed": 11, "rowGap": 11,
       "obstacles": ["bridge-gap", "hurled-stone", "fire-arrows", "sataghni"],
       "events": [
         { "at": 20, "type": "shot", "what": "wide side view of him running the bridge with the palace above, slow motion on the first leap" }
       ] },
-    { "id": "stairway", "name": "The Stairway", "length": 160, "place": "the grand stairway up to the palace, sloping up", "speed": 11, "rowGap": 10, "slope": 0.22,
+    { "id": "stairway", "name": "The Stairway", "kind": "stairs", "length": 96, "place": "the grand stairway up to the palace, sloping up", "speed": 11, "rowGap": 10, "slope": 0.22,
       "obstacles": ["rolling-stone", "spear-rack", "sataghni", "spear-guard"],
       "events": [] },
-    { "id": "court", "name": "The Palace Court", "length": 200, "place": "outer palace court behind the great doors", "speed": 12, "rowGap": 10,
+    { "id": "court", "name": "The Palace Court", "kind": "court", "length": 120, "place": "outer palace court behind the great doors", "speed": 12, "rowGap": 10,
       "obstacles": ["closing-door", "spear-guard", "spear-rack", "pillar"],
       "events": [
         { "at": 0, "type": "shot", "what": "the great doors swing shut; he slides under the locking beam" },
         { "at": 150, "type": "fight", "who": "two guards with swords", "what": "the run stops, he fights with the mace, then runs on" }
       ] },
-    { "id": "halls", "name": "The Inner Palace", "length": 320, "place": "pillared halls and corridors of gold and dark stone", "speed": 12.5, "rowGap": 9,
+    { "id": "halls", "name": "The Inner Palace", "kind": "hall", "length": 240, "place": "pillared halls and corridors of gold and dark stone", "speed": 12.5, "rowGap": 9,
       "obstacles": ["pillar", "banquet-table", "lamp-chain", "spear-guard", "closing-door"],
       "events": [
         { "at": 60, "type": "shot", "what": "high gliding view down the pillared hall" },
@@ -85,7 +85,8 @@
       "events": [
         { "at": 0, "type": "story", "what": "before Ravana; his tail is wrapped and set on fire" }
       ] },
-    { "id": "fire", "name": "Lanka Burns", "length": 460, "place": "back down through the palace, the stairway and the city, everything catching fire", "speed": 14, "rowGap": 8,
+    { "id": "fire", "name": "Lanka Burns", "length": 432,
+      "through": [{ "kind": "hall", "length": 96 }, { "kind": "stairs", "length": 96, "dir": -1 }, { "kind": "city", "length": 240 }], "place": "back down through the palace, the stairway and the city, everything catching fire", "speed": 14, "rowGap": 8,
       "obstacles": ["burning-beam", "falling-tower", "spear-guard", "cart"],
       "events": [
         { "at": 0, "type": "shot", "what": "low angle as the tail catches; slow motion" },

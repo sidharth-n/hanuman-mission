@@ -246,6 +246,22 @@
       "where": "Obstacle in the palace corridors, dodge it",
       "status": "concept",
       "needs": "Your OK on the image, then Lux3D image-to-3D (Turbo)"
+    },
+    {
+      "id": "moat-crocodile",
+      "name": "Moat crocodile",
+      "group": "Animals",
+      "where": "The moat under the bridges: lunges up at the raised drawbridge (the epic and the Arthashastra both put crocodiles in the moat)",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (G1) and a bite animation"
+    },
+    {
+      "id": "war-elephant",
+      "name": "War elephant",
+      "group": "Animals",
+      "where": "The palace court: stands across a lane, or charges down it",
+      "status": "concept",
+      "needs": "Your OK on the image, then Lux3D image-to-3D (G1) and a charge animation"
     }
   ]
 }

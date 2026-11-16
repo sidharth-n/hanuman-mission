@@ -6,7 +6,7 @@ import { mkdirSync, writeFileSync, statSync } from 'node:fs';
 const root = new URL('../', import.meta.url).pathname;
 const src = id => `${root}assets/textures-flow/${id}/${id}-1.clean.jpg`;
 const out = `${root}game/public/assets/tex/`;
-const W = 2048, H = 1024;
+const W = 2048, H = 2048;
 
 // name: [x, y, w, h on the sheet, tile width and height in metres (0 = stretch to fit), source id, crop x, y, w, h]
 const CELLS = {
@@ -20,6 +20,13 @@ const CELLS = {
   paving:  [640, 768, 256, 256, 2, 2, 'paving', 0, 0, 880, 880],
   frieze:  [896, 512, 1024, 256, 2, 0.5, 'frieze', 0, 168, 1136, 284],
   lotus:   [896, 768, 1024, 128, 2, 0.25, 'frieze', 0, 615, 1080, 135],
+  // the palace: polished floor, gilded wall relief, coffered ceiling, carved pillar shaft, carpet, the great door
+  pfloor:  [0, 1024, 512, 512, 4, 4, 'palace-floor', 128, 128, 768, 768],
+  pwall:   [512, 1024, 512, 512, 4, 4, 'palace-wall', 0, 0, 880, 880],
+  pceil:   [1024, 1024, 512, 512, 4.5, 4.5, 'palace-ceiling', 0, 0, 768, 768],
+  ppillar: [1536, 1024, 256, 512, 1.2, 2.4, 'palace-pillar', 40, 0, 688, 1376],
+  carpet:  [1792, 1024, 256, 256, 1.9, 1.9, 'carpet', 0, 0, 880, 880],
+  pdoor:   [0, 1536, 288, 512, 0, 0, 'palace-door', 12, 27, 744, 1322],
 };
 // flat colours: [x, y, w, h, colour on the sheet, colour on the glow sheet]
 const FLAT = {
@@ -27,6 +34,9 @@ const FLAT = {
   dark: [1024, 896, 128, 128, '0x1c1814', '0x000000'],
   lamp: [1152, 896, 128, 128, '0xd08a3a', '0xff9436'],
   ember: [1280, 896, 128, 128, '0x5a2a12', '0x000000'],
+  bronze: [1408, 896, 128, 128, '0x8a6a34', '0x000000'],
+  iron: [1536, 896, 128, 128, '0x2e2d31', '0x000000'],
+  crimson: [1664, 896, 128, 128, '0x6a1216', '0x000000'],
 };
 
 mkdirSync(out, { recursive: true });

@@ -67,6 +67,27 @@ export class Builder {
     return this;
   }
 
+  // A polygon given in any order: it is turned to face the direction asked for.
+  face(pts, cell, toward, opt = {}) {
+    const [a, b, c] = pts, ux = b[0] - a[0], uy = b[1] - a[1], uz = b[2] - a[2], vx = c[0] - a[0], vy = c[1] - a[1], vz = c[2] - a[2];
+    const d = (uy * vz - uz * vy) * toward[0] + (uz * vx - ux * vz) * toward[1] + (ux * vy - uy * vx) * toward[2];
+    return this.poly(d < 0 ? pts.slice().reverse() : pts, cell, opt);
+  }
+
+  // A four-sided spike from a point on a surface, pointing along dir.
+  spike(at, dir, r, h, cell = 'iron', shade = 1) {
+    const d = new THREE.Vector3(...dir).normalize(), u = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(d.y) > 0.9) u.set(1, 0, 0);
+    u.cross(d).normalize(); const w = new THREE.Vector3().crossVectors(d, u);
+    const c = new THREE.Vector3(...at), tip = c.clone().addScaledVector(d, h).toArray();
+    const corner = k => c.clone().addScaledVector(u, [r, -r, -r, r][k]).addScaledVector(w, [r, r, -r, -r][k]);
+    for (let k = 0; k < 4; k++) {
+      const p = corner(k), q = corner((k + 1) % 4), out = p.clone().add(q).multiplyScalar(0.5).sub(c).addScaledVector(d, 0.2);
+      this.face([p.toArray(), q.toArray(), tip], cell, out.toArray(), { ground: false, shade: shade * (k % 2 ? 0.75 : 1.1) });
+    }
+    return this;
+  }
+
   // Axis-aligned box. faces: any of f (+z) b (-z) l (-x) r (+x) t (top) d (underside).
   box(x0, x1, y0, y1, z0, z1, cell, opt = {}) {
     const faces = opt.faces || 'flrt', top = opt.top || cell;
