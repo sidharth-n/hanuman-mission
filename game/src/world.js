@@ -7,7 +7,7 @@ import { kit, footpath, lampBeam, SLOT } from './buildings.js';
 export const CHUNK = 24;
 const ROAD = 3.9;        // half width of the paved road (three lanes)
 const FRONT = 6.2;       // distance from the centre line to the house fronts
-const AHEAD = 4, BEHIND = 1;
+const AHEAD = 4;
 
 // name -> [height in metres, extra yaw so the front faces +Z]
 const KIT = {
@@ -69,7 +69,8 @@ export class World {
 
     this.torches = [new THREE.PointLight(0xff8a3c, 0, 26, 1.6), new THREE.PointLight(0xff8a3c, 0, 26, 1.6)];
     this.torches.forEach(l => scene.add(l));
-    this.sky(models);
+    this.sky(models, tex.sky);
+    this.behind = 3;      // how many stretches of street to keep behind him (more on the title screen, which looks back)
     this.chunks = new Map();
     this.flames = [];
     this.time = 0;
@@ -90,8 +91,13 @@ export class World {
 
   spawn(name) { const o = this.prefabs[name].clone(); o.userData = this.prefabs[name].userData; return o; }
 
-  sky(models) {
+  sky(models, picture) {
     const far = new THREE.Group(); this.far = far; this.scene.add(far);
+    // the galaxy: one picture spread over the half of the sky ahead and mirrored behind, from just below the horizon to high overhead
+    picture.colorSpace = THREE.SRGBColorSpace; picture.wrapS = THREE.MirroredRepeatWrapping; picture.wrapT = THREE.ClampToEdgeWrapping;
+    picture.repeat.set(2, 2.4); picture.offset.set(0, -1.133);
+    this.skyMat = new THREE.MeshBasicMaterial({ map: picture, side: THREE.BackSide, fog: false, depthWrite: false });
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(560, 32, 20), this.skyMat); dome.renderOrder = -2; far.add(dome);
     const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,255,245,1)', 'rgba(190,205,255,0.35)'), fog: false, depthWrite: false }));
     moon.scale.setScalar(60); moon.position.set(46, 92, -260); far.add(moon);
     const disc = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xf6f3e4, fog: false, depthWrite: false, map: canvasTexture(64, (g, s) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 2, 0, 7); g.fill(); }) }));
@@ -104,9 +110,14 @@ export class World {
       hill.position.set(0, -15, -240); far.add(hill);
     }
     const r = rng(5), pts = [];
-    for (let i = 0; i < 500; i++) { const a = r() * Math.PI * 2, h = 0.08 + r() * 0.9, d = 380; pts.push(Math.cos(a) * d * Math.cos(h), d * Math.sin(h), Math.sin(a) * d * Math.cos(h)); }
+    for (let i = 0; i < 160; i++) { const a = r() * Math.PI * 2, h = 0.08 + r() * 0.9, d = 380; pts.push(Math.cos(a) * d * Math.cos(h), d * Math.sin(h), Math.sin(a) * d * Math.cos(h)); }
     const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
-    far.add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xcfd8ff, size: 1.4, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.8 })));
+    // a few bright stars that twinkle, in two sets out of step with each other
+    this.twinkle = [0, 1].map(n => {
+      const part = new THREE.BufferGeometry(); part.setAttribute('position', new THREE.Float32BufferAttribute(pts.filter((_, j) => Math.floor(j / 3) % 2 === n), 3));
+      const m = new THREE.PointsMaterial({ color: n ? 0xfff0d8 : 0xd6e2ff, size: 2.2, sizeAttenuation: false, fog: false, transparent: true, opacity: 0.8, depthWrite: false });
+      far.add(new THREE.Points(part, m)); return m;
+    });
   }
 
   beam() { return new THREE.Mesh(this.beamGeo, this.cityMat); }
@@ -183,8 +194,9 @@ export class World {
   update(dt, heroZ) {
     this.time += dt;
     const at = Math.floor(-heroZ / CHUNK);
-    for (let i = Math.max(0, at - BEHIND); i <= at + AHEAD; i++) if (!this.chunks.has(i)) this.chunks.set(i, this.build(i));
-    for (const [i, c] of this.chunks) if (i < at - BEHIND || i > at + AHEAD) { this.drop(c); this.chunks.delete(i); }
+    for (let i = at - this.behind; i <= at + AHEAD; i++) if (!this.chunks.has(i)) this.chunks.set(i, this.build(i));
+    for (const [i, c] of this.chunks) if (i < at - this.behind || i > at + AHEAD) { this.drop(c); this.chunks.delete(i); }
+    this.twinkle[0].opacity = 0.55 + Math.sin(this.time * 2.3) * 0.35; this.twinkle[1].opacity = 0.55 + Math.sin(this.time * 1.7 + 2) * 0.35;
 
     for (const f of this.flames) { const s = 1.7 + Math.sin(this.time * 11 + f.userData.seed) * 0.22 + Math.sin(this.time * 23 + f.userData.seed * 3) * 0.12; const b = f.userData.base; f.scale.set(s * b, s * 1.25 * b, 1); }
     for (const c of this.chunks.values()) for (const k of c.coins) if (!k.got) k.mesh.rotation.y += dt * 4;

@@ -67,12 +67,12 @@ export class Hero {
     if (dir === 'left' && this.lane > 0) { this.lane--; return true; }
     if (dir === 'right' && this.lane < 2) { this.lane++; return true; }
     if (dir === 'up' && !this.airborne) {
-      this.vy = JUMP_V; this.y = 0.03; this.slide = 0;
+      this.vy = JUMP_V; this.y = 0.03; this.slide = 0; this.jumpZ = this.root.position.z;
       this.play('running_jump', { once: true, speed: 1.25, fade: 0.08 }); return true;
     }
     if (dir === 'down') {
       if (this.airborne) { this.vy = -14; return true; }          // swipe down in the air drops him fast
-      this.slide = SLIDE_TIME; this.play('running_slide', { once: true, speed: 2.0, fade: 0.08 }); return true;
+      this.slide = SLIDE_TIME; this.slideZ = this.root.position.z; this.play('running_slide', { once: true, speed: 2.0, fade: 0.08 }); return true;
     }
     return false;
   }

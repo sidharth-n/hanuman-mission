@@ -1,6 +1,6 @@
 // Packs the flat texture images into one sheet for the city buildings, plus a small glow sheet for lit windows and lamps.
 // Run: node tools/atlas.mjs   (needs ffmpeg)
-// Writes game/public/assets/tex/{city.jpg,city-glow.jpg,paving.jpg} and game/src/atlas.json.
+// Writes game/public/assets/tex/{city.jpg,city-glow.jpg,paving.jpg,sky.jpg} and game/src/atlas.json.
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, statSync } from 'node:fs';
 const root = new URL('../', import.meta.url).pathname;
@@ -57,6 +57,9 @@ sheet('city.jpg', 1, false);
 sheet('city-glow.jpg', 0.5, true);
 ff(['-i', src('paving'), '-vf', 'crop=880:880:0:0,scale=512:512:flags=lanczos', '-frames:v', '1', '-q:v', '4', out + 'paving.jpg']);
 console.log('paving.jpg', Math.round(statSync(out + 'paving.jpg').size / 1024), 'KB');
+// the night sky: the galaxy picture, trimmed at the right and bottom edges
+ff(['-i', src('sky'), '-vf', 'crop=1316:728:0:0,scale=1536:848:flags=lanczos', '-frames:v', '1', '-q:v', '4', out + 'sky.jpg']);
+console.log('sky.jpg', Math.round(statSync(out + 'sky.jpg').size / 1024), 'KB');
 
 const cells = {};
 for (const [name, [x, y, w, h, tw, th]] of Object.entries(CELLS)) cells[name] = [x, y, w, h, tw, th];
