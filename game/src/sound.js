@@ -179,7 +179,7 @@ export function createSound(store) {
     chant() {
       if (!track.paused && track.currentTime < INTRO) return;
       const now = performance.now();
-      if (voice && now - (last.chant || 0) < 1500) return;
+      if (voice || now - (last.chant || 0) < 22000) return;      // said once at a great moment, never again and again (Sid: "just say Ram once, not in loop")
       hush();
       const src = fire('chant'); if (!src) return;
       voice = src; last.chant = now; loud(0.45, 0.25);      // the song steps back under it (phones that fix the volume keep it level)

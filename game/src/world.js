@@ -236,6 +236,7 @@ export class World {
     this.cap.visible = false; scene.add(this.cap);
     this.behind = 3;      // how many stretches to keep behind him (more on the title screen, which looks back)
     this.chunks = new Map();
+    this.ready = new Map();      // the heavy stretches (the grove, Ravana's court), built before the run and kept until he comes to them
     this.time = 0;
     this.onBell = null;      // called when the alarm bell starts to ring
     this.onSound = null;      // called with a name when something in the road makes itself heard: 'fireball' | 'spikes' | 'beam' | 'stone' | 'smash'
@@ -516,7 +517,18 @@ export class World {
 
   drop(chunk) { this.scene.remove(chunk.group); }
 
-  reset() { for (const c of this.chunks.values()) this.drop(c); this.chunks.clear(); }
+  // The grove's old trees and the great hall take long to build: built in the middle of a run they held a phone still
+  // for a moment as he came into the grove. They are built ahead instead (behind the loading screen, and again
+  // whenever a run begins), and handed over when he reaches them.
+  prebuild() {
+    for (let i = 0; i < PLAN.length; i++) {
+      const c = PLAN[i]; if ((c.kind !== 'grove' && c.kind !== 'throne') || c.fire || this.ready.has(i) || this.chunks.has(i)) continue;
+      const chunk = this.build(i); this.scene.remove(chunk.group); this.ready.set(i, chunk);
+    }
+  }
+  take(i) { const c = this.ready.get(i); if (!c) return this.build(i); this.ready.delete(i); this.scene.add(c.group); return c; }
+
+  reset() { for (const c of this.chunks.values()) this.drop(c); this.chunks.clear(); this.prebuild(); }
 
   kindAt(z) { return planAt(Math.floor(-z / CHUNK)).kind; }
 
@@ -558,7 +570,7 @@ export class World {
   update(dt, heroZ) {
     this.time += dt;
     const at = Math.floor(-heroZ / CHUNK);
-    for (let i = at - this.behind; i <= at + AHEAD; i++) if (!this.chunks.has(i)) this.chunks.set(i, this.build(i));
+    for (let i = at - this.behind; i <= at + AHEAD; i++) if (!this.chunks.has(i)) this.chunks.set(i, this.take(i));
     for (const [i, c] of this.chunks) if (i < at - this.behind || i > at + AHEAD) { this.drop(c); this.chunks.delete(i); }
     this.twinkle[0].opacity = 0.55 + Math.sin(this.time * 2.3) * 0.35; this.twinkle[1].opacity = 0.55 + Math.sin(this.time * 1.7 + 2) * 0.35;
 
