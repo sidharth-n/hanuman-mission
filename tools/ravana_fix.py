@@ -239,6 +239,26 @@ def rigid_heads(o, bone='mixamorigSpine2'):
     return f'small heads bound to the chest alone: {n} points had been shared with {sorted(strays.items(), key=lambda kv: -kv[1])[:6]}'
 
 
+# 4d. The great head is one thing, and his head carries all of it. The rigger had set the head's joint at the height of
+# his eyes and given everything below them (nose, mouth, moustache, chin) mostly to the neck and the chest: when he
+# turned his head to speak, his brow turned and his jaw stayed, and the face was drawn askew (Sid: "his neck area or
+# that chin area is skewed"). Now the whole face, crown and back of the head turn as one piece; under the chin a short
+# neck passes the turn down to the chest; and at either side the turn dies away into the web that joins the row.
+CHIN = (0.615, 0.668)      # where the chest ends and where the chin begins
+def great_head(o, head='mixamorigHead', chest='mixamorigSpine2'):
+    mw = o.matrix_world; H = next(g for g in o.vertex_groups if g.name.replace(':', '').endswith(head)); C = next(g for g in o.vertex_groups if g.name.replace(':', '').endswith(chest))
+    step = lambda t: max(0.0, min(1.0, t)) ** 2 * (3 - 2 * max(0.0, min(1.0, t))); n = 0
+    for v in o.data.vertices:
+        p = mw @ v.co
+        if abs(p.x) > MID or p.z < CHIN[0]: continue
+        w = step((p.z - CHIN[0]) / (CHIN[1] - CHIN[0])) * (1 - step((abs(p.x) - 0.125) / (MID - 0.125)))
+        for g in list(v.groups): o.vertex_groups[g.group].remove([v.index])
+        if w > 0.001: H.add([v.index], w, 'REPLACE')
+        if w < 0.999: C.add([v.index], 1 - w, 'REPLACE')
+        n += 1
+    return f'the great head carried whole by his head: {n} points'
+
+
 # 5. Slimmed for the game in two passes, so the faces keep a set share of the triangles: first the body alone is
 # slimmed (a point with no weight in the group is left untouched by Blender's decimation), then the faces alone.
 def slim(o, target, share=0.48, keep=None):

@@ -12,7 +12,7 @@ import ravana_fix as R, retouch as T
 if __name__ == '__main__' and '--' in sys.argv:
     mode, src, d, *more = sys.argv[sys.argv.index('--') + 1:]
     arm, o = R.load(src)
-    for step in (R.cut_back_row, R.round_backs, R.tenth_head, R.ease_faces, R.flatten_spikes, R.rigid_heads): print('STEP', step(o))
+    for step in (R.cut_back_row, R.round_backs, R.tenth_head, R.ease_faces, R.flatten_spikes, R.rigid_heads, R.great_head): print('STEP', step(o))
     V = T.VIEWS['ravana']
     if mode == 'views':
         T.rest(arm); T.take(V, d)
