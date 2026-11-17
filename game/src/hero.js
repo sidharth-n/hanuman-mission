@@ -49,6 +49,7 @@ const PRONE = [
   ['LeftUpLeg', 'LeftLeg', [0.03, -1, 0]], ['LeftLeg', 'LeftFoot', [0, -1, 0.03]], ['LeftFoot', 'LeftToeBase', [0, -1, -0.35]],
   ['RightUpLeg', 'RightLeg', [-0.03, -1, 0]], ['RightLeg', 'RightFoot', [0, -1, 0.03]], ['RightFoot', 'RightToeBase', [0, -1, -0.35]],
 ];
+const STRIDE = 4.66;      // metres a second a planted foot passes under him in the run clip at its own pace, at his own size (measured in the game)
 const MACE_UP = new THREE.Vector3(-0.22, 0.5, 0.84);      // the mace lies back over his shoulder, head high behind him
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
 
@@ -208,7 +209,7 @@ export class Hero {
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;
 
-    if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: (0.75 + speed / 28) / Math.pow(Math.max(1, this.root.scale.x), 0.8), fade: 0.14 });      // grown, his stride is longer: the legs turn slower over the same ground, or his feet slip under him
+    if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: this.root.scale.x > 1.05 ? Math.min(0.75 + speed / 28, speed / (STRIDE * this.root.scale.x)) : 0.75 + speed / 28, fade: 0.14 });      // grown, his stride is longer: the legs turn only as fast as plants each foot on the ground it covers, never faster than his usual pace
     this.mixer.update(dt);
     this.curl();
     this.poseTail(this.free ? this.pace : running ? speed : 0);
