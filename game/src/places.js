@@ -5,13 +5,14 @@ import * as THREE from 'three';
 import * as palace from './palace.js';
 import { Builder } from './build.js';
 import { tree, treeMaterials } from './trees.js';
+import { HALL, greatHall, plinth } from './court.js';
 
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
 export const SITA = { n: 2, x: 4.7, z: -11, seat: 0.43, edge: 0.66, up: 0.22, yaw: -0.75 };      // her stone seat on its round platform under the great tree: how far forward of its middle she sits, how high the platform stands, which way the seat faces
 export const TREE = { n: 2, x: 8.8, z: -14.6 };                      // the great tree Hanuman hides in
-export const THRONE = { n: 1, z: -17, top: 1.05, seat: 0.92 };       // the dais and the seat of the throne
-export const STAND = { n: 1, z: -6 };                                // where Hanuman is made to stand before it
+export const THRONE = { n: 1, z: -12.5, top: 1.05, seat: 0.92 };     // the dais and the seat of the throne; behind it, room for Shiva
+export const STAND = { n: 1, z: -1.5 };                              // where Hanuman is made to stand before it
 
 function canvas(size, draw, repeat) {
   const c = document.createElement('canvas'); c.width = c.height = size;
@@ -163,48 +164,62 @@ function court(world) {
     for (let i = 0; i < 36; i++) { const a = i / 36 * 6.283; g.beginPath(); g.moveTo(s / 2 + Math.cos(a) * s * 0.2, s / 2 + Math.sin(a) * s * 0.2); g.lineTo(s / 2 + Math.cos(a) * s * 0.49, s / 2 + Math.sin(a) * s * 0.49); g.stroke(); }
     for (const q of [0.2, 0.34, 0.47]) { g.beginPath(); g.arc(s / 2, s / 2, s * q, 0, 7); g.stroke(); }
   });
+  const shaft = canvas(64, (g, s) => {      // light falling through the smoke from a high window
+    const v = g.createLinearGradient(0, 0, 0, s); v.addColorStop(0, 'rgba(255,226,180,0.85)'); v.addColorStop(1, 'rgba(255,226,180,0)');
+    g.fillStyle = v; g.fillRect(0, 0, s, s); g.globalCompositeOperation = 'destination-in';
+    const h = g.createLinearGradient(0, 0, s, 0); h.addColorStop(0, 'rgba(0,0,0,0)'); h.addColorStop(0.5, 'rgba(0,0,0,1)'); h.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = h; g.fillRect(0, 0, s, s);
+  });
   world.courtKit = {
-    throneGeo: palace.throneModule(THRONE.z, THRONE.top, THRONE.seat),
-    carpetMat: new Solid({ map: carpet, ...(world.lite ? {} : { roughness: 0.95, metalness: 0 }) }), carpetGeo: new THREE.PlaneGeometry(4.4, L).rotateX(-Math.PI / 2),
-    bannerMat: new THREE.MeshBasicMaterial({ map: banner, side: THREE.DoubleSide }), bannerGeo: new THREE.PlaneGeometry(1.5, 4.8),
-    sunMat: new THREE.MeshBasicMaterial({ map: sun, fog: false }), sunGeo: new THREE.CircleGeometry(4.5, 48),
-    rayMat: new THREE.SpriteMaterial({ map: glow('rgba(255,225,150,0.6)', 'rgba(255,170,60,0.22)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false }),
-    black: new THREE.MeshBasicMaterial({ color: 0x050302, fog: false }),
+    throneGeo: palace.throneModule(THRONE.z, THRONE.top, THRONE.seat, 2.9, [0.5, 0.45, 0.42]),      // a low back: over it, Shiva is seen
+    hallGeo: [greatHall({ first: true }), greatHall({ throne: THRONE.z })], plinthGeo: plinth(),
+    bannerMat: new THREE.MeshBasicMaterial({ map: banner, side: THREE.DoubleSide, color: 0xb9b0a6 }), bannerGeo: new THREE.PlaneGeometry(2.0, 6.6),
+    shaftMat: new THREE.MeshBasicMaterial({ map: shaft, blending: THREE.AdditiveBlending, opacity: 0.13, side: THREE.DoubleSide, transparent: true, depthWrite: false, fog: false }), shaftGeo: new THREE.PlaneGeometry(4.2, 21),
+    glowMat: new THREE.SpriteMaterial({ map: glow('rgba(255,205,130,0.5)', 'rgba(255,140,50,0.16)'), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false }),
   };
   return world.courtKit;
 }
 
 export function throne(world, chunk, c, r) {
   const g = chunk.group, k = court(world); chunk.fx = [];
-  g.add(world.part(world.geo.hall));
+  const last = c.n === THRONE.n, Z = THRONE.z, T = THRONE.top;
+  g.add(world.part(k.hallGeo[last ? 1 : 0]));
   if (c.n === 0) g.add(world.part(world.geo.front));
-  const carpet = new THREE.Mesh(k.carpetGeo, k.carpetMat); carpet.position.set(0, 0.02, -L / 2); g.add(carpet);
-  for (const z of palace.HALL_LAMPS) {
-    world.flame(chunk, 0, palace.LAMP_AT + 0.25, z, 0.55, r() * 10);
-    chunk.braziers.push(new THREE.Vector3(0, g.position.y + palace.LAMP_AT - 1.5, g.position.z + z));
-  }
-  const last = c.n === THRONE.n;
+  // fire in every bowl along the aisle, and light slanting down through the smoke from windows too high to see
   for (const s of [-1, 1]) {
-    for (const z of palace.HALL_PILLARS) {      // the banners of Lanka on every pillar, facing the aisle
-      const b = new THREE.Mesh(k.bannerGeo, k.bannerMat); b.position.set(s * (palace.HALL_PX - 0.62), 5.6, z); b.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(b);
+    for (const z of HALL.bowls) if (!last || z > Z + 6.5) {
+      world.flame(chunk, s * HALL.bowlX, HALL.bowlTop + 0.25, z, 0.9, r() * 10);
+      chunk.braziers.push(new THREE.Vector3(s * HALL.bowlX, g.position.y + HALL.bowlTop + 0.6, g.position.z + z));
     }
+    for (const z of [-6, -18]) { const b = new THREE.Mesh(k.shaftGeo, k.shaftMat); b.position.set(s * 7.4, 9.6, z + r() * 2); b.rotation.z = s * 0.42; b.rotation.y = s * 0.35; g.add(b); }
+    for (const z of HALL.pillars) {      // the banners of Lanka on every pillar, facing the aisle
+      const b = new THREE.Mesh(k.bannerGeo, k.bannerMat); b.position.set(s * (HALL.px - 1.12), 11.6, z); b.rotation.y = s < 0 ? Math.PI / 2 : -Math.PI / 2; g.add(b);
+    }
+    // great stone guardians along the walls, between the pillars
+    for (const z of HALL.bowls) if (world.prefabs['rakshasa-statue']) { const f = world.spawn('rakshasa-statue'); f.position.set(s * (HALL.half - 1.9), 0, z); f.rotation.y = s > 0 ? -Math.PI / 2 : Math.PI / 2; f.scale.setScalar(1.55); g.add(f); }
     // the lords and warriors of Lanka, standing in ranks down both sides, turned toward the throne
-    const rows = world.lite ? [3.3] : [3.2, 4.7], to = last ? -9 : -23.2;
-    for (const x of rows) for (let z = -1.2 - (x > 4 ? 1 : 0); z > to; z -= 2.05) {
+    const rows = world.lite ? [4.9] : [4.4, 6.9], to = last ? Z + 7.4 : -23.2;
+    for (const x of rows) for (let z = -1.4 - (x > 5 ? 1.3 : 0); z > to; z -= 2.6) {
+      if (HALL.bowls.some(q => Math.abs(q - z) < 1.6) && Math.abs(x - HALL.bowlX) < 1.9) continue;      // nobody stands in a fire
       const f = world.spawn('courtier'); f.position.set(s * (x + r() * 0.3), 0, z + r() * 0.5); f.scale.setScalar(0.94 + r() * 0.2);
       f.rotation.y = (s > 0 ? -2.2 : 2.2) + (r() - 0.5) * 0.5; g.add(f);
     }
   }
   if (!last) return;
-  // the dais and the throne on it (palace.js), and a fire on each side
-  const Z = THRONE.z, T = THRONE.top;
+  // the dais and the throne on it (palace.js)
   g.add(world.part(k.throneGeo));
-  for (const s of [-1, 1]) world.brazier(chunk, s * 5, 0, Z + 5.6, r() * 10);
-  // behind him the wall of the hall, and in its great doorway a disc of beaten gold that catches every flame
-  const wall = world.part(world.geo.front); wall.rotation.y = Math.PI; wall.position.z = Z - 3.2; g.add(wall);
-  const dark = new THREE.Mesh(new THREE.PlaneGeometry(2 * palace.HALL_HALF, palace.HALL_TOP), k.black); dark.position.set(0, palace.HALL_TOP / 2, Z - 4.6); g.add(dark);
-  const sun = new THREE.Mesh(k.sunGeo, k.sunMat); sun.position.set(0, T + 4.3, Z - 2.4); g.add(sun);
-  const rays = new THREE.Sprite(k.rayMat); rays.position.set(0, T + 4.3, Z - 2.2); rays.scale.setScalar(17); g.add(rays); chunk.fx.push({ type: 'pulse', obj: rays, size: 17 });
+  // Shiva, seated in meditation, fills the niche behind the throne; a great fire burns at each knee
+  if (world.prefabs.shiva) { const f = world.spawn('shiva'); f.position.set(0, HALL.seat, HALL.shivaZ); f.scale.setScalar(1.08); g.add(f); }
+  for (const s of [-1, 1]) {
+    world.flame(chunk, s * 6.6, HALL.bowlTop * 1.35 + 0.3, Z - 3.4, 1.3, r() * 10);
+    // and one before the steps on each side: these two are the light on Ravana and on whoever stands before him
+    world.flame(chunk, s * 5, HALL.bowlTop + 0.25, Z + 5.6, 0.9, r() * 10);
+    chunk.braziers.push(new THREE.Vector3(s * 5, g.position.y + HALL.bowlTop + 0.6, g.position.z + Z + 5.6));
+    // a Nandi on his plinth at each side of the steps, turned in toward the aisle
+    const base = world.part(k.plinthGeo); base.position.set(s * 8.1, 0, Z + 6.3); base.rotation.y = -s * 0.93; g.add(base);
+    if (world.prefabs.nandi) { const f = world.spawn('nandi'); f.position.set(s * 8.1, 0.7, Z + 6.3); f.rotation.y = -s * 0.93; g.add(f); }
+  }
+  const halo = new THREE.Sprite(k.glowMat); halo.position.set(0, 7.5, Z - 5); halo.scale.setScalar(26); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 26 });
+  const lamp = new THREE.PointLight(0xffb060, 120, 30, 1.6); lamp.position.set(0, 4.6, Z - 3.0); g.add(lamp);      // the one real light of the hall: the fires at his knees, on the statue
 }
 
 // The small living things of these places: fireflies drifting, petals falling, lights breathing.

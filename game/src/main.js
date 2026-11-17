@@ -17,7 +17,7 @@ import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
 import '@fontsource/cormorant-garamond/latin-500-italic.css';
 
-const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace', 'ashoka-tree', 'ashoka-great', 'courtier'];
+const KIT = ['market-stall', 'rakshasa-statue', 'brazier', 'cart', 'pots', 'barricade', 'palace', 'courtier', 'shiva', 'nandi'];
 const CAST = ['hanuman', 'guard', 'lankini', 'sita', 'ravana'];      // the characters, kept beside the world's pieces
 const LAMPS_FOR_POWER = 20, GIANT_SECS = 5, FLIGHT_SECS = 6, WINDS_FOR_FLIGHT = 3, WIND_SECS = 60, OPEN_FLIGHT = 3.6;      // gusts that charge a flight; seconds for it to charge by itself; the flight every run opens with
 //   // lamps that fill the strength meter; how long he stays giant
@@ -239,7 +239,8 @@ function resumeRun() {
 }
 // Out of Ravana's court with his tail alight: the fire run begins.
 function ablaze() {
-  hero.root.position.set(0, groundAt(-FIRE_AT), -FIRE_AT); state.dist = FIRE_AT; world.update(0, -FIRE_AT);
+  const z = -(FIRE_AT + 7);      // well past the wall Shiva sits against, so the view behind him is past it too
+  hero.root.position.set(0, groundAt(z), z); state.dist = -z; world.update(0, z);
   resumeRun(); placeCamera(1, true);
 }
 
