@@ -48,6 +48,7 @@ def swatch(o, skin, nail):
     NW = max(2, W // 4); GW = W - NW      # cells for the nails, cells for the skin from shadow to light
     mat = me.materials[0]; nodes = mat.node_tree.nodes
     base = next(n for n in nodes if n.type == 'BSDF_PRINCIPLED').inputs['Base Color'].links[0].from_node.image
+    relief = {n.image for n in nodes if n.type == 'TEX_IMAGE' and n.image and any(l.to_node.type == 'NORMAL_MAP' for o_ in n.outputs for l in o_.links)}
     for img in [n.image for n in nodes if n.type == 'TEX_IMAGE' and n.image]:
         w, h = img.size; px = np.empty(w * h * 4, 'f'); img.pixels.foreach_get(px); px = px.reshape(h, w, 4)
         y0, y1, x0, xm, x1 = i * h // N, (i + H) * h // N, j * w // N, (j + GW) * w // N, (j + W) * w // N
@@ -55,6 +56,8 @@ def swatch(o, skin, nail):
             t = np.linspace(0, 1, xm - x0)[None, :, None]
             px[y0:y1, x0:xm, :3] = np.clip(np.array(skin)[None, None, :] * (0.50 + 0.62 * t), 0, 1)      # from the shadow between two fingers to the light on a knuckle
             px[y0:y1, xm:x1, :3] = np.array(nail) ** (1 / 2.2)
+        elif img in relief:
+            px[y0:y1, x0:x1, :3] = (0.5, 0.5, 1.0)      # a relief map says: flat here (anything else there crumples the new skin's shading)
         else:
             px[y0:y1, x0:xm, :3] = (1.0, 0.78, 0.0); px[y0:y1, xm:x1, :3] = (1.0, 0.42, 0.0)      # skin rough, nails smoother, neither metal
         px[y0:y1, x0:x1, 3] = 1; img.pixels.foreach_set(px.ravel()); img.update(); img.pack()
@@ -84,20 +87,23 @@ def group(o, b):
 # knuckle widths (past a bangle). only: 'Left' or 'Right' to make one hand. like: 'Left' or 'Right', the hand whose
 # fingers both hands are laid out as (a rigger can leave one hand's finger bones short and curled). long: the fingers
 # made so many times as long as their bones, measured from the knuckle.
-def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0, like=None, long=1.0):
+# tag: the finger bones are named <side>Hand<tag><finger><n> (bones added beside a rig's own, tools/hero_hands.py); the
+# fourth bone of each then marks the fingertip. thumb_past: the lump's thumb lies along the fingers and reaches past the
+# knuckles (Hanuman's mitten): what of the lump lies beyond the knuckles on the thumb's side of the first finger is kept.
+def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0, like=None, long=1.0, tag='', thumb_past=False):
     said = []; mw = o.matrix_world; inv = mw.inverted(); M = arm.matrix_world; made = {}; skins = []
     base = next(n for n in o.data.materials[0].node_tree.nodes if n.type == 'BSDF_PRINCIPLED').inputs['Base Color'].links[0].from_node.image
     tw, th = base.size; px = np.empty(tw * th * 4, 'f'); base.pixels.foreach_get(px); px = px.reshape(th, tw, 4)
     bm = bmesh.new(); bm.from_mesh(o.data); dl = bm.verts.layers.deform.verify(); uvl = bm.loops.layers.uv.active
     width = {}      # a hand whose finger bones the rigger bunched together (a fist to him) cannot be made from them: it is left as it was
     for name in ('Left', 'Right'):
-        i1, r1 = bone(arm, name + 'HandIndex1'), bone(arm, name + 'HandRing1')
+        i1, r1 = bone(arm, name + 'Hand' + tag + 'Index1'), bone(arm, name + 'Hand' + tag + 'Ring1')
         if i1 and r1: width[name] = (M @ r1.head_local - M @ i1.head_local).length / 2
     shape = {}      # each made hand's finger joints in its own frame, in knuckle widths
     for name in sorted(('Left', 'Right'), key=lambda n: n != like):
         if only and name != only: continue
         if width and width.get(name, 0) < 0.6 * max(width.values()): said.append(f'{name.lower()} hand: its finger bones are bunched together ({width.get(name, 0) * 100:.1f} cm between knuckles against {max(width.values()) * 100:.1f}), left as it was'); continue
-        B = lambda n: bone(arm, name + 'Hand' + n); hand = B('')
+        B = lambda n: bone(arm, name + 'Hand' + (tag + n if n else '')); hand = B('')
         chains = {f: [B(f + str(k)) for k in (1, 2, 3)] for f in ('Index', 'Middle', 'Ring', 'Pinky', 'Thumb')}
         if not hand or any(b is None for c in chains.values() for b in c): said.append(f'{name.lower()} hand: no finger bones, left as it was'); continue
         H = lambda b: M @ b.head_local; Tl = lambda b: M @ b.tail_local
@@ -105,7 +111,7 @@ def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0, li
         s = 1 if name == 'Left' else -1; up = along.cross(across) * s; R3 = Matrix((along, across, up))      # rows: the hand's own three directions
         C = lambda p, origin=origin, R3=R3: R3 @ (p - origin); W = lambda q, origin=origin, R3=R3: origin + R3.transposed() @ q      # into the hand's frame and back
         sp = (C(H(chains['Ring'][0])).y - C(H(chains['Index'][0])).y) / 2
-        if sp < 1e-3 or (Tl(chains['Index'][2]) - H(chains['Index'][0])).length < 1.2 * sp: said.append(f'{name.lower()} hand: its finger bones are folded to nothing, left as it was'); continue
+        if sp < 1e-3 or ((H(B('Index4')) if tag and B('Index4') else Tl(chains['Index'][2])) - H(chains['Index'][0])).length < 1.2 * sp: said.append(f'{name.lower()} hand: its finger bones are folded to nothing, left as it was'); continue
         near = lambda q: q.x > -2 * sp and math.hypot(q.y, q.z) < 6.5 * sp and q.x < 12 * sp
         IN = 0.36 * sp; W0 = wrist * sp
         # 1. the hand is taken off the arm; what its points were carried by is remembered
@@ -117,31 +123,55 @@ def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0, li
         off = [f for f, q in cs.items() if q.x > W0 and near(q)]; srcf = [f for f, q in cs.items() if q.x > W0 - IN and near(q)]
         tone = [px[int(l[uvl].uv[1] % 1 * (th - 1)), int(l[uvl].uv[0] % 1 * (tw - 1)), :3] for f in off if 2.1 * sp < cs[f].x < 4.2 * sp and -1.2 * sp < cs[f].y < 3 * sp and (mw.to_3x3() @ f.normal).dot(up) > 0.5 for l in f.loops]
         if tone: skins.append(np.median(np.array(tone), axis=0))
-        old = list({v for f in srcf for v in f.verts}); kd = KDTree(len(old)); carried = []
-        for n, v in enumerate(old): kd.insert(C(mw @ v.co), n); carried.append(dict(v[dl]))
-        kd.balance()
-        hb = bmesh.new(); new = {v: hb.verts.new(C(mw @ v.co)) for v in old}
+        old = list({v for f in srcf for v in f.verts}); carried = [dict(v[dl]) for v in old]
+        hb = bmesh.new(); new = {v: hb.verts.new(C(mw @ v.co)) for v in old}; hv = [new[v] for v in old]
         for f in srcf:
             try: hb.faces.new([new[v] for v in f.verts])
             except ValueError: pass
         bmesh.ops.delete(bm, geom=off, context='FACES')
         # 2. the lump comes off at the knuckles; the fingers are set in its place, solid, a little way into the palm
-        J = {f: [C(H(c[0])), C(H(c[1])), C(H(c[2])), C(Tl(c[2]))] for f, c in chains.items()}
+        J = {f: [C(H(c[0])), C(H(c[1])), C(H(c[2])), C(H(B(f + '4')) if tag and B(f + '4') else Tl(c[2]))] for f, c in chains.items()}
         shape[name] = {f: [q / sp for q in J[f]] for f, _, _ in FINGERS}
         if like and like != name and like in shape: J.update({f: [q * sp for q in shape[like][f]] for f, _, _ in FINGERS})
         if long != 1.0: J.update({f: [J[f][0]] + [J[f][0] + (q - J[f][0]) * long for q in J[f][1:]] for f, _, _ in FINGERS})
         CUT = min(J[f][0].x for f in ('Index', 'Middle', 'Ring')) - 0.36 * sp
+        yT = J['Index'][0].y - 0.62 * sp if thumb_past else None; tb = None
+        if thumb_past:      # a mitten's palm is a block, as deep at the knuckles as at the wrist, and closed fingers end up inside it: it is drawn in toward the knuckles, to little more than a finger's depth there, above and below; the thumb is carried with the palm, not flattened
+            zf = sum(J[f][0].z for f, _, _ in FINGERS) / 4; x0 = 0.35 * CUT
+            edge = [v.co.z for v in hb.verts if abs(v.co.x - CUT) < 0.5 * sp and v.co.y > yT + 0.1 * sp] or [zf]
+            fu, fd = min(1.0, 0.95 * sp / max(max(edge) - zf, 1e-6)), min(1.0, 0.85 * sp / max(zf - min(edge), 1e-6))
+            tz = sorted(v.co.z for v in hb.verts if v.co.y < yT - 0.2 * sp and v.co.x > x0) or [zf]; zt = tz[len(tz) // 2]
+            for v in hb.verts:
+                t = max(0.0, min(1.0, (v.co.x - x0) / (CUT - x0))); t = t * t * (3 - 2 * t); d = v.co.z - zf; wt = max(0.0, min(1.0, (yT - v.co.y) / (0.4 * sp)))
+                drawn = zf + d * (1 + ((fu if d > 0 else fd) - 1) * t); carried_ = v.co.z + (zt - zf) * (fd - 1) * t
+                v.co.z = drawn * (1 - wt) + carried_ * wt
+            said.append(f'{name.lower()} palm drawn in at the knuckles to {fu:.2f} of its depth above, {fd:.2f} below')
+        kd = KDTree(len(hv))      # where each point of the old hand is now: what carried it is asked for here
+        for n, x in enumerate(hv): kd.insert(x.co, n)
+        kd.balance()
+        stiff = [group(o, x) for x in (bone(arm, name + 'HandIndex' + str(k)) for k in (1, 2, 3, 4)) if x and x.name in o.vertex_groups] if tag else []; hand_g = group(o, hand)
+        if thumb_past:      # the end of the thumb, a solid piece of its own that the one skin will take in
+            tb = hb.copy()
+            bmesh.ops.bisect_plane(tb, geom=tb.faces[:] + tb.edges[:] + tb.verts[:], dist=1e-6, plane_co=Vector((CUT - 0.15 * sp, 0, 0)), plane_no=Vector((1, 0, 0)), clear_inner=True)
+            bmesh.ops.bisect_plane(tb, geom=tb.faces[:] + tb.edges[:] + tb.verts[:], dist=1e-6, plane_co=Vector((0, yT, 0)), plane_no=Vector((0, 1, 0)), clear_outer=True)
+            bmesh.ops.holes_fill(tb, edges=[e for e in tb.edges if e.is_boundary], sides=0)
         bmesh.ops.bisect_plane(hb, geom=hb.faces[:] + hb.edges[:] + hb.verts[:], dist=1e-6, plane_co=Vector((CUT, 0, 0)), plane_no=Vector((1, 0, 0)), clear_outer=True)
         bmesh.ops.holes_fill(hb, edges=[e for e in hb.edges if e.is_boundary], sides=0)
-        rim = [v.co for v in hb.verts if abs(v.co.x - CUT) < 2e-4]
+        rim = [v.co for v in hb.verts if abs(v.co.x - CUT) < 2e-4 and (yT is None or v.co.y > yT)]
+        if tb is not None:
+            if tb.faces: tm = bpy.data.meshes.new('thumb'); tb.to_mesh(tm); hb.from_mesh(tm); bpy.data.meshes.remove(tm)
+            tb.free()
         if not rim: said.append(f'{name.lower()} hand: nothing of it reaches the knuckles, left as it was'); hb.free(); continue
         zc = (min(p.z for p in rim) + max(p.z for p in rim)) / 2; zh = (max(p.z for p in rim) - min(p.z for p in rim)) / 2
         digits = []; mix = lambda a, c, t: a + (c - a) * t
         for fname, fat, ext in FINGERS:
             j = J[fname]; d2 = (j[3] - j[2]).normalized(); tip = j[3] + d2 * ext * sp; ry, rz = 0.436 * sp * fat * thick, 0.525 * sp * fat * thick
             digits.append({'pts': [j[0], j[1], j[2], tip], 'g': [group(o, x) for x in chains[fname]], 'r': rz, 'd': d2, 'thick': fat * thick * sp / 0.0335})
-            wz = max(1.0, zh / rz)      # as deep as the palm where it leaves it
-            st = [(Vector((CUT - 0.9 * sp, j[0].y, zc)), 1.12, wz), (Vector((CUT, j[0].y, zc)), 1.12, wz), (Vector((j[0].x + 0.12 * sp, j[0].y, zc + (j[0].z - zc) * 0.6)), 1.10, wz * 1.02),
+            wz = max(1.0, zh / rz); zr = zc      # as deep as the palm where it leaves it
+            if thumb_past:      # a broad mitten is not one depth across: each finger takes the palm's depth at its own knuckle, and no more than a finger and a half
+                own = [p.z for p in rim if abs(p.y - j[0].y) < 0.6 * sp]
+                if len(own) > 2: zr = (min(own) + max(own)) / 2; wz = min(1.5, max(1.0, (max(own) - min(own)) / 2 / rz))
+            st = [(Vector((CUT - 0.9 * sp, j[0].y, zr)), 1.12, wz), (Vector((CUT, j[0].y, zr)), 1.12, wz), (Vector((j[0].x + 0.12 * sp, j[0].y, zr + (j[0].z - zr) * 0.6)), 1.10, wz * 1.02),
                   (mix(j[0], j[1], 0.34), 1.05, 1.0 + (wz - 1.0) * 0.45), (mix(j[0], j[1], 0.68), 0.97, 0.99), (j[1], 1.06, 1.06), (mix(j[1], j[2], 0.5), 0.93, 0.93), (j[2], 1.01, 1.01),
                   (mix(j[2], tip, 0.45), 0.90, 0.90), (tip - d2 * rz * 0.80, 0.78, 0.78), (tip - d2 * rz * 0.40, 0.60, 0.60), (tip - d2 * rz * 0.10, 0.32, 0.32)]
             rings = []
@@ -168,20 +198,22 @@ def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0, li
         dc = ob2.modifiers.new('d', 'DECIMATE'); dc.ratio = min(1.0, TRIS / max(1, n * 2)); dc.use_collapse_triangulate = True
         bpy.context.view_layer.update(); dg = bpy.context.evaluated_depsgraph_get(); fin = bpy.data.meshes.new_from_object(ob2.evaluated_get(dg)); bpy.data.objects.remove(ob2, do_unlink=True)
         fb = bmesh.new(); fb.from_mesh(fin); fb.normal_update()
-        made[name] = (fb, digits, thumb, kd, carried, W0, sp, CUT, W, s, up); bpy.data.objects.remove(ob, do_unlink=True)
+        made[name] = (fb, digits, thumb, kd, carried, W0, sp, CUT, W, s, up, yT, stiff, hand_g); bpy.data.objects.remove(ob, do_unlink=True)
         said.append(f'{name.lower()} hand, knuckles {sp * 100:.1f} cm apart: {n} faces remade, {len(fb.faces)} kept')
     bm.normal_update(); bm.to_mesh(o.data); bm.free(); o.data.update()
     if not made: return 'hands: ' + '; '.join(said)
     skin = tuple(float(x) for x in np.mean(np.array(skins), axis=0)) if skins else (0.5, 0.4, 0.35)
     shade, nail_uv = swatch(o, skin, nail or skin)      # the old hands' place in the texture is free now
     bm = bmesh.new(); bm.from_mesh(o.data); dl = bm.verts.layers.deform.verify(); uvl = bm.loops.layers.uv.active
-    for name, (fb, digits, thumb, kd, carried, W0, sp, CUT, W, s, up) in made.items():
+    for name, (fb, digits, thumb, kd, carried, W0, sp, CUT, W, s, up, yT, stiff, hand_g) in made.items():
         verts = {}
         for v in fb.verts:
             p = v.co.copy(); x = p.x
             if x < W0 + 0.06 * sp: k = 1 - 0.035 * min(1.0, (W0 + 0.06 * sp - x) / (0.12 * sp)); p.y *= k; p.z *= k      # the end that sits in the arm is drawn in under the arm's own skin
-            nv = bm.verts.new(inv @ W(p)); w = dict(carried[kd.find(v.co)[1]])      # carried as the old hand was carried, there
-            nr = min(digits, key=lambda g: chain_t(v.co, g['pts'])[0]); dist, seg, t = chain_t(v.co, nr['pts']); j0 = nr['pts'][0]; isf = x > j0.x - 0.48 * sp and dist < nr['r'] * 2.2
+            src = kd.find(v.co)[1]; nv = bm.verts.new(inv @ W(p)); w = dict(carried[src])      # carried as the old hand was carried, there
+            for k in stiff:      # but not by the old single finger chain: the palm stays whole with the hand, the fingers bend at their own knuckles (a mitten folded through itself)
+                if k in w: w[hand_g] = w.get(hand_g, 0.0) + w.pop(k)
+            nr = min(digits, key=lambda g: chain_t(v.co, g['pts'])[0]); dist, seg, t = chain_t(v.co, nr['pts']); j0 = nr['pts'][0]; isf = x > j0.x - 0.48 * sp and dist < nr['r'] * 2.2 and (yT is None or p.y > yT)
             if isf:      # a finger: each part by its own bone, shared across a joint; into the hand it gives way to what carried the palm
                 g = nr['g']; L = [(nr['pts'][k + 1] - nr['pts'][k]).length for k in range(3)]; al = sum(L[:seg]) + L[seg] * t; fw = {}; e1, e2 = L[0], L[0] + L[1]; soft = 0.27 * sp
                 for k, (a, b_) in enumerate(((-1e9, e1), (e1, e2), (e2, 1e9))):

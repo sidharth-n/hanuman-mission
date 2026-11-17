@@ -53,7 +53,7 @@ if polish:
     import bmesh, hanuman_fix
     for m in meshes:
         bm = bmesh.new(); bm.from_mesh(m.data); bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:]); bm.to_mesh(m.data); bm.free()
-        print('POLISH', hanuman_fix.repaint(m, polish))
+        print('POLISH', hanuman_fix.repaint(m, polish, ('face', 'feet') if 'hands=real' in argv[6:] else hanuman_fix.PARTS))      # hands that are remade take their colour from his own skin
     for img in bpy.data.images:
         if img.name.startswith('hanuman_hand') and img.size[0] > 512: img.scale(512, 512)
 
@@ -66,6 +66,19 @@ for m in meshes:
         m.modifiers.move(len(m.modifiers) - 1, 0)
         bpy.ops.object.modifier_apply(modifier='dec')
     print('MESH', m.name, sum(len(p.vertices) - 2 for p in m.data.polygons), 'tris')
+
+# 3b. hands=real: his mittens made hands. Finger bones are added to his skeleton (tools/hero_hands.py), then the hands
+# are built on them (tools/hands3d.py), past the bangle at each wrist.
+# No nails: in a closed fist a fingertip lies against the palm and a nail's edge came through its skin.
+if 'hands=real' in argv[6:]:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import hero_hands, hands3d
+    opt = dict(x.split('=', 1) for x in argv[6:] if '=' in x)
+    for m in meshes:
+        was = m.name
+        print('HANDS', hero_hands.finger_bones(arm, m, long=float(opt.get('long', 1.15))))
+        print('HANDS', hands3d.hands(m, arm, nail=None, wrist=float(opt.get('wrist', 0.5)), thick=float(opt.get('thick', 1.0)), tag='Real', thumb_past=True))
+        m.name = m.data.name = was
 
 # 4. Every animation FBX: import it, copy its motion onto the character, drop its armature.
 # An FBX saved without skin carries no bind pose, so Blender gives its armature a rest pose that differs from the

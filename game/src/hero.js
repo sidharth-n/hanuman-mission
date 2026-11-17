@@ -53,6 +53,8 @@ function aim(bone, child, dir, weight) {
   bone.quaternion.slerp(_p.invert().multiply(_w.premultiply(_q)), weight);
 }
 
+const CURL = { q: new THREE.Quaternion(), by: [0, 0, 0], axis: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] };
+
 export class Hero {
   constructor(gltf) {
     this.root = new THREE.Group();
@@ -76,6 +78,12 @@ export class Hero {
     this.hips = this.model.getObjectByName('mixamorigHips');
     this.bones = {};
     this.model.traverse(o => { if (o.isBone && o.name.startsWith('mixamorig')) this.bones[o.name.slice(9)] = o; });
+    // His fingers, when his file has them (tools/hero_hands.py): each finger bone is turned as the bone of the old single chain at the
+    // same joint is, so every animation that closed the mitten closes the hand (curl(), after the mixer).
+    this.fingers = [];
+    for (const side of ['Left', 'Right']) { const from = [1, 2, 3].map(n => this.bones[side + 'HandIndex' + n]); if (from.some(b => !b)) continue;
+      for (const [f, k] of [['Index', 0.94], ['Middle', 1], ['Ring', 1.04], ['Pinky', 1.08]]) { const to = [1, 2, 3].map(n => this.bones[side + 'HandReal' + f + n]);
+        if (to.every(Boolean)) this.fingers.push({ from, to, k, rest: to.map(b => b.quaternion.clone()), inv: to.map(b => b.quaternion.clone().invert()), was: from.map(b => b.quaternion.clone()) }); } }
     this.offer = new Reach(this.model, 'Right');
     this.flightPose = FLIGHT.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], new THREE.Vector3(...d)]);
 
@@ -191,9 +199,22 @@ export class Hero {
 
     if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: (0.75 + speed / 28) / Math.pow(Math.max(1, this.root.scale.x), 0.8), fade: 0.14 });      // grown, his stride is longer: the legs turn slower over the same ground, or his feet slip under him
     this.mixer.update(dt);
+    this.curl();
     this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();
     this.offer.update(dt);      // something held out in his open hand, in a scene
+  }
+
+  // Each finger closes as the old mitten's one chain does, joint for joint (the little finger a little more, the first a little
+  // less). A mitten folds flat at its middle joint, up to 157 degrees in his grip; a finger cannot: past 105 the rest of the
+  // bend is shared out to the knuckle and the fingertip, so the hand still closes and no fingertip comes out through the palm.
+  curl() {
+    for (const F of this.fingers) {
+      for (let n = 0; n < 3; n++) { const q = CURL.q.copy(F.inv[n]).multiply(F.from[n].quaternion); if (q.w < 0) q.set(-q.x, -q.y, -q.z, -q.w);
+        const half = Math.acos(Math.min(1, q.w)), sin = Math.sin(half) || 1; CURL.by[n] = 2 * half * F.k; CURL.axis[n].set(q.x / sin, q.y / sin, q.z / sin); }
+      const over = Math.max(0, CURL.by[1] - 1.83); CURL.by[1] -= over; CURL.by[0] = Math.min(1.5, CURL.by[0] + over * 0.6); CURL.by[2] = Math.min(1.3, CURL.by[2] + over * 0.4);
+      for (let n = 0; n < 3; n++) F.to[n].quaternion.copy(F.rest[n]).multiply(CURL.q.setFromAxisAngle(CURL.axis[n], CURL.by[n]));
+    }
   }
 
   poseFlight() {
