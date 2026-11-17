@@ -146,6 +146,13 @@ export function createStory(g) {
       g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? victory() : null, g.giant);
     });
   }
+  // Thrown down by her, he stands before her again at her size and the fight begins at once: nothing is said or shown
+  // again (Sid: "when he fails don't start the story part: start from the fight only, always").
+  function rematch() {
+    g.hold(); G = g.groundAt(hz); retreat = 0; done.challenged = true; bars();
+    putHero(0, hz, 0, 'great_sword_idle'); g.grow(1, 0.05); lankini.play('sword_idle');
+    g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? victory() : null, g.giant);
+  }
   // She is down: still at her size he roars over her, the light of his strength about him. Then he lets it go.
   function victory() {
     g.hold(); const p = hero.root.position, l = lankini.root.position, k = g.giant; G = g.groundAt(p.z);
@@ -195,7 +202,7 @@ export function createStory(g) {
     const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, U = SITA.up, T = hideAt, p = hero.root.position;
     // d: the way he looks from the tree, toward the two of them; side: across it, toward the path
     const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
-    const H = [T.x - d[0] * 1.75 + side[0] * 1.0, T.z - d[1] * 1.75 + side[1] * 1.0];      // where he hides: behind the trunk and clear of its great root (nearer, the root ran through his feet)
+    const H = [T.x - d[0] * 2.3 + side[0] * 1.0, T.z - d[1] * 2.3 + side[1] * 1.0];      // where he hides: behind the trunk and clear of its great root (nearer, the root ran through his feet, then under his forward hand)
     const hid = () => squat(H[0], H[1], heroYaw(d[0], d[1]));
     go([[(p.x + H[0]) / 2 + 0.6, (p.z + H[1]) / 2, 1.1, 'running', 1], [H[0], H[1], 1.5, 'crouched_walking', 1.4]], hid);
     // the view from his hiding place: behind him, past the trunk, to the two under the great tree
@@ -225,7 +232,7 @@ export function createStory(g) {
     const yaw = yawTo(hx - sx, hz - sz);
     sita.place(sx + Math.sin(yaw) * SITA.edge, G + U, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0.2 });
     const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
-    const H = [T.x - d[0] * 1.75 + side[0] * 1.0, T.z - d[1] * 1.75 + side[1] * 1.0];
+    const H = [T.x - d[0] * 2.3 + side[0] * 1.0, T.z - d[1] * 2.3 + side[1] * 1.0];
     squat(H[0], H[1], heroYaw(d[0], d[1]));      // behind his tree, whatever was skipped; he comes to her with empty hands
     const eye = [T.x - d[0] * 4.3 + side[0] * 2.5, 2.0, T.z - d[1] * 4.3 + side[1] * 2.5];
     // out from hiding in one leap, down beside her, and a bow
@@ -410,7 +417,7 @@ export function createStory(g) {
   }
 
   return {
-    done, sita, ravana, gate, yields, grove, meets, wreck, bound, court, brand,
+    done, sita, ravana, gate, rematch, yields, grove, meets, wreck, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
       if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;

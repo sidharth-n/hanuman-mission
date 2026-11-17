@@ -219,13 +219,14 @@ function result(title, thirdLabel, third) {
   // caught beyond the first stretch: the next run takes up from the start of the place he had reached
   if (state.dist >= END_AT) { state.from = 0; state.kept = null; }
   $('shareLine').hidden = $('share').hidden = true;      // offered only when the tale is told to its end
-  $('again').textContent = state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = state.from === 0;
+  $('again').textContent = state.retry ? 'Fight again' : state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.retry ? 'Straight back to the fight' : state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = !state.retry && state.from === 0;
   state.mode = 'ready'; sound.stop(); screen('result');
 }
 
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
-function start(from = 0, fresh = false) {
+function start(from = 0, fresh = false, straight = false) {
   if (typeof from !== 'number') from = 0;
+  state.retry = null; teach(null); nudge(null);
   story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; state.held = null; ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
@@ -242,8 +243,16 @@ function start(from = 0, fresh = false) {
   const opening = !story.done.lankini && -hero.root.position.z < LANKINI_AT;
   sound.start(opening); if (opening) sound.score('run', { rise: 1.2 });      // the way in from the sea gate has its own music      // the song is for the journey proper: it begins when Lankini has let him pass (a run that takes up beyond her has it from the first step)
   // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
+  if (straight) return;      // straight into a fight he lost: no flight in, no name of the place
   state.opening = true; state.flight = OPEN_FLIGHT; hero.startFlight(); slowMotion(1.4, 0.45); sound.fx('wing');
   card(SECTIONS[from].id);
+}
+// He was thrown down in a fight: the next try is that fight, at once (Sid: "when he fails don't start the story part:
+// start from the fight only, always"). The place is made as a run from its start makes it, and he is put before them.
+function rematch() {
+  const kind = state.retry; start(state.from, false, true);
+  if (kind === 'boss') { state.dist = LANKINI_AT; hero.root.position.set(0, groundAt(-LANKINI_AT), -LANKINI_AT); world.update(0, hero.root.position.z); return story.rematch(); }
+  state.dist = FIGHT_AT; state.fought = true; hero.root.position.set(0, groundAt(-FIGHT_AT), -FIGHT_AT); world.update(0, hero.root.position.z); startFight();
 }
 
 // The player is asked before he grows to meet Lankini: one button, or Enter.
@@ -339,6 +348,7 @@ function startFight(mid = FIGHT_MID, plan = PLANS.court, scale = 1) {
   state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; sound.rest(); sound.score('fight', { rise: 0.3, fade: 0.5 });
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
   fight.begin(mid, plan, scale); painted.lives = null;
+  if (state.meter >= 1 && +store.get('smashFight', 0) < 3) { store.set('smashFight', +store.get('smashFight', 0) + 1); nudge('Mace is full. Tap Smash when they close in', 9); }
   if (scale === 1) say(STORY.alerts.guards, 2.6);
   sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
 }
@@ -349,6 +359,7 @@ function endFight(how) {
   if (how === 'lost') {
     for (const foe of fight.all) foe.bar.visible = false;      // nothing of the fight is left hanging over what comes next
     screen(null); if (then && then(how)) return;      // the story takes him as he fell: in the grove he is bound and led to Ravana
+    state.retry = then ? 'boss' : 'guards';      // thrown down: the next try begins at this fight itself, nothing before it
     return caught(true);      // he stays where he fell, among them, until the next run
   }
   sound.fx('power'); buzz([40, 40, 120]);
@@ -428,6 +439,7 @@ function rules(dt) {
   let floor = 0;
   if (state.cine > 0) state.cine -= dt;
   const flying = state.flight > 0;
+  let next = null;      // the first run: what is next in his way, for the arrow that shows the move
   for (const c of world.nearby(p.z)) {
     for (const o of c.obstacles) {
       if (o.kind === 'gap' && !state.hinted && o.z < p.z && o.z > p.z - 34) { state.hinted = true; say(LINES.gap, 2.2); }
@@ -436,6 +448,7 @@ function rules(dt) {
         if (state.flight > 0) { state.flight = 0; hero.endFlight(); state.safe = Math.max(state.safe, 0.9); }
         if (!o.heard && o.z > p.z - 26) { o.heard = true; say(LINES.tunnel, 2.4); }
       }
+      if (lesson.known.size < 3 && !flying && !smash && !o.done && !o.off && o.z < p.z - 1.2 && p.z - o.z < pace * 1.25 + 2 && (o.wide || Math.abs(o.x - p.x) <= reach) && (!next || o.z > next.z)) next = o;
       // on a long frame he and the thing coming at him cover more ground than it is deep: widen the test by what the frame skipped
       const dz = Math.abs(o.z - p.z), sweep = Math.max(0, (pace + (o.vz || 0)) * dt / 2 - 0.12);
       if (flying || o.done || o.off || dz > o.hd + 0.2 + sweep || (!o.wide && Math.abs(o.x - p.x) > reach)) continue;
@@ -475,9 +488,13 @@ function rules(dt) {
       if (state.chain % 4 === 0) sound.fx('lamp', { gap: 0.15 });      // a soft tick for the first of a row and every fourth after it, never a stream
       if (!state.fire && state.giant <= 0 && state.meter < 1) {
         state.meter = Math.min(1, state.meter + 1 / LAMPS_FOR_POWER);
-        if (state.meter >= 1) say(LINES.strength, 2.2);
+        if (state.meter >= 1) { say(LINES.strength, 2.2); const told = +store.get('smashTold', 0); if (told < 3) { store.set('smashTold', told + 1); nudge('Mace is full. Tap Smash to break through', 8); } }
       }
     }
+  }
+  if (lesson.known.size < 3) {      // the arrow for what is next in his way: a beam is slid under, a gap or a thing right across is leapt, a thing in one lane is leapt the first time and stepped round after
+    const move = !next ? null : next.kind === 'high' ? 'down' : next.kind === 'gap' || next.wide || !lesson.known.has('up') ? 'up' : 'side';
+    teach(move && !lesson.known.has(move) ? move : null, next && next.x <= p.x ? 1 : -1);
   }
   hero.floor = floor;
 }
@@ -489,6 +506,23 @@ const lookWant = new THREE.Vector3();
 // The view in flight: just behind and above him, looking well down the road, so that what is coming is never hidden by his back.
 const flyCam = { back: 2.3, up: 1.5, ahead: 14, lookY: 0.8, fov: 60 };      // Sid's pick: over the shoulder and close, then closer twice
 const ease = t => t * t * (3 - 2 * t);
+// How to play, taught once, on the first run, as the first things come (Sid: "like in temple run... an arrow or something
+// when an obstacle comes, to swipe up and then swipe down and then move, just at the start so people will know how to play").
+// Each move is shown until the player has made it once; when all three are known it is never shown again.
+const lesson = { known: new Set((store.get('known', '') || '').split(',').filter(Boolean)), show: null };
+const WORDS = phone ? { up: 'Swipe up', down: 'Swipe down', side: 'Swipe left or right' } : { up: 'Up arrow: leap', down: 'Down arrow: slide', side: 'Left or right arrow' };
+function teach(move, away) {
+  if (move === lesson.show) return; lesson.show = move; const el = $('teach');
+  el.hidden = !move; if (!move) return;
+  el.className = move === 'side' ? (away > 0 ? 'right' : 'left') : move; el.lastElementChild.textContent = WORDS[move];
+}
+function learned(dir) {
+  const move = dir === 'left' || dir === 'right' ? 'side' : dir; if (lesson.known.has(move) || !WORDS[move]) return;
+  lesson.known.add(move); store.set('known', [...lesson.known].join(',')); if (lesson.show === move) teach(null);
+}
+// A word beside a button the player has not found yet.
+let tipT = 0;
+function nudge(text, secs = 7) { const el = $('tip'); el.textContent = text || ''; el.hidden = !text; tipT = text ? secs : 0; }
 function slowMotion(secs, scale) { state.slowT = secs; state.slowK = scale; sound.chant(); buzz(30); }      // every slow-motion moment carries the chant and a touch on the hand
 
 // Cinematic shots: for a few seconds the camera leaves the chase view. He keeps running and the player keeps control.
@@ -516,6 +550,7 @@ function useFlight() {
 // Strength meter full and a touch on its button: for a few seconds he glows and breaks through whatever is in his way.
 // In a fight the same strength goes into one blow that throws every guard near him back.
 function usePower() {
+  nudge(null);
   if (state.mode === 'fight') { if (state.meter < 1 || !fight.special()) return false; state.meter = 0; slowMotion(0.5, 0.4); sound.fx('power'); return true; }
   if (state.mode !== 'run' || state.meter < 1 || state.fire || state.giant > 0 || state.flight > 0) return false;
   state.meter = 0; state.giant = GIANT_SECS; state.danger = 0;
@@ -639,6 +674,8 @@ function frame(now) {
     hero.root.scale.setScalar((1 + state.vast * 1.4 + state.grow * 3.1) * (1 + state.tall * (GIANT - 1)));
   }
   if (state.cardT > 0) { state.cardT -= real; if (state.cardT <= 0) ui.card.hidden = true; }
+  if (tipT > 0 && (tipT -= real) <= 0) nudge(null);
+  if (!running && lesson.show) teach(null);
   if (running && queued) { queued.t -= real; const went = hero.move('up'); if (went) sound.fx('leap'); if (went || queued.t <= 0) queued = null; }
   const falling = state.mode === 'fall';
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
@@ -701,7 +738,7 @@ listen(window, dir => {
   if (state.mode === 'fight' && dir === 'giant') return press2('giant', usePower);
   if (state.mode !== 'run') return;
   if (dir === 'giant') press2('giant', usePower); else if (dir === 'fly') press2('fly', useFlight);
-  else if (dir !== 'tap') { const done = hero.move(dir); if (done && dir === 'up') sound.fx('leap'); else if (done && dir === 'down') sound.fx('slide'); queued = !done && dir === 'up' && !hero.flying ? { t: 0.28 } : null; }
+  else if (dir !== 'tap') { const done = hero.move(dir); if (done) learned(dir); if (done && dir === 'up') sound.fx('leap'); else if (done && dir === 'down') sound.fx('slide'); queued = !done && dir === 'up' && !hero.flying ? { t: 0.28 } : null; }
 });
 // A power button answers every touch: a pulse and a buzz when it fires, a shake when it is not charged.
 function press2(id, fn) {
@@ -709,7 +746,7 @@ function press2(id, fn) {
   el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); if (ok) buzz([30, 30, 60]);
 }
 const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
-press('share', share); press('go', () => start(startAt, true)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
 function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }
