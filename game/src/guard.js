@@ -36,9 +36,28 @@ function standInSword() {
   return g;
 }
 
+const FINGER = /Hand(Thumb|Index|Middle|Ring|Pinky)\d/;
+const GRIP = { finger: [1.2, 1.4, 0.85], thumb: [0.35, 0.45, 0.4] }, LOOSE = { finger: [0.32, 0.5, 0.35], thumb: [0.1, 0.15, 0.15] };      // radians at each joint: the sword hand, the other hand
 export class Guard {
   // sword: the sword model (a scene to copy), or nothing. opt.lux: a Lux3D-rigged character (Lankini): stood to
   // opt.height metres, unarmed, with her own clips { idle, walk, run, attack, hit, death } and the moment her blow lands.
+  // Her fingers close round the hilt, and the other hand hangs half closed. Each finger bone is turned about the line
+  // across her knuckles (as that bone sees it, standing as she was rigged), each thumb bone about the length of the hand.
+  grip() {
+    this.model.updateMatrixWorld(true);
+    const P = b => b.getWorldPosition(new THREE.Vector3()), q = new THREE.Quaternion();
+    for (const side of ['Left', 'Right']) {
+      const B = n => this.model.getObjectByName('mixamorig' + side + 'Hand' + n), s = side === 'Left' ? 1 : -1, hold = side === 'Right';
+      const i1 = B('Index1'), p1 = B('Pinky1'), m1 = B('Middle1'), hand = B('');
+      if (!i1 || !p1 || !m1 || !hand) continue;
+      const across = P(p1).sub(P(i1)).normalize(), along = P(m1).sub(P(hand)).normalize().multiplyScalar(s);
+      const turn = (b, axis, angle) => { if (b) b.quaternion.multiply(q.setFromAxisAngle(axis.clone().applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()).invert()).normalize(), angle).clone()); };
+      const bend = hold ? GRIP : LOOSE;
+      for (const f of ['Index', 'Middle', 'Ring', 'Pinky']) [1, 2, 3].map(k => [B(f + k), bend.finger[k - 1]]).forEach(([b, a]) => turn(b, across, s * a));      // the axes are all taken before any bone of this finger is turned
+      [1, 2, 3].map(k => [B('Thumb' + k), bend.thumb[k - 1]]).forEach(([b, a]) => turn(b, along, a));
+    }
+  }
+
   constructor(gltf, sword, opt = {}) {
     this.root = new THREE.Group();
     this.model = clone(gltf.scene);
@@ -54,10 +73,13 @@ export class Guard {
     this.plain = this.meshes.map(m => m.material); this.gltf = gltf;
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
+    let fingered = false; this.model.traverse(o => { if (/fingers/.test(o.name)) fingered = true; });      // her hands made as hands (tools/lankini_hands3d.py)
+    if (fingered) for (const clip of gltf.animations) clip.tracks = clip.tracks.filter(t => !FINGER.test(t.name));      // no clip of hers knows she has fingers: they are set once, below
     for (const clip of this.lux ? gltf.animations : prepare(gltf)) this.actions[clip.name] = this.mixer.clipAction(clip);
     this.current = null;
 
     this.hand = this.model.getObjectByName('mixamorigRightHand'); this.arm = this.model.getObjectByName('mixamorigRightForeArm');
+    if (fingered) this.grip();
     // her sword is a guard's, made for her hand: opt.sword is its length against a guard's sword on a guard (1 would be as long for her as theirs is for them)
     const big = this.lux ? opt.height / 1.8 : 1, hold = big * (this.lux ? 0.88 : 1), long = big * (this.lux ? opt.sword ?? 0.88 : 1); this.blade = 1.2 * long;
     if (!this.lux || opt.armed) {      // the sword rides in the right hand, the way Hanuman's mace does

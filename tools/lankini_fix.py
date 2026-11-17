@@ -7,6 +7,7 @@ import bpy, bmesh, math, os, sys
 from mathutils import Matrix, Vector
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import ravana_fix as R, retouch as T
+import lankini_hands3d as H
 
 NAMES = 'idle,talk,fold_arms,walk,jog,hook,punch,hit,knockback,death'.split(',')
 def face(p): return p.z > 0.78 and p.y < -0.1 and abs(p.x - 0.008) < 0.13
@@ -66,12 +67,12 @@ def fingers(o, depth=0.6, wide=0.0055):
     return 'fingers cut: ' + '; '.join(said)
 
 
-def repaint(o, pictures):
+def repaint(o, pictures, hands=True):
     after = next((os.path.join(pictures, f'face-after.{e}') for e in ('png', 'jpg') if os.path.exists(os.path.join(pictures, f'face-after.{e}'))), None)
     if not after: return 'face: no redrawn picture, left as it was'
     said = [T.project(o, 'lankini_face', T.VIEWS['lankini']['face'], os.path.join(pictures, 'face-before.png'), after, os.path.join(pictures, 'face-texture.png'))]
     # her hands: the generator left mittens (a lump with a thumb, no fingers); each is repainted from above as a clenched fist
-    for name in ('hand_l', 'hand_r'):
+    for name in (('hand_l', 'hand_r') if hands else ()):
         redrawn = next((os.path.join(pictures, f'{name}-after.{e}') for e in ('png', 'jpg') if os.path.exists(os.path.join(pictures, f'{name}-after.{e}'))), None)
         if redrawn: said.append(T.project(o, 'lankini_' + name, T.VIEWS['lankini'][name], os.path.join(pictures, name + '-before.png'), redrawn, os.path.join(pictures, name + '-texture.png')))
     return '; '.join(str(x) for x in said)
@@ -148,10 +149,14 @@ def show_sword(arm, path, length=1.35):
 
 
 if __name__ == '__main__' and '--' in sys.argv:
-    src, pictures, out, tris, tex = sys.argv[sys.argv.index('--') + 1:][:5]
+    src, pictures, out, tris, tex, *more = sys.argv[sys.argv.index('--') + 1:]
+    real = 'hands=real' in more      # her hands made as hands (tools/lankini_hands3d.py) in place of grooves cut in the lump
     arm, o = R.load(src); T.rest(arm)
-    print('STEP', weld(o)); print('STEP', ease(o)); print('STEP', fingers(o)); print('STEP', repaint(o, pictures))
+    print('STEP', weld(o)); print('STEP', ease(o))
+    if not real: print('STEP', fingers(o))
+    print('STEP', repaint(o, pictures, hands=not real))
     print('STEP', R.slim(o, int(tris), 0.24, fine))      # a larger share for face and hands now that the fingers are cut
+    if real: print('STEP', H.hands(o, arm))      # after the slimming, so the fingers keep every point they are made of
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     print('STEP', sword_clips(arm, os.path.join(root, 'assets/rig/guard/Breathing Idle.fbx'), os.path.join(root, 'assets/rig/guard/anims')))
     print('STEP', R.export(arm, out, int(tex), NAMES + list(SWORD.values())))
