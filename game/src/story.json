@@ -54,7 +54,7 @@
     "grove_sita": [
       {
         "who": "",
-        "line": "Hidden in the branches, Hanuman sees Sita below."
+        "line": "From behind the tree, Hanuman sees Sita alone."
       },
       {
         "who": "Hanuman",
@@ -62,7 +62,7 @@
       },
       {
         "who": "",
-        "line": "He descends and bows before her."
+        "line": "He leaps out and lands beside her. He bows before her."
       },
       {
         "who": "Hanuman",
@@ -190,11 +190,11 @@
     "grove_ravana": [
       {
         "who": "",
-        "line": "Hidden in the branches, Hanuman watches the moonlit Ashoka grove."
+        "line": "Hidden behind the Ashoka tree, Hanuman watches the grove."
       },
       {
         "who": "",
-        "line": "Ravana comes with his attendants. Sita sits on the ground."
+        "line": "Under the great tree, Ravana and guards face Sita on her stone seat."
       },
       {
         "who": "Ravana",

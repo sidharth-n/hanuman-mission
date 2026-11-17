@@ -154,7 +154,8 @@ function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
   story.reset(fresh); if (director.active) director.skipQuiet(); unask(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
-  world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
+  const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
+  world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
   Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
@@ -253,6 +254,7 @@ function won() { story.ending(); }      // the last scene; it ends in the result
 
 function rules(dt) {
   state.speed = Math.min(MAX_SPEED, state.speed + ACCEL * dt);
+  if (!state.fire && world.kindAt(hero.root.position.z) === 'grove') state.speed = Math.max(7.2, state.speed - 9 * dt);      // in the grove he goes softly: the place is to be seen
   if (state.ramp) { state.speed = Math.min(state.ramp, state.speed + 5 * dt); if (state.speed >= state.ramp) state.ramp = 0; }      // back up to pace after the fight
   if (state.danger > 0) state.danger -= dt;
   if (state.slow > 0) state.slow = Math.max(0, state.slow - dt * 1.1);
@@ -291,6 +293,10 @@ function rules(dt) {
     for (const o of c.obstacles) {
       if (o.kind === 'gap' && !state.hinted && o.z < p.z && o.z > p.z - 34) { state.hinted = true; say(LINES.gap, 2.2); }
       if (o.kind === 'gap' && !o.heard && o.z < p.z && o.z > p.z - 30) { o.heard = true; sound.fx('bridge', { gap: 1 }); }      // every raised drawbridge creaks on its chains as he nears it      // the first raised drawbridge is called out
+      if (o.type === 'tunnel' && !o.done && o.z < p.z && o.z > p.z - 30) {      // the wall of the grove: nobody flies through it, and the low way under it is called out
+        if (state.flight > 0) { state.flight = 0; hero.endFlight(); state.safe = Math.max(state.safe, 0.9); }
+        if (!o.heard && o.z > p.z - 26) { o.heard = true; say(LINES.tunnel, 2.4); }
+      }
       // on a long frame he and the thing coming at him cover more ground than it is deep: widen the test by what the frame skipped
       const dz = Math.abs(o.z - p.z), sweep = Math.max(0, (pace + (o.vz || 0)) * dt / 2 - 0.12);
       if (flying || o.done || o.off || dz > o.hd + 0.2 + sweep || (!o.wide && Math.abs(o.x - p.x) > reach)) continue;
@@ -308,7 +314,8 @@ function rules(dt) {
         if (o.kind !== 'high' && !o.sharp && hero.vy <= 0) floor = Math.max(floor, o.top + lift);      // coming down or standing on it
         if (!o.near) {       // now and then a good leap is shown from the roadside, a good slide from low in front, in slow motion.
           o.near = true;     // Both shots are over before he lands or rises, so the road ahead is back in view with all his time to act.
-          if (state.cine <= 0 && !state.shot && !explore) {
+          if (o.type === 'tunnel' && !explore) { shot('under', 1.15); slowMotion(1.05, 0.3); state.cine = 12; }      // sliding in under the wall is always held: the grove is first seen in that moment
+          else if (state.cine <= 0 && !state.shot && !explore) {
             if (o.kind === 'high') { shot('under', 0.7); slowMotion(0.55, 0.42); state.cine = 16 + Math.random() * 10; }
             else if (hero.y > o.top + lift && hero.vy > -2) { shot('side', 0.8); slowMotion(0.65, 0.36); state.cine = 16 + Math.random() * 10; }
           }
@@ -498,7 +505,7 @@ function frame(now) {
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
   const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
   hero.update(fighting && fight.frozen ? 0 : dt, speed, state.mode === 'run' || falling, groundAt);
-  world.update(dt, hero.root.position.z);
+  world.shotOn = !!state.shot; world.update(dt, hero.root.position.z);
   for (const f of state.falling) { f.t += dt; f.mesh.rotation.z = f.dir * Math.min(1.35, f.t * 7); f.mesh.position.y = -Math.min(0.5, f.t * 1.2); }
   if (state.shake > 0) state.shake = Math.max(0, state.shake - real * 1.6);
 
@@ -639,6 +646,8 @@ function blocked() {
   for (const [name, pt] of pts) {
     t.set(...pt); ndc.copy(t).project(camera); if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1 || ndc.z > 1) continue;
     const len = d.copy(t).sub(camera.position).length(); d.divideScalar(len);
+    if (len > 32 * Math.max(1, k)) continue;      // so far off that he is a part of the place, not one the picture is of
+
     for (const back of [false, true]) {      // from the lens to him, and from him to the lens: the second finds a lens that is inside a wall
       ray.set(back ? t : camera.position, back ? d.clone().negate() : d); ray.near = 0.05; ray.far = len - 0.4 * k;
       const hit = ray.intersectObjects(solid, false).find(x => !mine.has(x.object));

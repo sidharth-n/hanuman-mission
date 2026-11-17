@@ -564,7 +564,7 @@ export class World {
 
     const near = [];
     for (const c of this.chunks.values()) {
-      if (c.fx) places.animate(c, this.time);
+      if (c.fx) places.animate(c, this.time, heroZ, this.shotOn);
       for (const f of c.flames) { const s = 1.7 + Math.sin(this.time * 11 + f.userData.seed) * 0.22 + Math.sin(this.time * 23 + f.userData.seed * 3) * 0.12; const b = f.userData.base; f.scale.set(s * b, s * 1.25 * b, 1); }
       for (const a of c.live) if (a.t <= 1) this.animate(c, a, dt, heroZ);
       for (const w of c.winds) if (!w.got) { w.mesh.material.rotation = this.time * 2.2; w.mesh.position.y = w.floor + 1.35 + Math.sin(this.time * 2 + w.z) * 0.12; }

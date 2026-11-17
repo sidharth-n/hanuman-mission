@@ -10,7 +10,9 @@ import { HALL, greatHall, plinth } from './court.js';
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
 export const SITA = { n: 2, x: 4.7, z: -11, seat: 0.43, edge: 0.66, up: 0.22, yaw: -0.75 };      // her stone seat on its round platform under the great tree: how far forward of its middle she sits, how high the platform stands, which way the seat faces
-export const TREE = { n: 2, x: 8.8, z: -14.6 };                      // the great tree Hanuman hides in
+export const TREE = { n: 2, x: 8.8, z: -14.6 };
+export const HIDE = { n: 1, x: -5.4, z: -21 };                         // the old tree at the side of the path that Hanuman hides behind
+export const GATE = { z: -0.8, half: 0.8 };                           // the wall across the way into the grove, and the low passage through it                      // the great tree Hanuman hides in
 export const THRONE = { n: 1, z: -12.5, top: 1.05, seat: 0.92 };     // the dais and the seat of the throne; behind it, room for Shiva
 export const STAND = { n: 1, z: -1.5 };                              // where Hanuman is made to stand before it
 
@@ -54,7 +56,8 @@ function garden(world) {
     lotusMat: new THREE.SpriteMaterial({ map: glow('rgba(255,235,245,1)', 'rgba(255,120,170,0.75)'), blending: THREE.AdditiveBlending, ...common }),
     haloMat: new THREE.SpriteMaterial({ map: glow('rgba(235,242,255,0.34)', 'rgba(150,185,255,0.13)'), blending: THREE.AdditiveBlending, ...common }),
     mistMat: new THREE.SpriteMaterial({ map: glow('rgba(190,215,255,0.5)', 'rgba(140,180,255,0.16)'), blending: THREE.AdditiveBlending, opacity: 0.5, ...common }), pondGeo: new THREE.CircleGeometry(4.6, 28).rotateX(-Math.PI / 2),
-    lanternGeo: palace.stoneLantern(), seatGeo: seat(), platformGeo: platform(),
+    lanternGeo: palace.stoneLantern(), seatGeo: seat(), platformGeo: platform(), gateGeo: gateWall(),
+    gateGlow: new THREE.SpriteMaterial({ map: glow('rgba(190,215,255,0.9)', 'rgba(120,165,255,0.35)'), blending: THREE.AdditiveBlending, ...common }),
     lampMat: new THREE.PointsMaterial({ map: dot, color: 0xffb45a, size: 0.5, blending: THREE.AdditiveBlending, ...common }),
     warmMat: new THREE.SpriteMaterial({ map: glow('rgba(255,190,110,0.5)', 'rgba(255,140,60,0.16)'), blending: THREE.AdditiveBlending, ...common }),
     trees: [0, 1, 2, 3].map(i => tree(311 + i * 97, 1, { lite: world.lite })),
@@ -69,7 +72,11 @@ export function grove(world, chunk, c, r) {
   const g = chunk.group, k = garden(world); chunk.fx = [];
   const ground = new THREE.Mesh(k.grassGeo, k.grassMat); ground.position.z = -L / 2; g.add(ground);
   const path = new THREE.Mesh(world.roadGeo, k.pathMat); path.position.set(0, 0.012, -L / 2); g.add(path);
-  if (c.n === 0) { const door = world.part(world.geo.front); door.rotation.y = Math.PI; g.add(door); }      // the palace door he comes out by
+  if (c.n === 0) {      // the way in: a high wall across the end of the palace, and under it one low passage with moonlight in it. Nothing of the grove is seen until he is through.
+    const wall = world.part(k.gateGeo); g.add(wall); const way = { type: 'tunnel', kind: 'high', lane: 1, x: 0, z: g.position.z + GATE.z, hd: GATE.half, top: 0, wall: true, sharp: false, mesh: new THREE.Object3D(), done: false, wide: true };
+    chunk.obstacles.push(way); chunk.fx.push({ type: 'gate', obj: wall, z: way.z, way });
+    const moon = new THREE.Sprite(k.gateGlow); moon.position.set(0, 0.6, GATE.z - GATE.half - 0.4); moon.scale.set(9, 1.7, 1); g.add(moon);
+  }
   const here = c.n === SITA.n;
   // old Ashoka trees along both sides, close enough that their canopies meet over the path, and a second row behind
   // them that closes the grove in; never two alike in kind, size or turn
@@ -81,6 +88,8 @@ export function grove(world, chunk, c, r) {
     for (let j = 0; j < 3; j++) {
       const x = s * (7.0 + r() * 1.5), z = -4 - j * 8 + (r() - 0.5) * 2, kind = k.trees[Math.floor(r() * k.trees.length)], turn = r() * 6.3, size = 0.92 + r() * 0.22;
       if (here && s > 0 && Math.abs(z - TREE.z) < 7.5) continue;      // room for the great tree
+      if (c.n === HIDE.n && s < 0 && Math.abs(z - HIDE.z) < 6) continue;      // and for the one he hides behind, which stands nearer the path
+      if (c.n === 0 && z > -5) continue;      // none against the wall he comes in under
       plant(kind, x, z, turn, size);
     }
     for (let j = 0; j < 2; j++) plant(k.trees[Math.floor(r() * k.trees.length)], s * (14 + r() * 4), -5 - j * 12 + (r() - 0.5) * 3, r() * 6.3, 1.05 + r() * 0.25);
@@ -101,6 +110,7 @@ export function grove(world, chunk, c, r) {
   for (let j = 0; j < (world.lite ? 4 : 7); j++) { const m = new THREE.Sprite(k.mistMat); m.position.set((r() < 0.5 ? -1 : 1) * (4.5 + r() * 9), 0.7 + r() * 0.5, -r() * L); m.scale.set(9 + r() * 6, 2.2 + r() * 1.2, 1); g.add(m); }
   // low stone lanterns beside the path
   for (const s of [-1, 1]) for (const z of [-6, -18]) {
+    if (c.n === HIDE.n && s < 0 && z === -18) continue;      // none by the tree he hides behind: it would stand in front of what he sees
     const lantern = world.part(k.lanternGeo); lantern.position.set(s * 4.7, 0, z); g.add(lantern);
     world.flame(chunk, s * 4.7, 1.22, z, 0.3, r() * 10);
     chunk.braziers.push(new THREE.Vector3(s * 4.7, g.position.y + 1.3, g.position.z + z));
@@ -109,6 +119,7 @@ export function grove(world, chunk, c, r) {
     const pond = new THREE.Mesh(k.pondGeo, world.waterMat); pond.position.set(-10, 0.03, -12); g.add(pond);
     for (let i = 0; i < 9; i++) { const a = r() * 6.3, d = r() * 3.6, l = new THREE.Sprite(k.lotusMat); l.position.set(-10 + Math.cos(a) * d, 0.28, -12 + Math.sin(a) * d); l.scale.setScalar(0.55 + r() * 0.4); g.add(l); }
   }
+  if (c.n === HIDE.n) plant(k.trees[1], HIDE.x, HIDE.z, 1.1, 1.0);
   if (here) {      // the great tree; beneath it a round carved platform ringed with lamps, her seat on it, and a soft light that seems to come from her
     plant(k.great, TREE.x, TREE.z, 0, 1);
     const U = SITA.up, base = world.part(k.platformGeo); base.position.set(SITA.x, 0, SITA.z); g.add(base);
@@ -130,6 +141,15 @@ function platform() {
     for (let k = 0; k < N; k++) { const m = (k + 0.5) / N * Math.PI * 2, out = [Math.cos(m), 0, Math.sin(m)]; b.face([at(k, rr, y0), at(k + 1, rr, y0), at(k + 1, rr, y1), at(k, rr, y1)], 'lotus', out, { ...o, fit: true, shade: 0.85 + 0.3 * Math.max(0, -out[0] * 0.6 + out[2] * 0.8) }); }
     b.face(Array.from({ length: N }, (_, k) => at(k, rr, y1)), 'paving', [0, 1, 0], { ...o, tile: [1.3, 1.3], shade: 1.05 });
   }
+  return b.geometry();
+}
+// The wall across the way in: old stone, 14 m high, with one low passage under a carved lintel, the width of the path.
+function gateWall() {
+  const b = new Builder(), o = { ground: false, tile: [2.4, 2.4], color: [0.62, 0.66, 0.8] }, W = 17, H = 14, D = 3.75, L = 1.25, z0 = GATE.z - GATE.half, z1 = GATE.z + GATE.half;
+  b.box(-W, -D, 0, H, z0, z1, 'stone', { ...o, faces: 'fbr' });
+  b.box(D, W, 0, H, z0, z1, 'stone', { ...o, faces: 'fbl' });
+  b.box(-D, D, L, H, z0, z1, 'stone', { ...o, faces: 'fbd' });
+  for (const [za, zb, f] of [[z1, z1 + 0.14, 'f'], [z0 - 0.14, z0, 'b']]) b.box(-D - 0.5, D + 0.5, L, L + 0.5, za, zb, 'lotus', { ground: false, faces: f + 'd', tile: [2, 0.5], color: [1.1, 0.95, 0.7] });
   return b.geometry();
 }
 // Her seat: a low stone chair with a back and arms, facing +z until it is turned.
@@ -223,11 +243,12 @@ export function throne(world, chunk, c, r) {
 }
 
 // The small living things of these places: fireflies drifting, petals falling, lights breathing.
-export function animate(chunk, time) {
+export function animate(chunk, time, heroZ = 0, shot = false) {
   for (const f of chunk.fx) {
     if (f.type === 'fly') { f.obj.position.set(Math.sin(time * 0.31 + f.seed) * 0.9, f.y + Math.sin(time * 0.53 + f.seed * 2) * 0.35, Math.cos(time * 0.27 + f.seed) * 0.7); f.obj.material.opacity = 0.55 + Math.sin(time * 2.1 + f.seed) * 0.4; }
     else if (f.type === 'fall') { f.obj.position.y = -((time * 0.55 + f.seed) % 9); f.obj.position.x = Math.sin(time * 0.4 + f.seed) * 0.6; }
     else if (f.type === 'pulse') f.obj.scale.setScalar(f.size * (1 + Math.sin(time * 1.3) * 0.05));
+    else if (f.type === 'gate') f.obj.visible = !f.way.done && (shot || heroZ > f.z - 1);      // broken through, it is gone;      // once he is through and the view is behind him again, the wall is not left standing in front of it
     else if (f.type === 'flicker') f.obj.material.opacity = 0.8 + Math.sin(time * 9) * 0.1 + Math.sin(time * 23) * 0.06;
   }
 }

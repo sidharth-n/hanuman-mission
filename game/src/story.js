@@ -6,7 +6,7 @@ import STORY from './story.json';
 import { Actor } from './scene.js';
 import { Aura } from './aura.js';
 import { PLANS } from './fight.js';
-import { SITA, TREE, THRONE, STAND } from './places.js';
+import { SITA, TREE, HIDE, THRONE, STAND } from './places.js';
 import { GROVE_AT, THRONE_AT, FIRE_AT, LANKINI_AT, LANKINI_MID, CHUNK } from './world.js';
 
 const S = STORY.scenes;
@@ -27,7 +27,8 @@ export function createStory(g) {
   gift.visible = false; g.scene.add(gift);
   const aura = new Aura(g.scene, fight.sparks.points.material.map);      // the light round him when he changes size
   const pass = { t: 0, secs: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
-  const done = { lankini: false, challenged: false, grove: false, end: false };
+  const done = { lankini: false, challenged: false, grove: false, end: false, present: false };
+  let trek = null, leapTo = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
   let G = 0;      // the height of the floor where the scene is played
 
   const v = (x, y, z) => [x, G + y, z];
@@ -122,57 +123,78 @@ export function createStory(g) {
 
   // ── the grove ──
   const sitaAt = { x: SITA.x, z: -(GROVE_AT + SITA.n * CHUNK) + SITA.z }, treeAt = { x: TREE.x, z: -(GROVE_AT + TREE.n * CHUNK) + TREE.z };
+  const hideAt = { x: HIDE.x, z: -(GROVE_AT + HIDE.n * CHUNK) + HIDE.z };
+  // Hanuman goes by himself along marks [[x, z, seconds, clip, speed]], facing the way he goes; then stands as `then` says.
+  function go(marks, then = null) { const p = hero.root.position; hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.flying = false; hero.fly = 0; hero.floor = 0; hero.y = 0; hero.vy = 0; hero.lane = 1; leapTo = null; trek = { marks, i: 0, t: 0, x: p.x, z: p.z, then }; hero.play(marks[0][3], { speed: marks[0][4] || 1, fade: 0.2 }); }
+  // Those who are in the grove when he comes: Sita on her seat, Ravana standing over her, his two guards. Seen from far off as he runs in.
+  function present() {
+    done.present = true; const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, Gs = g.groundAt(sz), yaw = yawTo(rx - sx, rz - sz);
+    sita.place(sx + Math.sin(yaw) * SITA.edge, Gs + SITA.up, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0 });
+    ravana.place(rx, Gs, rz, yawTo(sx - rx, sz - rz)); ravana.play('idle', { fade: 0 });
+    standGuards([[rx - 4.2, rz + 2.0, yawTo(1, -0.6)], [rx + 1.2, rz + 4.4, yawTo(-0.1, -1)]]);      // well to either side of the way he goes by: he is broad
+  }
+  // The grove, in one unbroken move: the run slows, he slips behind an old tree at the side of the path, and from there,
+  // over his shoulder, Ravana and Sita are watched. Ravana leaves to the left; then he leaps out to her.
   function grove() {
-    done.grove = true; g.hold(); G = g.groundAt(sitaAt.z);
-    const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, perch = [sx + 1.7, sz - 1.5, 4.3];
-    const yaw = yawTo(rx - sx, rz - sz);
-    sita.place(sx + Math.sin(yaw) * SITA.edge, G + SITA.up, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0 });
-    ravana.place(sx - 5.5, G, sz + 10, 0); ravana.play('idle', { fade: 0 });
-    standGuards([[rx - 4.2, rz + 2.0, yawTo(1, -0.6)], [rx + 1.2, rz + 4.4, yawTo(-0.1, -1)]]);      // well to either side of the way he comes and goes by: he is broad, and walked through the nearer one
-    putHero(perch[0], perch[1], heroYaw(sx - perch[0], sz - perch[1]), 'crouched_walking', perch[2]); hero.current.timeScale = 0.02;      // crouched on a branch, still
-    const onHanuman = shot(v(perch[0] - 2.2, perch[2] + 1.2, perch[1] + 2.3), v(perch[0], perch[2] + 0.9, perch[1]), { to: v(perch[0] - 1.7, perch[2] + 1.1, perch[1] + 1.9), fov: 40 });
-    const fromTree = shot(v(sx - 4.4, 5.4, sz + 5.0), v(sx - 0.8, 0.9, sz + 0.9), { to: v(sx - 3.8, 4.8, sz + 4.2), fov: 50 });      // looking down on them, as he does
+    done.grove = true; g.hold(); G = g.groundAt(sitaAt.z); if (!done.present) present();
+    const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, U = SITA.up, T = hideAt, p = hero.root.position;
+    // d: the way he looks from the tree, toward the two of them; side: across it, toward the path
+    const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
+    const H = [T.x - d[0] * 1.3 + side[0] * 1.0, T.z - d[1] * 1.3 + side[1] * 1.0];      // where he hides: behind the trunk, his head just clear of it
+    const hid = () => { trek = null; putHero(H[0], H[1], heroYaw(d[0], d[1]), 'crouched_walking'); hero.current.timeScale = 0.02; };      // crouched there, still
+    go([[(p.x + H[0]) / 2 + 0.6, (p.z + H[1]) / 2, 1.1, 'running', 1], [H[0], H[1], 1.5, 'crouched_walking', 1.4]], hid);
+    // the view from his hiding place: behind him, past the trunk, to the two under the great tree
+    const eye = [H[0] - d[0] * 3.0 + side[0] * 1.5, 2.0, H[1] - d[1] * 3.0 + side[1] * 1.5], them = v(sx - 1.3, 1.5, sz + 1.2), cam = director.camera.position;
+    const watch = (o = {}) => shot(v(...eye), them, { fov: 30, ...o });
+    const arrive = { cam: { at: [cam.x, cam.y, cam.z], look: [p.x * 0.85, G + 1.4, p.z - 9], to: v(...eye), lookTo: them, fov: either(58, 44), fovTo: 30, secs: 3.2 } };      // the view he was run with is carried round to it: no cut
+    const onHim = shot(v(H[0] + d[0] * 2.3 + side[0] * 1.5, 1.35, H[1] + d[1] * 2.3 + side[1] * 1.5), v(H[0], 1.15, H[1]), { to: v(H[0] + d[0] * 2.0 + side[0] * 1.2, 1.3, H[1] + d[1] * 2.0 + side[1] * 1.2), fov: 40 });
     const onRavana = shot(v(sx - 0.4, 1.0, sz + 0.9), v(rx, 2.35, rz), { to: v(sx - 0.7, 1.2, sz + 0.6), fov: 44 });
-    const U = SITA.up, onSita = shot(v(sx - 1.7, 1.15 + U, sz + 1.5), v(sx, 1.02 + U, sz + 0.2), { to: v(sx - 1.3, 1.1 + U, sz + 1.2), fov: 40 });      // she sits on the platform, that much above the ground
+    const onSita = shot(v(sx - 1.7, 1.15 + U, sz + 1.5), v(sx, 1.02 + U, sz + 0.2), { to: v(sx - 1.3, 1.1 + U, sz + 1.2), fov: 40 });      // she sits on the platform, that much above the ground
+    const out = [sx - 13.8, sz - 5.4];      // the way Ravana goes: off to the left of what Hanuman sees, between the trees
     director.play(beats('grove_ravana', [
-      onHanuman,
-      { ...fromTree, do: () => ravana.walk(rx, rz, 3.4, { then: yawTo(sx - rx, sz - rz) }) },
-      { ...onRavana, do: () => { ravana.place(rx, G, rz, yawTo(sx - rx, sz - rz)); ravana.play('talk'); } },      // there already, even if the line before was tapped past
+      arrive,
+      { ...watch({ to: v(eye[0] + d[0] * 1.0, 1.95, eye[2] + d[1] * 1.0), fov: 30, fovTo: 23 }), do: () => { hid(); ravana.play('talk'); } },      // there already, even if the line before was tapped past
+      { ...onRavana, do: () => ravana.play('talk') },
       { ...onSita, do: () => { ravana.play('idle'); sita.play('sit_talk'); } },
       { ...shot(v(sx - 1.5, 1.1 + U, sz + 1.0), v(sx, 1.05 + U, sz + 0.2), { to: v(sx - 1.2, 1.08 + U, sz + 0.8), fov: 36 }), do: () => sita.play('sit_talk') },
       shot(v(sx + 1.5, 2.25, sz - 1.5), v(rx, 2.0, rz), { to: v(sx + 1.2, 2.2, sz - 1.2), fov: 48 }),      // over her head and the back of her seat
       { ...onRavana, do: () => { sita.play('sit'); ravana.play('command', { once: true }); ravana.rise = 1.3; } },
-      { ...either(shot(v(sx - 6.5, 1.8, sz - 2.5), v(sx - 1.2, 1.3, sz + 2.2), { to: v(sx - 5.6, 1.9, sz - 3.4), fov: 54 }), shot(v(sx - 1.2, 2.4, sz - 3.6), v(sx - 3.4, 1.5, sz + 6), { to: v(sx - 0.8, 2.6, sz - 4.4), fov: 50 })), do: () => { ravana.walk(sx - 5.5, sz + 13, 4.2); escort.forEach((e, i) => { e.root.rotation.y = 0; e.play('great_sword_walk'); e.leave = 1.9 + i * 0.3; }); } },
-      onHanuman,
+      { ...watch({ fov: 34 }), do: () => { hid(); ravana.walk(out[0], out[1], 6.2); escort.forEach((e, i) => { e.root.rotation.y = yawTo(out[0] - rx, out[1] - rz); e.play('great_sword_walk'); e.leave = 1; e.go = [(out[0] - rx) / Math.hypot(out[0] - rx, out[1] - rz), (out[1] - rz) / Math.hypot(out[0] - rx, out[1] - rz)]; }); } },
+      { ...onHim, do: hid },
     ]), meets);
   }
   function meets() {
-    g.hold(); const sx = sitaAt.x, sz = sitaAt.z, hx = sx - 2.0, hz = sz + 2.1;
+    g.hold(); const sx = sitaAt.x, sz = sitaAt.z, hx = sx - 2.0, hz = sz + 2.1, U = SITA.up, T = hideAt;
     ravana.hide(); escort.forEach(e => { e.reset(); e.leave = 0; });
     const yaw = yawTo(hx - sx, hz - sz);
-    sita.place(sx + Math.sin(yaw) * SITA.edge, G + SITA.up, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0.2 });
-    const perch = [sx + 1.7, sz - 1.5, 4.3];
-    const down = () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.1 }); };
-    const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0 + SITA.up, sz + 0.5];
-    const onHero = shot(v(sx - 0.5, 1.25, sz + 0.2), v(hx, 1.45, hz), { to: v(sx - 0.7, 1.3, sz + 0.4), fov: 40 });
-    const onSita = shot(v(hx + 0.2, 1.3 + SITA.up, hz - 0.2), v(sx, 1.1 + SITA.up, sz + 0.2), { to: v(hx + 0.4, 1.25 + SITA.up, hz - 0.4), fov: 38 });
+    sita.place(sx + Math.sin(yaw) * SITA.edge, G + U, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0.2 });
+    const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
+    const H = [T.x - d[0] * 1.3 + side[0] * 1.0, T.z - d[1] * 1.3 + side[1] * 1.0];
+    trek = null; putHero(H[0], H[1], heroYaw(d[0], d[1]), 'crouched_walking'); hero.current.timeScale = 0.02;      // behind his tree, whatever was skipped
+    const eye = [H[0] - d[0] * 3.0 + side[0] * 1.5, 2.0, H[1] - d[1] * 3.0 + side[1] * 1.5];
+    // out from hiding in one leap, down beside her, and a bow
+    const leap = () => { leapTo = { x0: H[0], z0: H[1], x: hx, z: hz, t: 0, secs: 1.25, up: 3.4, then: () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.08 }); } }; hero.root.rotation.y = heroYaw(hx - H[0], hz - H[1]); const w = hero.actions.running_jump.getClip().userData; hero.play('running_jump', { once: true, from: Math.max(0, w.from - 0.06), speed: (w.to - w.from + 0.06) / 1.25, fade: 0.1 }); };
+    const landed = () => { if (leapTo || hero.root.position.x < hx - 1) { leapTo = null; putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'breathing_idle'); } };      // there already, even if the leap was tapped past
+    const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0 + U, sz + 0.5];
+    const onHero = shot(v(sx + 1.15, 1.9 + U, sz - 0.05), v(hx, 1.45, hz), { to: v(sx + 0.95, 1.85 + U, sz + 0.15), fov: 40 });      // over her shoulder, from behind her seat
+    const onSita = shot(v(hx + 0.2, 1.3 + U, hz - 0.2), v(sx, 1.1 + U, sz + 0.2), { to: v(hx + 0.4, 1.25 + U, hz - 0.4), fov: 38 });
     const two = either(shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 }), shot(v(hx - 2.1, 1.9, hz + 0.9), v(sx - 0.5, 1.05, sz + 0.5), { to: v(hx - 1.8, 1.85, hz + 0.7), fov: 46 }));
     director.play(beats('grove_sita', [
-      shot(v(sx - 3.6, 4.6, sz + 4.4), v(sx, 0.9, sz + 0.3), { to: v(sx - 2.9, 3.9, sz + 3.6), fov: 44 }),
-      shot(v(perch[0] - 2.2, perch[2] + 1.2, perch[1] + 2.3), v(perch[0], perch[2] + 0.9, perch[1]), { fov: 40 }),
-      { ...either(shot(v(sx - 4.6, 1.3, sz - 0.6), v(sx - 1.1, 0.9, sz + 1.2), { to: v(sx - 4.0, 1.2, sz - 1.2), fov: 50 }), shot(v(hx - 1.8, 1.6, hz + 3.0), v(sx - 0.7, 0.9, sz + 0.7), { to: v(hx - 1.5, 1.5, hz + 2.5), fov: 48 })), do: down },
-      { ...onHero, do: () => hero.play('breathing_idle', { fade: 0.4 }) },
-      { ...onSita, do: () => sita.play('sit_talk') },
-      { ...two, do: () => { sita.play('sit'); give(hand, hers, 0xffd36a); } },
+      shot(v(...eye), v(sx, 1.2 + U, sz + 0.3), { to: v(eye[0] + d[0] * 1.2, 1.95, eye[2] + d[1] * 1.2), fov: 26, fovTo: 20 }),      // from his hiding place: she is alone now
+      shot(v(H[0] + d[0] * 2.3 + side[0] * 1.5, 1.35, H[1] + d[1] * 2.3 + side[1] * 1.5), v(H[0], 1.15, H[1]), { to: v(H[0] + d[0] * 2.0 + side[0] * 1.2, 1.3, H[1] + d[1] * 2.0 + side[1] * 1.2), fov: 40 }),
+      { ...shot(v(1.4, 2.3, H[1] + 5.5), v((H[0] + hx) / 2, 1.9, (H[1] + hz) / 2), { to: v(1.0, 2.0, H[1] + 3.5), lookTo: v(hx - 0.6, 1.2, hz), fov: 56 }), secs: 3.4, do: leap },      // from the path behind him: the tree, the leap, and her under the great tree beyond
+      { ...onHero, do: () => { landed(); hero.play('breathing_idle', { fade: 0.4 }); } },
+      { ...onSita, do: () => { landed(); sita.play('sit_talk'); } },
+      { ...two, do: () => { landed(); sita.play('sit'); give(hand, hers, 0xffd36a); } },
       { ...onSita, do: () => sita.play('sit_talk') },
       onHero,
-      { ...two, do: () => { sita.play('sit_talk'); give(hers, hand, 0xbfe6ff); } },
+      { ...two, do: () => { landed(); sita.play('sit_talk'); give(hers, hand, 0xbfe6ff); } },
       { ...onHero, do: () => sita.play('sit') },
-      { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => sita.play('sit_talk') },
+      { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => { landed(); sita.play('sit_talk'); } },
     ]), wreck);
   }
   function wreck() {
-    g.hold(); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
+    trek = null; leapTo = null; g.hold(); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
     putHero(0, z, heroYaw(0, 1), 'great_sword_idle');
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),
@@ -254,14 +276,15 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
+      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
       if (!done.lankini && !fire && d >= LANKINI_AT && d < LANKINI_MID + 8) { gate(); return true; }
       if (!done.lankini && !fire && !lankini.root.visible && d > LANKINI_AT - 150 && d < LANKINI_AT) bars();      // on the run in, she is there ahead, growing as he nears
       if (lankini.root.visible && !fight.active && d > LANKINI_MID + 70) lankini.reset();      // long past her: put her away
-      if (!done.grove && !fire && d >= GROVE_AT + 30 && d < FIRE_AT) { grove(); return true; }
+      if (!done.present && !done.grove && !fire && d >= GROVE_AT - 12 && d < FIRE_AT) present();      // they are there under the great tree before he comes
+      if (!done.grove && !fire && d >= GROVE_AT + HIDE.n * CHUNK - HIDE.z - 10 && d < FIRE_AT) { grove(); return true; }      // ten metres short of the tree he will hide behind
       return false;
     },
     ending,
@@ -277,7 +300,17 @@ export function createStory(g) {
       if (ravana.rise > 0) { ravana.rise -= dt; if (ravana.rise <= 0) ravana.play('idle', { fade: 0.3 }); }
       if (swell.t < swell.secs) { swell.t += dt; const u = Math.min(1, swell.t / swell.secs); hero.root.scale.setScalar(swell.from + (swell.to - swell.from) * u * u * (3 - 2 * u)); }      // he grows as the player watches
       if (leap.on) { leap.t += dt; hero.root.position.z -= (2 + leap.t * leap.t * 2.2) * dt; }      // and at the last he leaps for the sea
-      for (const e of escort) if (e.leave > 0 && e.root.visible) { e.root.position.z += 1.5 * dt; }
+      for (const e of escort) if (e.leave > 0 && e.root.visible) { const w = e.go || [0, 0.72]; e.root.position.x += w[0] * 2.1 * dt; e.root.position.z += w[1] * 2.1 * dt; }      // they go the way their lord goes
+      if (trek) {      // Hanuman on his way from mark to mark
+        const m = trek.marks[trek.i], p = hero.root.position; trek.t += dt; const u = Math.min(1, trek.t / m[2]);
+        p.x = trek.x + (m[0] - trek.x) * u; p.z = trek.z + (m[1] - trek.z) * u; hero.root.rotation.y = heroYaw(m[0] - trek.x, m[1] - trek.z);
+        if (u >= 1) { trek.x = m[0]; trek.z = m[1]; trek.t = 0; trek.i++; const n = trek.marks[trek.i]; if (n) hero.play(n[3], { speed: n[4] || 1, fade: 0.25 }); else { const then = trek.then; trek = null; if (then) then(); } }
+      }
+      if (leapTo) {      // and through the air: a long low arc from where he was to where he lands
+        const l = leapTo, p = hero.root.position; l.t += dt; const u = Math.min(1, l.t / l.secs);
+        p.x = l.x0 + (l.x - l.x0) * u; p.z = l.z0 + (l.z - l.z0) * u; hero.y = 4 * l.up * u * (1 - u); hero.vy = 0;
+        if (u >= 1) { leapTo = null; hero.y = 0; l.then(); }
+      }
       if (gift.visible) {
         pass.t += dt; const u = Math.min(1, pass.t / pass.secs), e = u * u * (3 - 2 * u);
         gift.position.lerpVectors(pass.from, pass.to, e); gift.position.y += Math.sin(u * Math.PI) * 0.25; gift.scale.setScalar(0.34 + Math.sin(pass.t * 9) * 0.05);

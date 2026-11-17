@@ -151,7 +151,8 @@ export class Director {
       this.camera.position.set(o.c[0] + Math.sin(a) * r, o.c[1] + o.y[0] + (o.y[1] - o.y[0]) * u, o.c[2] + Math.cos(a) * r);
     } else this.camera.position.set(c.at[0] + (to[0] - c.at[0]) * u, c.at[1] + (to[1] - c.at[1]) * u, c.at[2] + (to[2] - c.at[2]) * u);
     this.look.set(c.look[0] + (lookTo[0] - c.look[0]) * u, c.look[1] + (lookTo[1] - c.look[1]) * u, c.look[2] + (lookTo[2] - c.look[2]) * u);
-    const fov = tall ? Math.min(80, (c.fov || 48) * 1.6) : c.fov || 48;
+    const lens = (c.fov || 48) + ((c.fovTo ?? c.fov ?? 48) - (c.fov || 48)) * u;      // fovTo: the lens the shot ends on, when it changes as the camera travels
+    const fov = tall ? Math.min(80, lens * 1.6) : lens;
     if (c.keep) fit(this.camera, this.look, fov, aspect, c.keep());
     return fov;
   }
