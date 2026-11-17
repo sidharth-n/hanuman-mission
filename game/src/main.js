@@ -212,6 +212,7 @@ function endFight(how) {
   fight.result = null; if (stick) stick.release();
   const then = state.fightDone; state.fightDone = null;
   if (how === 'lost') {
+    for (const foe of fight.all) foe.bar.visible = false;      // nothing of the fight is left hanging over what comes next
     screen(null); if (then && then(how)) return;      // the story takes him as he fell: in the grove he is bound and led to Ravana
     return caught();      // he stays where he fell, among them, until the next run
   }
