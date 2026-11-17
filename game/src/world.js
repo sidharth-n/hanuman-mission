@@ -268,7 +268,33 @@ export class World {
     for (const m of [this.flameMat, this.windMat, this.lampMat]) g.add(new THREE.Sprite(m));
     this.scene.add(g); renderer.compile(this.scene, camera);
     g.traverse(o => { const m = o.material; if (m) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap']) if (m[k]) renderer.initTexture(m[k]); });
+    this.gl = [renderer, camera]; this.settle(renderer, camera, true);
     this.scene.remove(g);
+  }
+
+  // The stretches built ahead are drawn once in a single dot of the picture, nothing left out for being out of view:
+  // their shapes and pictures reach the graphics chip now and not as he comes to them. A surface is shaded by a
+  // program made for the number of lamps burning, and Ravana's hall brings two of its own; so all of it is drawn
+  // twice, once as the streets are lit and once as his hall is. Made in the middle of the run, those programs held
+  // the game still a few steps inside the grove, where his hall first comes into range. Behind the loading screen
+  // (`all`) everything put away for later is drawn with them: the cast, the wall that closes a hall, the burning city.
+  settle(renderer, camera, all = false) {
+    const halls = [...this.ready.values()].map(c => c.group), lamps = h => { let n = 0; h.traverse(o => { if (o.isLight) n++; }); return n; };
+    const hid = [], cut = [];
+    for (const root of all ? [...halls, this.scene] : halls) root.traverse(o => {
+      if (o.isLight) return;
+      if (!o.visible) { hid.push(o); o.visible = true; }
+      if (o.frustumCulled) { cut.push(o); o.frustumCulled = false; }
+    });
+    renderer.setScissor(0, 0, 1, 1); renderer.setScissorTest(true);
+    for (const h of halls) if (!lamps(h)) this.scene.add(h);
+    renderer.render(this.scene, camera);
+    for (const h of halls) if (lamps(h)) this.scene.add(h);
+    renderer.render(this.scene, camera);
+    renderer.setScissorTest(false);
+    for (const h of halls) this.scene.remove(h);
+    for (const o of hid) o.visible = false;
+    for (const o of cut) o.frustumCulled = true;
   }
 
   spawn(name) { const o = this.prefabs[name].clone(); o.userData = this.prefabs[name].userData; return o; }
@@ -528,7 +554,7 @@ export class World {
   }
   take(i) { const c = this.ready.get(i); if (!c) return this.build(i); this.ready.delete(i); this.scene.add(c.group); return c; }
 
-  reset() { for (const c of this.chunks.values()) this.drop(c); this.chunks.clear(); this.prebuild(); }
+  reset() { for (const c of this.chunks.values()) this.drop(c); this.chunks.clear(); this.prebuild(); if (this.gl) this.settle(...this.gl); }
 
   kindAt(z) { return planAt(Math.floor(-z / CHUNK)).kind; }
 

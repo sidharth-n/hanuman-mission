@@ -119,17 +119,10 @@ async function load() {
   aura = new THREE.Sprite(new THREE.SpriteMaterial({ map: world.flameTex, color: 0xffd98a, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0 }));
   aura.position.y = 1.15; aura.visible = false; hero.root.add(aura);
   world.update(0, 0); placeCamera(1, true);
+  // Everything is made ready before the run, behind the loading screen: the streets, the cast, the grove and Ravana's
+  // hall, the burning city of the last shots. Left to their first appearance, Sita, Ravana and the guards held the
+  // game still on a phone at the moment he came into the grove.
   world.warm(renderer, camera);
-  // The cast too is made ready before the run: every actor's shaders built and pictures handed to the graphics chip
-  // now, behind the loading screen. Left to their first appearance, Sita, Ravana and the guards held the game still
-  // on a phone at the moment he came into the grove.
-  if (story && fight) {
-    const cast = [story.sita.root, story.ravana.root, fight.boss.root, ...fight.guards.map(e => e.root)], seen = cast.map(r => r.visible);
-    cast.forEach(r => { r.visible = true; });
-    renderer.compile(scene, camera);
-    scene.traverse(o => { for (const m of o.material ? [].concat(o.material) : []) for (const k of ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'emissiveMap', 'aoMap', 'alphaMap']) if (m[k]) renderer.initTexture(m[k]); });
-    cast.forEach((r, i) => { r.visible = seen[i]; });
-  }
   state.loadMs = Math.round(performance.now() - t0);
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]);      // lettering in place before the menu shows
   state.mode = 'ready'; screen('menu');
