@@ -494,8 +494,20 @@ function rules(dt) {
     }
   }
   if (lesson.known.size < 3) {      // the arrow for what is next in his way: a beam is slid under, a gap or a thing right across is leapt, a thing in one lane is leapt the first time and stepped round after
-    const move = !next ? null : next.kind === 'high' ? 'down' : next.kind === 'gap' || next.wide || !lesson.known.has('up') ? 'up' : 'side';
-    teach(move && !lesson.known.has(move) ? move : null, next && next.x <= p.x ? 1 : -1);
+    let move = !next ? null : next.kind === 'high' ? 'down' : next.kind === 'gap' || next.wide || (!lesson.known.has('up') && next.top < 2.3) ? 'up' : 'side';      // a leap is 1.9 m: the tall rock and the weapon rack are never taught as things to leap
+    if (move && (lesson.known.has(move) || next === lesson.met)) move = null;      // the thing he has just learned a move on teaches no second one while he is still passing it
+    lesson.next = next;
+    if (move === 'side' && lesson.for !== next) {      // the arrow points to a lane that is there and has nothing standing in it beside this thing; with no such lane this thing teaches nothing
+      const clear = d => {
+        const x = LANE_X[hero.lane + d]; if (x === undefined) return false;
+        for (const c of world.nearby(p.z)) for (const o of c.obstacles) if (!o.done && !o.off && o.z < next.z + 2 && o.z > next.z - Math.max(3, pace * 0.5) && (o.wide || Math.abs(o.x - x) < 0.6)) return false;
+        return true;
+      };
+      const right = clear(1), left = clear(-1);
+      lesson.for = next; lesson.away = right && (!left || hero.lane < 1) ? 1 : left ? -1 : 0;
+      if (lesson.show === 'side') teach(null);
+    }
+    teach(move === 'side' && !lesson.away ? null : move, lesson.away);
   }
   hero.floor = floor;
 }
@@ -519,7 +531,7 @@ function teach(move, away) {
 }
 function learned(dir) {
   const move = dir === 'left' || dir === 'right' ? 'side' : dir; if (lesson.known.has(move) || !WORDS[move]) return;
-  lesson.known.add(move); store.set('known', [...lesson.known].join(',')); if (lesson.show === move) teach(null);
+  lesson.known.add(move); store.set('known', [...lesson.known].join(',')); lesson.met = lesson.next; if (lesson.show === move) teach(null);
 }
 // A word beside a button the player has not found yet.
 let tipT = 0;
