@@ -237,6 +237,8 @@ function start(from = 0, fresh = false) {
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false;
   queued = null; view.join = 0; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
+  // ?debug&at=grove&scene=court: straight to one scene of the story, to see and hear it by itself
+  if (debug && typeof story[query.get('scene')] === 'function') { const name = query.get('scene'); setTimeout(() => { if (state.mode !== 'run') return; state.flight = 0.02; setTimeout(() => story[name](), 1300); }, 1500); }
   const opening = !story.done.lankini && -hero.root.position.z < LANKINI_AT;
   sound.start(opening); if (opening) sound.score('run', { rise: 1.2 });      // the way in from the sea gate has its own music      // the song is for the journey proper: it begins when Lankini has let him pass (a run that takes up beyond her has it from the first step)
   // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
