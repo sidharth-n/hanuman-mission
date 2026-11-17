@@ -202,7 +202,7 @@ export class Fight {
     h.heavy = h.combo === 3; h.act = 'attack'; h.t = 0; h.struck = false; h.queued = false;
     if (h.heavy) { hero.play('great_sword_slash', { once: true, from: 0.45, speed: 1.25, fade: 0.06 }); h.strikeAt = 0.22; h.len = 0.62; h.reach = 2.45 * S; h.dmg = 2; }      // the third blow of a row is the great one
     else { hero.play('mutant_punch', { once: true, from: 0.1, speed: 1.3, fade: 0.05 }); h.strikeAt = 0.15; h.len = 0.4; h.reach = 2.0 * S; h.dmg = 1; }
-    this.sound.fx('slide', { rate: h.heavy ? 1.5 : 2.1, gap: 0.04 });
+    this.sound.fx('slide', { rate: h.heavy ? 1.5 : 2.1, gap: 0.04 }); if (h.heavy) this.sound.hit('surge1');      // the great swing is heard coming
     return true;
   }
 
@@ -238,7 +238,7 @@ export class Fight {
     this.blast = { t: -0.12, x: p.x, z: p.z, R, speed: 17 * this.s, done: new Set() };
     this.ring.position.set(p.x, this.groundAt(p.z) + 0.09, p.z); this.ring.scale.setScalar(0.1); this.ring.material.opacity = 1; this.ring.visible = true;
     _a.set(p.x, p.y + 0.4 * this.s, p.z); this.sparks.burst(_a, 60, GOLD, 11 * this.s); this.flash(_a, GOLD, 4, 0.22);
-    this.freeze = 0.1; this.shake(0.6);
+    this.freeze = 0.1; this.shake(0.6); this.sound.hit('surge3');
     return true;
   }
 
@@ -253,7 +253,7 @@ export class Fight {
     }
     if (hit) {
       this.freeze = h.heavy ? 0.11 : 0.06; this.shake(h.heavy ? 0.45 : 0.24); this.buzz(h.heavy ? [30, 20, 60] : 25);
-      this.sound.fx(h.heavy ? 'smash' : 'hit', { rate: h.heavy ? 1 : 1.25, gap: 0.04 }); h.comboT = 0.85;
+      this.sound.fx(h.heavy ? 'smash' : 'hit', { rate: h.heavy ? 1 : 1.25, gap: 0.04 }); if (h.heavy) this.sound.hit('surge2'); h.comboT = 0.85;      // a great blow lands on the fight music's own drum
     } else h.comboT = 0.5;
   }
 
@@ -367,7 +367,7 @@ export class Fight {
     const S = this.s;
     if (h.slam && !hero.airborne) {      // down out of the air, mace first: all of them round him feel it
       h.slam = false; h.heavy = true; h.dmg = 2; h.reach = 2.9 * S; this.round = true; this.heroStrike(); this.round = false;
-      _a.set(p.x, p.y + 0.25, p.z); this.sparks.burst(_a, 44, GOLD, 9 * S); this.flash(_a, GOLD, 3.2 * S, 0.2); this.shake(0.55); this.sound.fx('smash', { gap: 0.04 });
+      _a.set(p.x, p.y + 0.25, p.z); this.sparks.burst(_a, 44, GOLD, 9 * S); this.flash(_a, GOLD, 3.2 * S, 0.2); this.shake(0.55); this.sound.fx('smash', { gap: 0.04 }); this.sound.hit('surge3');
     }
     if (h.act) {
       h.t += dt;

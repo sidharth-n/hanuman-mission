@@ -99,6 +99,33 @@
    "under": 12,
    "open": 2,
    "gain": 0
+  },
+  "vow": {
+   "loop": false,
+   "pick": "B",
+   "under": 13,
+   "open": 13,
+   "gain": -6.9
+  },
+  "roar": {
+   "loop": false,
+   "pick": "A",
+   "gain": -0.1
+  },
+  "surge1": {
+   "loop": false,
+   "pick": "A",
+   "gain": -1.6
+  },
+  "surge2": {
+   "loop": false,
+   "pick": "A",
+   "gain": 0.8
+  },
+  "surge3": {
+   "loop": false,
+   "pick": "A",
+   "gain": 0.1
   }
  }
 }

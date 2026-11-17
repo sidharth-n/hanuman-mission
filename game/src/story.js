@@ -40,6 +40,7 @@ export function createStory(g) {
   for (const o of [ring, jewel]) { o.visible = false; o.traverse(m => { m.userData.soft = true; }); g.scene.add(o); }      // soft: a thing in his hand is not something standing in front of him
   let held = null;      // { thing: the ring or the jewel, who: whose open hand it lies in }
   let clear = null;      // { beats, i, on }: the beat that is shown without the veils of the place
+  let vowT = -1, vowRoar = null;      // how long until he roars after his vow, and the roar
   const palmUp = new THREE.Vector3(), flat = new THREE.Vector3(0, 0, 1);
   // who holds out a hand to a point with the thing in it; who: null puts everything away
   const offer = (who, thing, to) => {
@@ -243,12 +244,16 @@ export function createStory(g) {
     ]), wreck);
   }
   function wreck() {
-    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score(null); const z = -GROVE_MID - 7; offer(null); sita.play('sit');
+    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score('vow'); const z = -GROVE_MID - 7; offer(null); sita.play('sit');
     putHero(0, z, heroYaw(0, 1), 'great_sword_idle');
+    // His vow, and then his roar (Hans's timing): a cue rises under the two lines; he says the second and only then throws
+    // his head back, a breath after its last word, so the roar does not bury what it is for; the fight begins on its tail.
+    let roared = false;
+    const roar = () => { if (roared) return; roared = true; vowT = -1; hero.play('mutant_roaring', { once: true, from: 0.9, fade: 0.2 }); g.sound.hit('roar'); g.shake(0.35); g.buzz([40, 30, 120]); };
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),
-      { ...shot(v(-2.4, 0.7, z + 4.2), v(0, 1.6, z), { to: v(-1.8, 0.8, z + 3.4), fov: 50 }), do: () => hero.play('mutant_roaring', { once: true, fade: 0.2 }) },
-    ]), () => g.battle(GROVE_MID, PLANS.grove, how => { bound(how === 'lost'); return true; }));      // won or overcome, the grove ends the same way: he is bound and led to Ravana
+      { ...shot(v(-2.4, 0.7, z + 4.2), v(0, 1.6, z), { to: v(-1.8, 0.8, z + 3.4), fov: 50 }), secs: 4.9, do: () => { vowT = 3.2; vowRoar = roar; } },
+    ]), () => { roar(); g.battle(GROVE_MID, PLANS.grove, how => { bound(how === 'lost'); return true; }); });      // tapped past before the roar: he roars as the fight begins. Won or overcome, the grove ends the same way: he is bound and led to Ravana
   }
   // He has beaten the three; then ten more come running out from among the trees on both sides and along the path,
   // and close a ring round him: there is no fighting his way out of that. Taken either way, he is bound where he stands.
@@ -326,7 +331,7 @@ export function createStory(g) {
     let loosed = false, gone = false;
     const leave = () => { hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
     const loose = () => {
-      loosed = true; hero.play('mutant_roaring', { once: true, fade: 0.1 }); g.sound.fx('power'); g.shake(0.7); g.buzz([40, 30, 140]);
+      loosed = true; hero.play('mutant_roaring', { once: true, from: 0.9, fade: 0.1 }); g.sound.hit('roar'); g.shake(0.7); g.buzz([40, 30, 140]);
       RING.forEach(([x, z], i) => { const k = 2.4 / Math.hypot(x, z); hurl(fight.guards[i], x * k, z * k); });
       setTimeout(() => { if (!gone) g.fade(() => { if (!gone) director.skip(); }); }, 420);
     };
@@ -373,7 +378,7 @@ export function createStory(g) {
     director.play([
       ...beats('roar', [
         shot(v(1.6, 1.6, z + 20), v(0, H * 0.34, z), { to: v(2.2, 2.4, z + 33), lookTo: v(0, H * 0.6, z), fov: 64, secs: 4.6 }),
-        { ...shot(v(-3.4, H * 0.5, z + 15), v(0, H * 0.62, z), { to: v(3.4, H * 0.56, z + 17), fov: 56, secs: 5.5 }), do: () => { hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.chant(); g.sound.fx('power'); g.buzz([80, 60, 200]); } },
+        { ...shot(v(-3.4, H * 0.5, z + 15), v(0, H * 0.62, z), { to: v(3.4, H * 0.56, z + 17), fov: 56, secs: 5.5 }), do: () => { g.sound.hit('roar'); hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.chant(); g.sound.fx('power'); g.buzz([80, 60, 200]); } },
       ]),
       ...beats('ending', [
         // from the sky, drawing back and up: the whole city burning under him, the smoke closing round it
@@ -394,7 +399,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -444,6 +449,7 @@ export function createStory(g) {
         p.x = l.x0 + (l.x - l.x0) * u; p.z = l.z0 + (l.z - l.z0) * u; hero.y = 4 * l.up * u * (1 - u); hero.vy = 0;
         if (u >= 1) { leapTo = null; hero.y = 0; l.then(); }
       }
+      if (vowT > 0 && (vowT -= dt) <= 0 && vowRoar) vowRoar();
       if (clear) { const on = director.active && director.beats === clear.beats && director.i === clear.i; if (on !== clear.on) { clear.on = on; g.veil(!on); g.moonAt(on ? [16, 40, -36] : null); } if (!on) clear = null; }
       if (held) {      // the ring or the jewel lies in the open hand that holds it, a small light on it
         held.who.offer.hold(held.thing.position, palmUp); held.thing.quaternion.setFromUnitVectors(flat, palmUp);
