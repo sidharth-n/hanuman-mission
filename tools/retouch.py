@@ -29,6 +29,17 @@ VIEWS = {
         'face': dict(centre=(0.008, 0.0, 0.93), size=0.36, toward=(0, 1, 0), up=(0, 0, 1), facing=0.25,
                      box=((-0.17, -0.4, 0.76), (0.19, -0.05, 1.10)), oval=(0.008, 0.925, 0.095, 0.125), match=((318, 597, 30), (705, 597, 30))),
     },
+    # near: how far above the picture's middle the view begins, so what stands over the part (his legs, over his feet) is not in it
+    'hanuman': {
+        'face': dict(centre=(0.0, 0.0, 1.588), size=0.50, toward=(0, 1, 0), up=(0, 0, 1), facing=0.25,
+                     box=((-0.24, -0.4, 1.35), (0.24, 0.0, 1.83)), oval=(0.0, 1.588, 0.16, 0.215), match=((369, 754, 30), (655, 754, 30))),
+        'hand_l': dict(centre=(0.80, -0.05, 1.237), size=0.30, toward=(0, 0, -1), up=(0, 1, 0), facing=0.2, near=0.2,
+                       box=((0.67, -0.22, 1.1), (0.93, 0.12, 1.4)), oval=None, match=((490, 490, 40),)),
+        'hand_r': dict(centre=(-0.80, -0.05, 1.237), size=0.30, toward=(0, 0, -1), up=(0, 1, 0), facing=0.2, near=0.2,
+                       box=((-0.93, -0.22, 1.1), (-0.67, 0.12, 1.4)), oval=None, match=((512, 480, 40),)),
+        'feet': dict(centre=(0.0, -0.125, 0.05), size=0.64, toward=(0, 0, -1), up=(0, -1, 0), facing=0.2, near=0.13,
+                     box=((-0.3, -0.3, 0.0), (0.3, 0.06, 0.16)), oval=None, match=((230, 393, 25), (802, 393, 25))),
+    },
 }
 PX = 1024
 
@@ -47,14 +58,14 @@ def rest(arm):
 # 1. The pictures: colour only, no light or shadow, straight on.
 def take(views, out_dir):
     sc = bpy.context.scene; sc.render.engine = 'BLENDER_WORKBENCH'
-    sc.display.shading.light = 'FLAT'; sc.display.shading.color_type = 'TEXTURE'
+    sc.display.shading.light = 'FLAT'; sc.display.shading.color_type = 'TEXTURE'; sc.display.shading.show_backface_culling = True
     sc.view_settings.view_transform = 'Standard'; sc.render.film_transparent = False
     sc.render.resolution_x = sc.render.resolution_y = PX; sc.render.image_settings.file_format = 'PNG'
     w = bpy.data.worlds.new('w'); sc.world = w; w.color = (0.5, 0.5, 0.5)
     cam = bpy.data.objects.new('view', bpy.data.cameras.new('view')); sc.collection.objects.link(cam); sc.camera = cam
     cam.data.type = 'ORTHO'; os.makedirs(out_dir, exist_ok=True)
     for name, v in views.items():
-        r, u, f = axes(v); cam.data.ortho_scale = v['size']
+        r, u, f = axes(v); cam.data.ortho_scale = v['size']; cam.data.clip_start = 2 - v['near'] if v.get('near') else 0.1
         cam.location = Vector(v['centre']) - f * 2
         cam.rotation_euler = f.to_track_quat('-Z', 'Y').to_euler()
         # the track leaves the roll free: turn the camera about its own axis until its up is the view's up
@@ -103,6 +114,7 @@ def project(o, name, v, before, after, out_png, strength=1.0):
     body = o.data.materials[0]; mat = body.copy(); mat.name = name
     bsdf = next(n for n in mat.node_tree.nodes if n.type == 'BSDF_PRINCIPLED')
     tex = bsdf.inputs['Base Color'].links[0].from_node; tex.image = img
+    for l in list(bsdf.inputs['Normal'].links): mat.node_tree.links.remove(l)      # the body's relief map is laid out for the body's texture, not this one
     for k, val in (('Metallic', 0.0), ('Roughness', 0.62)):
         for l in list(bsdf.inputs[k].links): mat.node_tree.links.remove(l)
         bsdf.inputs[k].default_value = val
