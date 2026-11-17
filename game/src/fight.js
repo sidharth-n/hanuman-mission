@@ -416,7 +416,7 @@ export class Fight {
         // each holds his own bearing round him, eased apart from the others, drifting a little so the ring is never still
         for (const o of alive) { if (o === g) continue; const diff = wrap(g.angle - o.angle); if (Math.abs(diff) < 0.95) g.angle += Math.sign(diff || 1) * (0.95 - Math.abs(diff)) * dt * 2.2; }
         g.angle += Math.sin(this.t * 0.55 + g.wob) * 0.22 * dt;
-        const ring = (RING + (k.boss ? 0.8 : 0)) * S, tx = Math.max(-HX - 0.9, Math.min(HX + 0.9, p.x + Math.sin(g.angle) * ring)), tz = Math.max(this.cz - this.hz - 1.5, Math.min(this.cz + this.hz + 0.5, p.z - Math.cos(g.angle) * ring));
+        const ring = (RING + (k.boss ? 0.8 : 0)) * S, tx = Math.max(-HX, Math.min(HX, p.x + Math.sin(g.angle) * ring)), tz = Math.max(this.cz - this.hz - 1.5, Math.min(this.cz + this.hz + 0.5, p.z - Math.cos(g.angle) * ring));
         const ex = tx - gp.x, ez = tz - gp.z, e = Math.hypot(ex, ez), v = (e > 4 * S ? 5.4 : e > 0.4 ? 2.3 : 0) * Math.min(1.2, k.pace) * S;
         if (v > 0) { gp.x += ex / e * v * dt; gp.z += ez / e * v * dt; }
         g.play(v > 3 * S ? g.clips.run : v > 0 ? g.clips.walk : g.clips.idle, { fade: 0.2 });
@@ -448,7 +448,8 @@ export class Fight {
         if (k.boss || g.st === 'windup') { p.x += dx / d * over; p.z += dz / d * over; }
         else { gp.x -= dx / d * over * 0.6; gp.z -= dz / d * over * 0.6; p.x += dx / d * over * 0.4; p.z += dz / d * over * 0.4; }
       }
-      gp.x = Math.max(-HX - 1.2, Math.min(HX + 1.2, gp.x)); if (g.st !== 'enter') gp.z = Math.max(this.cz - this.hz - 2.5, Math.min(this.cz + this.hz + 0.5, gp.z)); gp.y = this.groundAt(gp.z);
+      // they keep to the paved road, as he does: beside it stand the braziers and stalls, and one who waits there is hidden behind them
+      gp.x = Math.max(-HX, Math.min(HX, gp.x)); if (g.st !== 'enter') gp.z = Math.max(this.cz - this.hz - 2.5, Math.min(this.cz + this.hz + 0.5, gp.z)); gp.y = this.groundAt(gp.z);
     }
     p.x = Math.max(-HX, Math.min(HX, p.x)); p.z = Math.max(this.cz - this.hz, Math.min(this.cz + this.hz, p.z));
     for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {      // nor inside one another
