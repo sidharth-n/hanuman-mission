@@ -181,6 +181,14 @@ body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + va
 #line { margin: 0; font: 600 clamp(30px, 1.3vw + 24px, 44px)/1.16 var(--text); color: #f6ecd9; text-shadow: 0 1px 3px #000; text-wrap: balance; }
 #drama .say.told { background: rgba(14, 9, 5, .5); border-color: rgba(232, 180, 76, .55); outline: none; padding-top: 15px; }
 #drama .say.told #line { font-style: italic; font-weight: 500; color: var(--gold-light); }
+/* a character is named as she first appears: the picture holds, her name stands under her */
+#intro { position: fixed; left: 0; right: 0; bottom: calc(8vh + 30px + var(--bottom)); display: flex; flex-direction: column; align-items: center; gap: 12px; pointer-events: none; text-align: center; }
+#intro b { font: 900 clamp(40px, min(13vw, 11vh), 104px)/.95 var(--head); letter-spacing: .16em; padding-left: .16em; text-transform: uppercase; color: var(--gold);
+  text-shadow: 0 1px 0 var(--gold-light), 0 2px 0 var(--gold-deep), 0 4px 0 var(--gold-shadow), 0 10px 30px #000, 0 0 60px rgba(232, 180, 76, .3); animation: introName .8s cubic-bezier(.2, .8, .2, 1) .35s both; }
+#intro i { width: min(52vw, 360px); height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); animation: introLine .7s ease .7s both; }
+#intro span { font: 700 clamp(13px, 3.6vw, 21px)/1 var(--head); letter-spacing: .36em; padding-left: .36em; text-transform: uppercase; color: var(--gold-light); text-shadow: 0 2px 8px #000; animation: introName .7s ease .95s both; }
+@keyframes introName { from { opacity: 0; transform: translateY(14px) scale(1.06); } to { opacity: 1; transform: none; } }
+@keyframes introLine { from { opacity: 0; transform: scaleX(.2); } to { opacity: 1; transform: none; } }
 /* the end credits: one card at a time over the burning city */
 #credits { position: fixed; inset: 0; pointer-events: none; display: grid; place-items: center; text-align: center; padding: calc(10vh + var(--top)) 24px calc(10vh + var(--bottom)); background: radial-gradient(ellipse at center, rgba(5, 3, 2, .62), rgba(5, 3, 2, .2) 70%); }
 #credits .caps { font-size: clamp(14px, 2.2vh, 20px); }

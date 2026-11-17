@@ -104,6 +104,9 @@ async function load() {
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
   story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, credits,
+    // the picture held for a character's entrance: the air thick and dark so that all but what is close to the lens falls away, and her name under her
+    hush: on => { state.thin = on ? 0.075 : null; state.dusk = on ? 1 : 0; },
+    name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
     // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
     sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
     finish: () => { credits(-1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('shareLine').hidden = $('share').hidden = false; } });
@@ -141,7 +144,7 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  unrout(); world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  unrout(); world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
@@ -171,7 +174,7 @@ function result(title, thirdLabel, third) {
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
-  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
   unrout(); world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
@@ -182,7 +185,8 @@ function start(from = 0, fresh = false) {
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false;
   queued = null; view.join = 0; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
-  sound.start(!story.done.lankini && -hero.root.position.z < LANKINI_AT);      // the song is for the journey proper: it begins when Lankini has let him pass (a run that takes up beyond her has it from the first step)
+  const opening = !story.done.lankini && -hero.root.position.z < LANKINI_AT;
+  sound.start(opening); if (opening) sound.score('run', { rise: 1.2 });      // the way in from the sea gate has its own music      // the song is for the journey proper: it begins when Lankini has let him pass (a run that takes up beyond her has it from the first step)
   // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
   state.opening = true; state.flight = OPEN_FLIGHT; hero.startFlight(); slowMotion(1.4, 0.45); sound.fx('wing');
   card(SECTIONS[from].id);
@@ -582,6 +586,7 @@ function frame(now) {
   state.garden += ((kind === 'grove' ? 1 : 0) - state.garden) * Math.min(1, real * 1.5);
   scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(GROVE_SKY, state.garden).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_GROVE, state.garden).lerp(FOG_BLAZE, state.blaze);
   scene.fog.density = state.thin ?? 0.016 + state.garden * 0.007;      // the grove lies in a thin mist; for the last shots from the sky the air is cleared
+  if (state.dusk) scene.fog.color.multiplyScalar(0.16);
   lanka.update(now * 0.001); debris.update(dt, groundAt);
   hemi.intensity = 1.0 + state.garden * 0.3 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
   moon.intensity = 2.4 + state.garden * 0.5;
@@ -592,7 +597,7 @@ function frame(now) {
     tailFire.children.forEach((f, n) => { const s = f.userData.s * k * (1.5 + Math.sin(now * 0.02 + n * 2) * 0.25); f.scale.set(s, s * 1.3, 1); f.position.set(tip.x, tip.y + n * 0.35 * k, tip.z + n * 0.25 * k); });
     tailLight.position.set(tip.x, tip.y + 1.2 * k, tip.z + 1.5 * k); tailLight.intensity = 26 * k * (1 + Math.sin(now * 0.03) * 0.15);
   }
-  tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); world.skyMat.color.copy(tint);
+  tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); if (state.dusk) tint.multiplyScalar(0.22); world.skyMat.color.copy(tint);
   placeCamera(real, false);
   renderer.render(scene, camera);
   if (debug) audit();

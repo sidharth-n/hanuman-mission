@@ -59,25 +59,33 @@ export function createStory(g) {
   // her size (one of his powers, like flight); he grows in a storm of light, she gives ground, and they fight as equals.
   // When she is down he takes his own size again, and she yields. ──
   const hz = -LANKINI_AT, lz = hz - 7.5;
-  let retreat = 0;
+  let retreat = 0, thaw = null;      // thaw: what ends the held picture of her entrance, while it is held
   // She stands in the road, sword in hand: seen from far off as he runs toward her.
   function bars() { lankini.kind('lankini'); lankini.reset(); lankini.place(0, g.groundAt(lz), lz, 0); lankini.st = 'idle'; lankini.bar.visible = false; lankini.play('sword_idle', { fade: 0 }); }
   function gate() {
-    g.hold(); g.sound.score('gate'); g.sound.hit('reveal', { delay: 0.25 }); G = g.groundAt(hz); retreat = 0;
-    putHero(0, hz, 0);
+    g.hold(); g.sound.score('gate'); G = g.groundAt(hz); retreat = 0;
     bars();
-    if (done.challenged) return transform(true);      // she threw him back before: the words are said, he grows at once
+    if (done.challenged) { putHero(0, hz, 0); return transform(true); }      // she threw him back before: the words are said, he grows at once
+    // Her entrance, as a film names a character: the picture holds (he is caught in mid stride, the street falls away
+    // into the dark), the camera is carried round her close, and her name stands under her. Then the scene begins.
+    const held = hero.current; if (held) held.timeScale = 0;
+    const enter = { ...shot(v(0, 3, lz + 4), v(0, either(2.75, 3.25), lz), { lookTo: v(0, either(2.9, 3.4), lz), fov: either(34, 30),      // on a wide screen her face is set high, clear of her name
+       round: { c: v(0, 0, lz), from: -0.85, to: 0.55, r: [5.4, 4.3], y: [2.5, 3.3] } }), secs: 4.6,
+      do: () => { g.hush(true); g.name('Lankini', 'Guardian of Lanka'); g.sound.hit('reveal', { delay: 0.15 }); lankini.play('sword_idle', { speed: 0.14 }); g.buzz([30, 40, 90]); } };
+    thaw = () => { thaw = null; g.hush(false); g.name(null); if (held) held.timeScale = 1; putHero(0, hz, 0); };
     director.play([
+      enter,
       ...beats('lankini_challenge', [
-        { ...shot(v(1.9, 1.1, hz - 4.6), v(0, 2.7, lz), { to: v(1.5, 1.3, hz - 5.4), fov: 46 }), do: () => lankini.play('talk') },
+        { ...shot(v(1.9, 1.1, hz - 4.6), v(0, 2.7, lz), { to: v(1.5, 1.3, hz - 5.4), fov: 46 }), do: () => { if (thaw) thaw(); lankini.play('talk', { speed: 1 }); } },
         { ...shot(v(-1.4, 1.5, hz - 3.4), v(0, 1.35, hz), { to: v(-1.1, 1.5, hz - 2.9), fov: 42 }), do: () => lankini.play('sword_idle') },
         { ...shot(v(1.3, 2.1, hz + 2.6), v(0, 2.5, lz), { to: v(1.0, 2.0, hz + 2.0), fov: 50 }), do: () => lankini.play('talk') },
         { ...either(shot(v(6.4, 1.5, (hz + lz) / 2), v(0, 1.7, (hz + lz) / 2), { to: v(5.6, 1.5, (hz + lz) / 2), fov: 52, keep: both }), shot(v(1.9, 2.7, hz + 3.6), v(0, 2.0, lz), { to: v(1.5, 2.5, hz + 3.0), fov: 46 })), do: () => lankini.play('sword_idle') },
+        { ...shot(v(-1.7, 0.9, hz - 4.4), v(0, 3.0, lz), { to: v(-1.3, 0.8, hz - 5.1), fov: 42 }), do: () => lankini.play('talk') },      // she will not have it: seen from below, the whole height of her over the lens
       ]),
       // the question: he stands small before her (seen from the side; on an upright phone, over her shoulder and down on him) until the player answers
       { hold: true, secs: 1e9, ...either(shot(v(6.2, 0.9, (hz + lz) / 2 + 0.6), v(0, 1.7, (hz + lz) / 2), { to: v(5.4, 1.0, (hz + lz) / 2 + 0.4), fov: 54, secs: 7, keep: both }),
-          shot(v(1.5, 4.6, lz - 2.6), v(0, 0.7, hz), { to: v(1.2, 4.4, lz - 2.1), fov: 46, secs: 7, keep: him })), do: () => { done.challenged = true; g.ask(() => director.skip()); } },
-    ], () => transform(false));
+          shot(v(1.5, 4.6, lz - 2.6), v(0, 0.7, hz), { to: v(1.2, 4.4, lz - 2.1), fov: 46, secs: 7, keep: him })), do: () => { lankini.play('sword_idle'); done.challenged = true; g.ask(() => director.skip()); } },
+    ], () => { if (thaw) thaw(); transform(false); });
   }
   // He grows to her size. quick: the short telling, for a second meeting.
   function transform(quick) {
@@ -330,7 +338,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
