@@ -4,6 +4,10 @@
 // even with the phone's ringer switched to silent. Effects go through the Web Audio engine, which that same tap wakes.
 const TRACKS = import.meta.env.DEV ? '/local-audio/' : 'assets/audio/';      // run.mp3 (chant, then song) and chant.mp3
 const EFFECTS = 'assets/sfx/';
+const VOICES = 'assets/audio/voice/';      // one file a spoken line, named <scene>-<n>.mp3, listed in index.json
+const SCORE = 'assets/audio/score/';       // the music of the scenes and fights, listed in index.json: { name: { loop, under, open, gain } }
+const PAD = 0.25;      // a looping cue carries this much of its own end before its start and of its start after its end, so the loop closes exactly whatever the decoder adds
+const db = v => Math.pow(10, v / 20);
 const INTRO = 5.6;      // seconds of chant at the head of run.mp3: the loop comes back to here, not to the chant
 // how loud each effect sits against the track
 const LEVEL = { chant: 1, leap: 0.5, slide: 0.6, lamp: 0.24, wind: 0.6, bell: 0.9, hit: 0.9, splash: 0.9, wing: 0.7, power: 0.75, smash: 0.8, fire: 0.8, tap: 0.4,
@@ -16,6 +20,11 @@ export function createSound(store) {
   let voice = null;      // the chant while it sounds
   let resting = false, fading = null;      // the song is for the run only: in a scene or a fight it has faded away and waits
   let burn = null;       // the city burning, on a loop
+  // The scenes are small films: a voice on every line, music under it that steps back while someone speaks and comes
+  // up in the breaths, and short hits on the beats. All of it goes through the engine, so a phone can fade it.
+  let lines = null, cues = null;                       // what there is to play (index.json of each folder), or null
+  const said = {}, played = {};                        // decoded: a line or a cue by name (a promise while it loads)
+  let speaking = null, token = 0, now = null, wanted = null, held = false;      // the line sounding; the cue sounding { name, src, gain }; the cue asked for; the game is paused
 
   const track = new Audio();
   track.preload = 'auto'; track.muted = !on;
@@ -23,10 +32,19 @@ export function createSound(store) {
   track.addEventListener('ended', () => { track.currentTime = INTRO; track.play().catch(() => {}); });      // round again, without the opening chant
   track.src = TRACKS + 'run.mp3';
 
+  const music = ctx ? ctx.createGain() : null, under = ctx ? ctx.createGain() : null, speech = ctx ? ctx.createGain() : null;
+  // a file fetched and decoded, or null: a missing file must not raise an error of its own
+  const decode = url => fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => new Promise((ok, no) => { const p = ctx.decodeAudioData(b, ok, no); if (p && p.catch) p.catch(() => {}); })).catch(() => null);
+  const cue = name => { if (!(name in played)) played[name] = decode(SCORE + name + '.mp3').then(b => (played[name] = b)); return Promise.resolve(played[name]); };
   if (ctx) {
-    out.gain.value = on ? 1 : 0; out.connect(ctx.destination);
-    const get = (name, url) => fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => new Promise((ok, no) => { const p = ctx.decodeAudioData(b, ok, no); if (p && p.catch) p.catch(() => {}); }))      // a missing file must not raise an error of its own
-      .then(buf => { buffers[name] = buf; }).catch(() => {});
+    // everything meets in one soft ceiling, so a voice over music over a blow never clips
+    const top = ctx.createDynamicsCompressor(); top.threshold.value = -5; top.knee.value = 5; top.ratio.value = 12; top.attack.value = 0.003; top.release.value = 0.2;
+    out.gain.value = on ? 1 : 0; out.connect(top); top.connect(ctx.destination);
+    music.connect(under); under.connect(out); speech.connect(out);
+    const list = dir => fetch(dir + 'index.json').then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => { if (dir === SCORE) cues = j && j.cues ? j.cues : null; return j; });
+    list(VOICES).then(j => { lines = j && j.lines ? j.lines : null; });
+    list(SCORE).then(() => { if (cues) for (const k of Object.keys(cues)) if (cues[k].loop === false) cue(k); });      // the short hits are ready before they are wanted
+    const get = (name, url) => decode(url).then(buf => { if (buf) buffers[name] = buf; });
     get('chant', TRACKS + 'chant.mp3');
     for (const name of Object.keys(LEVEL)) if (name !== 'chant') get(name, EFFECTS + name + '.mp3');
   }
@@ -34,13 +52,14 @@ export function createSound(store) {
   // every touch or key keeps the engine awake (a phone puts it to sleep after a call or a spell in the background)
   function wake() {
     if (!ctx) return;
+    if (held) return;      // paused: nothing sounds until the game goes on
     if (ctx.state !== 'running') ctx.resume();
     if (!woke) { woke = true; const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(); }
   }
   for (const e of ['pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(e, wake, true);
 
   // never keep sounding behind another app (the game itself pauses the run, and with it the track)
-  document.addEventListener('visibilitychange', () => { if (document.hidden) { track.pause(); if (ctx) ctx.suspend(); } else if (ctx) ctx.resume(); });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) { track.pause(); if (ctx) ctx.suspend(); } else if (ctx && !held) ctx.resume(); });
 
   function fire(name, rate = 1, delay = 0) {
     const buf = buffers[name];
@@ -59,6 +78,60 @@ export function createSound(store) {
     burn = ctx.createBufferSource(); burn.buffer = buffers.blaze; burn.loop = true; burn.loopStart = 0.1; burn.loopEnd = buffers.blaze.duration - 0.1;
     burn.connect(g); g.connect(out); burn.start();
   }
+  // ── the films between the play ──
+  // The music steps back under a line and comes up again in the breath after it. How far is the cue's own: `under`
+  // (LU below the voice while someone speaks) and `open` (LU below it in the breaths), both measured on the files.
+  function duck(down) {
+    if (!ctx) return;
+    const c = (now && cues && cues[now.name]) || {}, t = ctx.currentTime;
+    under.gain.cancelScheduledValues(t);
+    if (down) under.gain.setTargetAtTime(db(-((c.under ?? 14) - (c.open ?? 4))), t, 0.09);
+    else under.gain.setTargetAtTime(1, t + 0.35, 0.32);
+  }
+  // The lines of a scene are decoded as it begins; those of the scene before are let go.
+  function learn(ids) {
+    if (!ctx || !lines) return;
+    for (const id of Object.keys(said)) if (!ids.includes(id)) delete said[id];
+    for (const id of ids) if (id in lines && !(id in said)) said[id] = decode(VOICES + id + '.mp3').then(b => (said[id] = b));
+  }
+  function quiet() { token++; if (speaking) { speaking.onended = null; try { speaking.stop(); } catch { /* already over */ } speaking = null; duck(false); } }
+  // A line is spoken. Returns how long it lasts in seconds (0: there is no voice for it, or the sound is off).
+  function speak(id) {
+    quiet();
+    if (!on || !ctx || !lines || !(id in lines)) return 0;
+    if (!(id in said)) said[id] = decode(VOICES + id + '.mp3').then(b => (said[id] = b));
+    const mine = token;
+    Promise.resolve(said[id]).then(buf => {
+      if (!buf || mine !== token) return;      // the scene has gone on
+      if (ctx.state !== 'running' && !held) ctx.resume();
+      const src = ctx.createBufferSource(); src.buffer = buf; src.connect(speech); src.start(); speaking = src; duck(true);
+      src.onended = () => { if (speaking === src) { speaking = null; duck(false); } };
+    });
+    return lines[id];
+  }
+  // The music of a scene or a fight: the cue named is brought in and whatever sounded before is taken out; no name, silence.
+  function score(name, { fade = 1.6, rise = 0.9 } = {}) {
+    wanted = name || null;
+    if (!ctx || (now && now.name === wanted)) return;
+    if (now) { const old = now, t = ctx.currentTime; now = null; old.gain.gain.cancelScheduledValues(t); old.gain.gain.setValueAtTime(old.gain.gain.value, t); old.gain.gain.linearRampToValueAtTime(0, t + fade); try { old.src.stop(t + fade + 0.05); } catch { /* already over */ } }
+    if (!wanted || !cues || !cues[wanted]) return;
+    const want = wanted;
+    cue(want).then(buf => {
+      if (!buf || wanted !== want || (now && now.name === want)) return;
+      const c = cues[want], loop = c.loop !== false, src = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime;
+      src.buffer = buf; if (loop) { src.loop = true; src.loopStart = PAD; src.loopEnd = buf.duration - PAD; }
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(db(c.gain || 0), t + rise);
+      src.connect(g); g.connect(music); src.start(t, loop ? PAD : 0); now = { name: want, src, gain: g };
+      if (!speaking) duck(false);
+      for (const k of Object.keys(played)) if (k !== want && cues[k] && cues[k].loop !== false) delete played[k];      // only the cue that sounds is kept decoded
+    });
+  }
+  // A short hit on a beat: over the music, never stepped back.
+  function hit(name, { delay = 0 } = {}) {
+    if (!on || !ctx || !cues || !cues[name]) return;
+    cue(name).then(buf => { if (!buf) return; const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = buf; g.gain.value = db(cues[name].gain || 0); src.connect(g); g.connect(out); src.start(ctx.currentTime + delay); });
+  }
+
   function hush() { if (voice) { voice.onended = null; try { voice.stop(); } catch { /* already over */ } voice = null; track.volume = 1; } }
 
   return {
@@ -66,14 +139,16 @@ export function createSound(store) {
     // for checking on a phone: what the track and the engine are doing
     get info() {
       return { on, track: trackError || (track.paused ? 'paused' : 'playing'), at: +track.currentTime.toFixed(1), ready: track.readyState, muted: track.muted,
-        engine: ctx ? ctx.state : 'none', effects: Object.keys(buffers).length, chanting: !!voice, burning: !!burn };
+        engine: ctx ? ctx.state : 'none', effects: Object.keys(buffers).length, chanting: !!voice, burning: !!burn,
+        voices: lines ? Object.keys(lines).length : 0, speaking: !!speaking, cue: now ? now.name : wanted ? wanted + '?' : '', cues: cues ? Object.keys(cues).length : 0 };
     },
-    toggle() { on = !on; store.set('sound', on ? 'on' : 'off'); track.muted = !on; if (out) out.gain.value = on ? 1 : 0; if (!on) hush(); return on; },
+    toggle() { on = !on; store.set('sound', on ? 'on' : 'off'); track.muted = !on; if (out) out.gain.value = on ? 1 : 0; if (!on) { hush(); quiet(); } return on; },
+    learn, speak, quiet, score, hit,
     // a run begins: the chant, then the song (one track, begun by the player's own tap)
     blaze,
-    start() { wake(); hush(); blaze(false); resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; try { track.currentTime = 0; } catch { /* not loaded yet */ } track.play().catch(e => { trackError = trackError || e.name; }); },
-    pause() { track.pause(); hush(); blaze(false); },                              // the game is paused: the track held where it is, the chant cut
-    resume() { wake(); if (!resting) track.play().catch(() => {}); },             // and taken up again from there (unless a scene or a fight has it at rest)
+    start() { held = false; wake(); hush(); quiet(); score(null, { fade: 0.3 }); blaze(false); resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; try { track.currentTime = 0; } catch { /* not loaded yet */ } track.play().catch(e => { trackError = trackError || e.name; }); },
+    pause() { track.pause(); hush(); blaze(false); held = true; if (ctx) ctx.suspend(); },                              // the game is paused: the track held where it is, the chant cut
+    resume() { held = false; wake(); if (!resting) track.play().catch(() => {}); },             // and taken up again from there (unless a scene or a fight has it at rest)
     // the run stops for a scene or a fight: the song fades away over a second and a half and waits (a phone that fixes the volume simply stops it then)
     rest() {
       if (resting) return; resting = true; hush(); clearInterval(fading);
@@ -81,8 +156,8 @@ export function createSound(store) {
       fading = setInterval(() => { const u = Math.min(1, (performance.now() - t0) / 1500); track.volume = from * (1 - u) * (1 - u); if (u >= 1) { clearInterval(fading); fading = null; track.pause(); track.volume = 1; } }, 40);
     },
     // and he runs again: the song is simply there, from where it left off
-    run() { if (!resting) return; resting = false; clearInterval(fading); fading = null; track.volume = 1; wake(); track.play().catch(() => {}); },
-    stop() { track.pause(); blaze(false); },                                       // the run is over
+    run() { score(null); quiet(); if (!resting) return; resting = false; clearInterval(fading); fading = null; track.volume = 1; wake(); track.play().catch(() => {}); },
+    stop() { held = false; if (ctx && ctx.state === 'suspended') ctx.resume(); track.pause(); blaze(false); quiet(); score(null, { fade: 0.4 }); },                                       // the run is over
     // the chant over a big moment: once per moment, and not on top of the opening chant
     chant() {
       if (!track.paused && track.currentTime < INTRO) return;

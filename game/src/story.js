@@ -40,7 +40,7 @@ export function createStory(g) {
   const span = (o, tall) => [[o.x, o.y, o.z], [o.x, o.y + tall, o.z]];
   const him = () => span(hero.root.position, 1.95 * hero.root.scale.x);
   const both = () => [...him(), ...span(lankini.root.position, 3.85)];
-  const beats = (key, shots = []) => S[key].map((l, i) => ({ who: l.who, line: l.line, ...(shots[i] || {}) }));
+  const beats = (key, shots = []) => S[key].map((l, i) => ({ who: l.who, line: l.line, voice: key + '-' + i, ...(shots[i] || {}) }));
   function putHero(x, z, yaw, clip = 'breathing_idle', up = 0) {
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.flying = false; hero.fly = 0;
     hero.root.position.set(x, g.groundAt(z), z); hero.root.rotation.y = yaw; hero.floor = up; hero.y = up; hero.vy = 0; hero.lane = 1;
@@ -294,25 +294,35 @@ export function createStory(g) {
     putHero(0, z, heroYaw(0, 1), 'mutant_roaring'); hero.play('mutant_roaring', { once: true, fade: 0.2 });
     swell.from = hero.root.scale.x; swell.to = VAST; swell.t = 0; swell.secs = 3.2; leap.on = false;
     g.sound.fx('power'); g.sound.chant(); g.buzz([80, 60, 80, 60, 200]);
-    const H = 1.9 * VAST;      // every shot stays over the street itself: the houses and towers stand close on both sides
+    g.sky(true);      // all Lanka is laid round the street now, for the shots from the sky
+    const H = 1.9 * VAST;      // every low shot stays over the street itself: the houses and towers stand close on both sides
+    const flies = () => { hero.root.rotation.y = 0; hero.flyHeight = 4.2; hero.startFlight(); leap.on = true; leap.t = 0; g.sound.fx('wing'); g.sound.fx('power'); g.buzz([60, 40, 160]); };
+    const gone = () => { leap.on = false; hero.root.visible = false; g.light(false); };
     director.play([
       ...beats('roar', [
         shot(v(1.6, 1.6, z + 20), v(0, H * 0.34, z), { to: v(2.2, 2.4, z + 33), lookTo: v(0, H * 0.6, z), fov: 64, secs: 4.6 }),
         { ...shot(v(-3.4, H * 0.5, z + 15), v(0, H * 0.62, z), { to: v(3.4, H * 0.56, z + 17), fov: 56, secs: 5.5 }), do: () => { hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.chant(); g.sound.fx('power'); g.buzz([80, 60, 200]); } },
       ]),
       ...beats('ending', [
-        shot(v(0, H * 1.35, z + 44), v(0, H * 0.55, z), { to: v(0, H * 1.6, z + 52), fov: 58, secs: 5 }),
-        { ...shot(v(2.6, 3.2, z + 30), v(0, H * 0.7, z), { to: v(-2.6, 4.2, z + 36), fov: 66, secs: 5 }), do: () => hero.play('victory', { fade: 0.4 }) },
-        { ...shot(v(0, H * 0.5, z + 42), v(0, H * 0.75, z), { to: v(0, H * 0.9, z + 50), lookTo: v(0, H * 1.6, z - 60), fov: 60, secs: 5.5 }), secs: 5.2, do: () => { hero.root.rotation.y = 0; hero.flyHeight = 4.2; hero.startFlight(); leap.on = true; leap.t = 0; g.sound.fx('wing'); } },
+        // from the sky, drawing back and up: the whole city burning under him, the smoke closing round it
+        { ...shot(v(-10, H * 1.25, z + 58), v(0, H * 0.6, z), { to: v(-70, 190, z + 270), lookTo: v(0, 16, z - 24), fov: 50, secs: 9 }), secs: 8.4, do: () => hero.play('victory', { fade: 0.5 }) },
+        // his victory, from the street at his feet
+        { ...shot(v(2.6, 3.2, z + 30), v(0, H * 0.7, z), { to: v(-2.6, 4.2, z + 36), fov: 66, secs: 5.5 }), secs: 5, do: () => hero.play('victory', { fade: 0.4 }) },
+        // and he is away: seen from far ahead and high as he comes over the roofs and passes overhead
+        { ...shot(v(30, 66, z - 138), v(0, H * 1.1, z - 10), { to: v(22, 58, z - 150), lookTo: v(0, H * 2.5, z - 104), fov: 56, secs: 6 }), secs: 5.6, do: flies },
       ]),
-    ], () => { leap.on = false; hero.flyHeight = 2.5; g.finish(); });
+      // the credits, over the city burning far below
+      { ...shot(v(0, 150, z + 250), v(0, 14, z), { fov: 46, round: { c: v(0, 0, z), from: 0.2, to: 0.95, r: [255, 285], y: [150, 185] }, secs: 19 }), secs: 4.6, do: () => { gone(); g.credits(0); } },
+      { secs: 8.2, do: () => g.credits(1) },
+      { secs: 5.2, do: () => g.credits(2) },
+    ], () => { leap.on = false; hero.flyHeight = 2.5; g.sky(false); hero.root.visible = true; g.finish(); });
   }
 
   return {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {

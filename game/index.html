@@ -34,6 +34,12 @@
 <div id="card" hidden><b></b><p></p></div>
 <div id="ask" hidden><p>Lankini is too big to fight.<br>Grow to her size?</p><button id="askYes" class="plaque">Yes</button></div>
 <div id="drama" hidden><i class="bar"></i><i class="bar low"></i><div class="say"><b id="who"></b><p id="line"></p></div><button id="skip">Skip</button></div>
+<div id="credits" hidden>
+  <div class="roll"><p class="logo small">Hanuman<span>Mission</span></p></div>
+  <div class="roll"><p class="caps">Made with</p>
+    <ul><li><b>Aholo Lux3D</b> characters, rigs, animation, statues</li><li><b>Aholo API</b> picture to model, by script</li><li><b>Three.js</b> the game</li><li><b>Blender</b> finishing the cast</li><li><b>Mixamo</b> movement</li><li><b>ElevenLabs</b> voices</li></ul></div>
+  <div class="roll"><p class="caps">by</p><p class="name">Sidharth N</p></div>
+</div>
 <div id="fade"></div>
 <div id="fps" hidden></div>
 
@@ -79,7 +85,8 @@
     <div class="stat"><span id="rThirdLabel">Best</span><b id="rThird">0</b></div>
   </div>
   <p class="hint" id="fromLine" hidden></p>
-  <div class="acts"><button id="again" class="plaque">Run again</button><button id="home" class="plaque quiet">Home</button></div>
+  <p class="hint" id="shareLine" hidden>Liked it? Share it with your friends.</p>
+  <div class="acts"><button id="share" class="plaque" hidden>Share</button><button id="again" class="plaque">Run again</button><button id="home" class="plaque quiet">Home</button></div>
 </section>
 <script type="module" src="/src/main.js"></script>
 </body>

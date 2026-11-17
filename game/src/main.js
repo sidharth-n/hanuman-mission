@@ -7,6 +7,7 @@ import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, groundAt } from 
 import { Fight, LIVES, PLANS } from './fight.js';
 import { Director, fit } from './scene.js';
 import { createStory } from './story.js';
+import { createLanka } from './lanka.js';
 import STORY from './story.json';
 import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
@@ -64,7 +65,8 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
   wind: 0, flight: 0, safe: 0,
   sec: 0, from: 0, inside: 0, garden: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
-let hero, world, tailFire, tailLight, aura, fight, director, story;
+let hero, world, tailFire, tailLight, aura, fight, director, story, lanka;
+const SHARE = { title: 'Hanuman Mission', url: 'https://hanuman-mission.pages.dev/' };      // what the Share button hands to the phone's own share sheet
 let queued = null;      // a leap asked for a moment before he could make it: made as soon as he can
 let stick = null;       // the fight's thumb stick
 
@@ -97,9 +99,13 @@ async function load() {
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()),
     jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
 
-  director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') });
+  director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
   story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
-    fade, light: on => { tailFire.visible = on; }, ablaze, finish: () => { result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; } });
+    fade, light: on => { tailFire.visible = on; }, ablaze, credits,
+    // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
+    sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
+    finish: () => { credits(-1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('shareLine').hidden = $('share').hidden = false; } });
+  lanka = createLanka(scene, world.flameTex);
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
   tailLight = new THREE.PointLight(0xff7a2a, 0, 20, 1.8); scene.add(tailLight);
@@ -133,10 +139,20 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
+}
+
+// The end credits: card n of them is shown (-1: none).
+function credits(n) { const el = $('credits'); el.hidden = n < 0; [...el.children].forEach((c, i) => c.classList.toggle('on', i === n)); }
+// The phone's own share sheet; where there is none, the address is copied instead.
+function share() {
+  const b = $('share'), said = t => { b.textContent = t; setTimeout(() => { b.textContent = 'Share'; }, 2200); };
+  if (navigator.share) navigator.share(SHARE).catch(() => {});
+  else if (navigator.clipboard) navigator.clipboard.writeText(SHARE.url).then(() => said('Link copied'), () => said(SHARE.url.replace('https://', '')));
+  else said(SHARE.url.replace('https://', ''));
 }
 
 function result(title, thirdLabel, third) {
@@ -145,6 +161,7 @@ function result(title, thirdLabel, third) {
   $('rThirdLabel').textContent = thirdLabel; $('rThird').textContent = (third ?? best).toLocaleString();
   // caught beyond the first stretch: the next run takes up from the start of the place he had reached
   if (state.dist >= END_AT) { state.from = 0; state.kept = null; }
+  $('shareLine').hidden = $('share').hidden = true;      // offered only when the tale is told to its end
   $('again').textContent = state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = state.from === 0;
   state.mode = 'ready'; sound.stop(); screen('result');
 }
@@ -152,7 +169,7 @@ function result(title, thirdLabel, third) {
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
-  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
   world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
@@ -514,7 +531,8 @@ function frame(now) {
   state.inside += ((kind === 'hall' || kind === 'throne' ? 1 : 0) - state.inside) * Math.min(1, real * 2.5);
   state.garden += ((kind === 'grove' ? 1 : 0) - state.garden) * Math.min(1, real * 1.5);
   scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(GROVE_SKY, state.garden).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_GROVE, state.garden).lerp(FOG_BLAZE, state.blaze);
-  scene.fog.density = 0.016 + state.garden * 0.007;      // the grove lies in a thin mist
+  scene.fog.density = state.thin ?? 0.016 + state.garden * 0.007;      // the grove lies in a thin mist; for the last shots from the sky the air is cleared
+  lanka.update(now * 0.001);
   hemi.intensity = 1.0 + state.garden * 0.3 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
   moon.intensity = 2.4 + state.garden * 0.5;
   moon.color.copy(MOON_LIGHT).lerp(LAMP_LIGHT, state.inside);
@@ -568,7 +586,7 @@ function press2(id, fn) {
   el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); if (ok) buzz([30, 30, 60]);
 }
 const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
-press('go', () => start(startAt, true)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+press('share', share); press('go', () => start(startAt, true)); press('again', () => start(state.from)); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
 function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }

@@ -102,6 +102,7 @@ export class Director {
   constructor(camera, el) {
     this.camera = camera; this.el = el; this.active = false; this.beats = []; this.i = -1; this.t = 0; this.len = 0;
     this.cam = null; this.camT = 0; this.camLen = 1; this.look = new THREE.Vector3(); this.done = null;
+    this.sound = null;      // the game's sound, once it is there: a beat with a voice is spoken, and lasts as long as its voice
     el.skip.addEventListener('click', e => { e.stopPropagation(); this.skip(); });
   }
 
@@ -109,6 +110,7 @@ export class Director {
   // keep: a function giving the points the shot must hold in the picture (heads and feet); the camera draws back until it does.
   play(beats, done) {
     this.beats = beats; this.i = -1; this.done = done || null; this.active = true; this.cam = null;
+    if (this.sound) this.sound.learn(beats.map(b => b.voice).filter(Boolean));
     this.el.root.hidden = false; this.next();
   }
 
@@ -117,6 +119,10 @@ export class Director {
     if (this.i >= this.beats.length) return this.finish();
     const b = this.beats[this.i]; this.t = 0;
     this.len = b.secs ?? (b.line ? 2.3 + b.line.length * 0.07 : 1.6);      // long enough to read at ease on a phone (Sid: "need enough time to read"); a tap still goes on
+    if (this.sound) {      // spoken, a line sets its own pace: the voice and a breath after it; unspoken, it stays long enough to read
+      const d = b.voice ? this.sound.speak(b.voice) : (this.sound.quiet(), 0);
+      if (d) this.len = Math.max(b.secs || 0, d + 0.9);
+    }
     if (b.cam) { this.cam = b.cam; this.camT = 0; this.camLen = b.cam.secs || this.len + 0.4; }
     if (b.do) b.do();
     const { who, line } = this.el;
@@ -127,11 +133,11 @@ export class Director {
 
   tap() { if (this.active && this.t > 0.35 && !(this.beats[this.i] && this.beats[this.i].hold)) this.next(); }      // a beat that holds waits for its own answer, not for a tap
   // Stopped without going on to what follows: the player has left for the title.
-  skipQuiet() { this.active = false; this.done = null; this.el.root.hidden = true; }
+  skipQuiet() { this.active = false; this.done = null; this.el.root.hidden = true; if (this.sound) this.sound.quiet(); }
   skip() { if (this.active) this.finish(); }
 
   finish() {
-    this.active = false; this.el.root.hidden = true;
+    this.active = false; this.el.root.hidden = true; if (this.sound) this.sound.quiet();
     const d = this.done; this.done = null; if (d) d();
   }
 
