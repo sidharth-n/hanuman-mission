@@ -156,7 +156,6 @@ function gateWall() {
 function seat() {
   const b = new Builder(), o = { ground: false, color: [1.0, 1.06, 1.22], faces: 'fblrt' }, h = SITA.seat;
   b.box(-0.62, 0.62, 0, h, 0.1, 0.84, 'pfloor', { ...o, tile: [4, 4] });                      // where she sits
-  b.box(-0.62, 0.62, h - 0.1, h, 0.84, 0.86, 'lotus', { ...o, faces: 'f', fit: true });         // a carved edge along its front
   b.box(-0.7, 0.7, 0, 1.3, -0.08, 0.1, 'pfloor', { ...o, tile: [4, 4], shade: 0.92 });         // the back
   b.box(-0.7, 0.7, 1.3, 1.42, -0.1, 0.12, 'lotus', { ...o, fit: true });
   for (const s of [-1, 1]) b.box(s > 0 ? 0.62 : -0.78, s > 0 ? 0.78 : -0.62, 0, h + 0.22, 0.1, 0.8, 'pfloor', { ...o, tile: [4, 4], shade: 0.96 });      // arms

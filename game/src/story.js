@@ -142,7 +142,7 @@ export function createStory(g) {
     // d: the way he looks from the tree, toward the two of them; side: across it, toward the path
     const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
     const H = [T.x - d[0] * 1.3 + side[0] * 1.0, T.z - d[1] * 1.3 + side[1] * 1.0];      // where he hides: behind the trunk, his head just clear of it
-    const hid = () => { trek = null; putHero(H[0], H[1], heroYaw(d[0], d[1]), 'crouched_walking'); hero.current.timeScale = 0.02; };      // crouched there, still
+    const hid = () => { trek = null; putHero(H[0], H[1], heroYaw(d[0], d[1]), 'crouched_walking'); hero.current.timeScale = 0.02; if (hero.mace) hero.mace.visible = false; };      // crouched there, still, his mace put by: held, its shaft crossed his face in every close shot
     go([[(p.x + H[0]) / 2 + 0.6, (p.z + H[1]) / 2, 1.1, 'running', 1], [H[0], H[1], 1.5, 'crouched_walking', 1.4]], hid);
     // the view from his hiding place: behind him, past the trunk, to the two under the great tree
     const eye = [H[0] - d[0] * 3.0 + side[0] * 1.5, 2.0, H[1] - d[1] * 3.0 + side[1] * 1.5], them = v(sx - 1.3, 1.5, sz + 1.2), cam = director.camera.position;
@@ -171,13 +171,13 @@ export function createStory(g) {
     sita.place(sx + Math.sin(yaw) * SITA.edge, G + U, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0.2 });
     const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
     const H = [T.x - d[0] * 1.3 + side[0] * 1.0, T.z - d[1] * 1.3 + side[1] * 1.0];
-    trek = null; putHero(H[0], H[1], heroYaw(d[0], d[1]), 'crouched_walking'); hero.current.timeScale = 0.02;      // behind his tree, whatever was skipped
+    trek = null; putHero(H[0], H[1], heroYaw(d[0], d[1]), 'crouched_walking'); hero.current.timeScale = 0.02; if (hero.mace) hero.mace.visible = false;      // behind his tree, whatever was skipped; he comes to her with empty hands
     const eye = [H[0] - d[0] * 3.0 + side[0] * 1.5, 2.0, H[1] - d[1] * 3.0 + side[1] * 1.5];
     // out from hiding in one leap, down beside her, and a bow
     const leap = () => { leapTo = { x0: H[0], z0: H[1], x: hx, z: hz, t: 0, secs: 1.25, up: 3.4, then: () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.08 }); } }; hero.root.rotation.y = heroYaw(hx - H[0], hz - H[1]); const w = hero.actions.running_jump.getClip().userData; hero.play('running_jump', { once: true, from: Math.max(0, w.from - 0.06), speed: (w.to - w.from + 0.06) / 1.25, fade: 0.1 }); };
     const landed = () => { if (leapTo || hero.root.position.x < hx - 1) { leapTo = null; putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'breathing_idle'); } };      // there already, even if the leap was tapped past
     const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0 + U, sz + 0.5];
-    const onHero = shot(v(sx + 1.15, 1.9 + U, sz - 0.05), v(hx, 1.45, hz), { to: v(sx + 0.95, 1.85 + U, sz + 0.15), fov: 40 });      // over her shoulder, from behind her seat
+    const onHero = shot(v(hx + 1.44, 1.5, hz - 0.21), v(hx, 1.52, hz), { to: v(hx + 1.3, 1.5, hz - 0.3), fov: either(36, 27) });      // close on him as he speaks, the grove behind him: nothing of her seat in the picture (on a phone its back came up under the words)
     const onSita = shot(v(hx + 0.2, 1.3 + U, hz - 0.2), v(sx, 1.1 + U, sz + 0.2), { to: v(hx + 0.4, 1.25 + U, hz - 0.4), fov: 38 });
     const two = either(shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 }), shot(v(hx - 2.1, 1.9, hz + 0.9), v(sx - 0.5, 1.05, sz + 0.5), { to: v(hx - 1.8, 1.85, hz + 0.7), fov: 46 }));
     director.play(beats('grove_sita', [
@@ -195,7 +195,7 @@ export function createStory(g) {
     ]), wreck);
   }
   function wreck() {
-    trek = null; leapTo = null; g.hold(); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
+    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
     putHero(0, z, heroYaw(0, 1), 'great_sword_idle');
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),

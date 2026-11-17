@@ -116,7 +116,7 @@ export class Director {
     this.i++;
     if (this.i >= this.beats.length) return this.finish();
     const b = this.beats[this.i]; this.t = 0;
-    this.len = b.secs ?? (b.line ? 1.7 + b.line.length * 0.052 : 1.6);      // long enough to read, never long enough to drag
+    this.len = b.secs ?? (b.line ? 2.3 + b.line.length * 0.07 : 1.6);      // long enough to read at ease on a phone (Sid: "need enough time to read"); a tap still goes on
     if (b.cam) { this.cam = b.cam; this.camT = 0; this.camLen = b.cam.secs || this.len + 0.4; }
     if (b.do) b.do();
     const { who, line } = this.el;
