@@ -201,17 +201,35 @@ export function createStory(g) {
       { ...shot(v(-2.4, 0.7, z + 4.2), v(0, 1.6, z), { to: v(-1.8, 0.8, z + 3.4), fov: 50 }), do: () => hero.play('mutant_roaring', { once: true, fade: 0.2 }) },
     ]), () => g.battle(GROVE_MID, PLANS.grove, how => { bound(how === 'lost'); return true; }));      // won or overcome, the grove ends the same way: he is bound and led to Ravana
   }
+  // He has beaten the three; then ten more come running out from among the trees on both sides and along the path,
+  // and close a ring round him: there is no fighting his way out of that. Taken either way, he is bound where he stands.
   function bound(taken) {
-    g.hold(); const p = hero.root.position;
-    if (taken) for (const e of fight.all) { e.reset(); e.trail.clear(); }      // those still standing round him give way to the two who bind him
-    putHero(p.x, p.z, heroYaw(0, -1)); hero.bind(true);
-    standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]);
-    if (!taken) g.say(STORY.alerts.bound, 2.4);
-    director.play(beats('grove_bound', [
-      shot(v(p.x + 3.4, 1.5, p.z - 3.8), v(p.x, 1.3, p.z), { to: v(p.x + 2.8, 1.5, p.z - 3.2), fov: 48 }),
+    g.hold(); const p = hero.root.position, base = -(GROVE_AT + CHUNK);
+    for (const e of fight.all) { e.reset(); e.trail.clear(); }
+    putHero(Math.max(-2, Math.min(2, p.x)), p.z, heroYaw(0, -1), 'great_sword_idle'); G = g.groundAt(p.z);
+    const bind = () => { fight.guards.forEach(e => { if (e.march) { e.place(e.march.x, G, e.march.z, yawTo(p.x - e.march.x, p.z - e.march.z)); e.play('great_sword_idle'); e.march = null; } }); hero.bind(true); standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]); };
+    const tied = beats('grove_bound', [
+      { ...shot(v(p.x + 3.4, 1.5, p.z - 3.8), v(p.x, 1.3, p.z), { to: v(p.x + 2.8, 1.5, p.z - 3.2), fov: 48 }), do: bind },
       shot(v(p.x - 0.9, 1.5, p.z - 2.6), v(p.x, 1.45, p.z), { to: v(p.x - 0.6, 1.5, p.z - 2.2), fov: 38 }),
       shot(v(p.x + 0.6, 2.4, p.z + 5.2), v(p.x, 1.2, p.z - 4), { to: v(p.x + 0.4, 2.8, p.z + 6.4), fov: 52 }),
-    ]), () => g.fade(court));
+    ]);
+    if (taken) return director.play(tied, () => g.fade(court));
+    // where the ten start from: the gaps between the trees on either side (clear of the trunks and of the pond), and the path behind him
+    const from = [];
+    for (const gap of [base - 8, base - 16]) for (const s of [-1, 1]) from.push([s * 7.2, gap - 0.8], [s * 6.2, gap + 0.8]);
+    from.push([-1.3, p.z + 13], [1.3, p.z + 14]);
+    fight.guards.forEach((e, i) => {
+      const a = (i + 0.5) / 10 * Math.PI * 2, to = [p.x + Math.sin(a) * 3.4, p.z + Math.cos(a) * 3.4];
+      const at = from.reduce((best, f) => f.used || (best && Math.hypot(best[0] - to[0], best[1] - to[1]) <= Math.hypot(f[0] - to[0], f[1] - to[1])) ? best : f, null); at.used = true;      // each from the place nearest where he will stand
+      e.kind(['guard', 'rusher', 'guard', 'brute', 'guard', 'captain'][i % 6]); e.reset(); e.place(at[0], G, at[1], yawTo(to[0] - at[0], to[1] - at[1])); e.st = 'idle'; e.bar.visible = false;
+      e.play('great_sword_run', { fade: 0 }); e.march = { x0: at[0], z0: at[1], x: to[0], z: to[1], t: -0.15 * (i % 4), secs: 2.3 };
+    });
+    g.sound.fx('bell', { rate: 0.8, gap: 1 }); g.buzz([40, 60, 40]);
+    director.play([
+      { secs: 2.9, ...shot(v(p.x + 0.6, 5.4, p.z + 9), v(p.x, 1.0, p.z - 1), { to: v(p.x + 0.4, 4.6, p.z + 7.6), fov: 60 }), do: () => hero.play('great_sword_idle', { fade: 0.2 }) },      // from above and behind: they pour in from both sides
+      { secs: 3.0, cam: { round: { c: [p.x, G + 1.25, p.z], from: -0.52, to: 0.52, r: [6.8, 5.6], y: [0.3, 1.1] }, at: v(p.x, 1, p.z + 6), look: v(p.x, 1.3, p.z), fov: 52 }, do: () => g.say(STORY.alerts.bound, 2.6) },      // carried across the road behind the ring as it closes (never out among the lanterns): swords levelled at him on every side
+      ...tied,
+    ], () => g.fade(court));
   }
 
   // ── Ravana's court ──
@@ -219,6 +237,7 @@ export function createStory(g) {
     g.hold(); sita.hide(); gift.visible = false;
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
+    fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind
     standGuards([[-1.6, hz + 0.7, Math.PI], [1.6, hz + 0.7, Math.PI]]);
     standGuards([[-3.3, tz + 0.6, 0.5], [3.3, tz + 0.6, -0.5]], wardens, T - 0.35);      // on the second step of the dais
     ravana.place(0, G + T + 0.34, tz + 0.62, 0); ravana.play('sit', { fade: 0 });
@@ -276,7 +295,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; swell.t = swell.secs = 0; leap.on = false;
+      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -301,6 +320,11 @@ export function createStory(g) {
       if (swell.t < swell.secs) { swell.t += dt; const u = Math.min(1, swell.t / swell.secs); hero.root.scale.setScalar(swell.from + (swell.to - swell.from) * u * u * (3 - 2 * u)); }      // he grows as the player watches
       if (leap.on) { leap.t += dt; hero.root.position.z -= (2 + leap.t * leap.t * 2.2) * dt; }      // and at the last he leaps for the sea
       for (const e of escort) if (e.leave > 0 && e.root.visible) { const w = e.go || [0, 0.72]; e.root.position.x += w[0] * 2.1 * dt; e.root.position.z += w[1] * 2.1 * dt; }      // they go the way their lord goes
+      for (const e of fight.guards) if (e.march) {      // the ten who close the ring in the grove
+        const m = e.march; m.t += dt; const u = Math.min(1, Math.max(0, m.t / m.secs));
+        e.root.position.x = m.x0 + (m.x - m.x0) * u; e.root.position.z = m.z0 + (m.z - m.z0) * u;
+        if (u >= 1) { e.march = null; const hp = hero.root.position; e.root.rotation.y = e.yaw = yawTo(hp.x - m.x, hp.z - m.z); e.play('great_sword_idle', { fade: 0.25 }); }
+      }
       if (trek) {      // Hanuman on his way from mark to mark
         const m = trek.marks[trek.i], p = hero.root.position; trek.t += dt; const u = Math.min(1, trek.t / m[2]);
         p.x = trek.x + (m[0] - trek.x) * u; p.z = trek.z + (m[1] - trek.z) * u; hero.root.rotation.y = heroYaw(m[0] - trek.x, m[1] - trek.z);

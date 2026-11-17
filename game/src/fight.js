@@ -11,7 +11,7 @@ export const LIVES = 5;
 export const PLANS = {
   gate: [{ foes: ['lankini'], most: 1, tell: 0.66, rest: 0.5 }],
   court: [{ foes: ['guard', 'rusher', 'guard'], most: 1, tell: 0.62, rest: 0.7 }, { foes: ['guard', 'brute', 'guard', 'rusher', 'rusher'], most: 2, tell: 0.58, rest: 0.55 }],
-  grove: [{ foes: ['rusher', 'guard', 'rusher', 'guard'], most: 2, tell: 0.6, rest: 0.6 }, { foes: ['brute', 'captain', 'brute'], most: 2, tell: 0.58, rest: 0.5 }],
+  grove: [{ foes: ['guard', 'rusher', 'guard'], most: 2, tell: 0.6, rest: 0.6 }],      // three, and he can beat them; then ten more come (story.js) and he is taken
 };
 // Struck down: the fall he is thrown back in (he lands on his back at `land` seconds of the clip) and the kip up that
 // brings him to his feet (he lies still until `from`). Both are played faster than they were made.
@@ -116,7 +116,7 @@ export class Fight {
     this.flashes = [0, 1, 2, 3].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true })); s.visible = false; s.userData = { t: 0, secs: 1, size: 1 }; this.scene.add(s); return s; });
     this.heroTrail = new Trail(this.scene, [1, 0.72, 0.28]);
     const add = g => { g.trail = new Trail(this.scene, [1, 0.42, 0.24]); this.scene.add(g.root); return g; };
-    this.guards = [0, 1, 2, 3, 4, 5, 6, 7].map(() => add(new Guard(this.gltf, this.sword)));
+    this.guards = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(() => add(new Guard(this.gltf, this.sword)));      // ten: the ring that closes round him in the grove
     // Lankini fights with a great sword, in the guards' own way: far stronger, and she does not fall back from a light blow
     this.boss = add(new Guard(this.lankini, this.sword, { lux: true, armed: true, height: 3.6, sword: 0.6, kind: 'lankini',
       clips: { idle: 'sword_idle', walk: 'sword_walk', run: 'sword_run', attack: 'sword_slash', hit: 'sword_hit', death: 'knockback' } }));
