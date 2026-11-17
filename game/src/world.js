@@ -53,6 +53,8 @@ const DOOR_EVERY = 5, ROLL = { vz: 5, from: 27 };
 export const LANKINI_AT = 106, LANKINI_MID = 111;      // where Lankini stops him, a good run inside the gate (she is seen standing in the road from far off), and the middle of the floor they fight on
 const FIGHT_N = 3;      // the stretch of the palace court where the guards make their stand
 function placeRows() {
+  // the speed the road is measured by: what he will have reached, except in the grove, where he goes at a walk among the trees
+  const pace = d => (planAt(Math.floor(d / CHUNK)).kind === 'grove' ? 8.2 : speedAt(d));
   const rows = [], r = rng(977);
   const fixed = [];
   PLAN.forEach((c, i) => {
@@ -67,6 +69,7 @@ function placeRows() {
       if (!c.rows) d = (i + 1) * CHUNK;
       else if (c.kind === 'stairs' && Math.abs(s - 13) > 0.01) d = s < 13 ? i * CHUNK + 13 : (i + 1) * CHUNK;      // the middle landing only
       else if (d < LANKINI_MID + 26) d = LANKINI_MID + 26;      // the street inside the gate is kept bare: Lankini bars the way there
+      else if (c.kind === 'grove' && (c.n === 0 || c.n >= c.of - 3 || (c.n === c.of - 4 && s > 11))) d = (i + 1) * CHUNK;      // none under the wall he comes in by, none from a little before the tree he hides behind
       else if (c.kind === 'court' && c.n === 0 && s < 8) d = i * CHUNK + 8;      // clear of the bell gate
       else if (c.kind === 'court' && ((c.n === FIGHT_N - 1 && s > 14) || c.n === FIGHT_N)) d = (i + 1) * CHUNK + 10;      // the floor where the guards make their stand is kept bare, and the road they come in by
       else if (c.kind === 'court' && c.n === FIGHT_N + 1 && s < 10) d = i * CHUNK + 10;
@@ -77,18 +80,19 @@ function placeRows() {
   for (;;) {
     const next = fixed[f];
     // every other row on the stairway asks for the extra road that lets it roll
-    const want = isFinite(prev) ? prev + room(speedAt(prev + 30)) : 0;      // at the speed he will have reached by then, not the speed he has now
+    let want = isFinite(prev) ? prev + room(pace(prev + 30)) : 0;      // at the speed he will have reached by then, not the speed he has now
+    if (isFinite(prev) && planAt(Math.floor(want / CHUNK)).kind !== 'grove') want = prev + room(speedAt(prev + 30));      // (the grove's slower measure only for rows that stand in the grove)
     let d = allowed(want + (isFinite(prev) && planAt(Math.floor(want / CHUNK)).kind === 'city' ? r() * 3 : 0));
     const kind = d < Infinity ? planAt(Math.floor(d / CHUNK)).kind : null;
     let roll = false;
-    if (kind === 'stairs' && n % 2 === 0) { const need = prev + room(speedAt(d)) + rollLead(speedAt(d), ROLL.vz, ROLL.from); roll = true; if (d < need) d = allowed(need); }
-    if (next && d + room(speedAt(next.d)) > next.d) { rows.push({ d: next.d, type: next.type }); prev = next.d; f++; continue; }      // too near the fixed row ahead: that one comes next
+    if (kind === 'stairs' && n % 2 === 0) { const need = prev + room(pace(d)) + rollLead(pace(d), ROLL.vz, ROLL.from); roll = true; if (d < need) d = allowed(need); }
+    if (next && d + room(pace(next.d)) > next.d) { rows.push({ d: next.d, type: next.type }); prev = next.d; f++; continue; }      // too near the fixed row ahead: that one comes next
     if (d === Infinity) { if (next) { rows.push({ d: next.d, type: next.type }); prev = next.d; f++; continue; } break; }
     rows.push({ d, type: 'free', roll: roll && planAt(Math.floor(d / CHUNK)).kind === 'stairs' }); prev = d; n++;
   }
   // the rule, checked: no row closer to the one before than the road he needs at that speed
   for (let k = 1; k < rows.length; k++) {
-    const a = rows[k - 1], b = rows[k], need = room(speedAt(b.d)) + (b.roll ? rollLead(speedAt(b.d), ROLL.vz, ROLL.from) : 0);
+    const a = rows[k - 1], b = rows[k], need = room(pace(b.d)) + (b.roll ? rollLead(pace(b.d), ROLL.vz, ROLL.from) : 0);
     if (b.d - a.d < need - 0.01) console.error(`rows too close at ${b.d.toFixed(1)} m: ${(b.d - a.d).toFixed(1)} m, needs ${need.toFixed(1)} m`);
   }
   const by = new Map();
@@ -125,6 +129,8 @@ const ROWS = [
 ];
 // what each place puts in his way
 const POOLS = {
+  grove: [['root', null, null], [null, 'root', null], [null, null, 'root'], ['root', 'root', 'root'], ['bough', 'bough', 'bough'], ['rock', null, 'rock'], ['rock', 'root', null], [null, 'root', 'rock'],
+    ['rock', null, null], [null, null, 'rock'], ['bough', 'rock', 'bough'], ['root', 'rock', 'root']],
   city: ROWS,
   bridge: [['stone', null, null], [null, 'stone', null], [null, null, 'stone'], ['stone', null, 'stone'], ['arrows', null, 'arrows'], ['arrows', 'arrows', null], [null, 'arrows', 'arrows'],
     ['cart', null, 'pots'], ['pots', null, 'cart'], ['barricade', 'barricade', 'barricade'], [null, 'cart', 'stone'], ['stone', 'cart', null], ['pots', 'stone', 'pots']],
@@ -135,10 +141,10 @@ const POOLS = {
   hall: [['table', null, null], [null, 'table', null], ['table', 'table', 'table'], ['chain', 'chain', 'chain'], ['chain', 'drum', 'chain'], ['drum', null, 'drum'], ['drum', 'drum', null], [null, 'drum', 'drum'],
     ['spikes', 'spikes', 'spikes'], ['spikes', 'table', 'spikes'], ['rack', 'table', null], [null, 'table', 'rack'], ['arrows', 'table', 'arrows'], ['rack', 'chain', 'rack']],
 };
-const KIND = { pots: 'low', barricade: 'low', cart: 'block', beam: 'high', arrows: 'block', stone: 'block', boulder: 'low', log: 'low', rack: 'block', drum: 'block',
+const KIND = { root: 'low', bough: 'high', rock: 'block', pots: 'low', barricade: 'low', cart: 'block', beam: 'high', arrows: 'block', stone: 'block', boulder: 'low', log: 'low', rack: 'block', drum: 'block',
   spikes: 'low', table: 'low', chain: 'high', door: 'high', gap: 'gap' };
-const TOP = { pots: 1.0, barricade: 1.1, cart: 1.55, arrows: 1.25, beam: 0, stone: 1.45, boulder: 1.24, log: 1.3, rack: 2.7, drum: 1.6, spikes: 0.9, table: 0.95, chain: 0, door: 0, gap: 0 };      // how high each stands
-const HALF_DEPTH = { pots: 0.6, barricade: 0.55, cart: 1.25, beam: 0.35, arrows: 0.7, stone: 0.8, boulder: 0.6, log: 0.55, rack: 0.4, drum: 0.7, spikes: 0.65, table: 0.6, chain: 0.3, door: 0.4, gap: palace.GAP_HALF };
+const TOP = { root: 0.95, bough: 0, rock: 2.5, pots: 1.0, barricade: 1.1, cart: 1.55, arrows: 1.25, beam: 0, stone: 1.45, boulder: 1.24, log: 1.3, rack: 2.7, drum: 1.6, spikes: 0.9, table: 0.95, chain: 0, door: 0, gap: 0 };      // how high each stands
+const HALF_DEPTH = { root: 0.5, bough: 0.35, rock: 0.75, pots: 0.6, barricade: 0.55, cart: 1.25, beam: 0.35, arrows: 0.7, stone: 0.8, boulder: 0.6, log: 0.55, rack: 0.4, drum: 0.7, spikes: 0.65, table: 0.6, chain: 0.3, door: 0.4, gap: palace.GAP_HALF };
 // speed toward him, how far ahead it starts, how high it rides. They start late, so that they meet him well past the row before.
 const MOVING = { boulder: { ...ROLL, up: 0.62 }, log: { ...ROLL, vz: 4.5, up: 0.72 } };
 const SHARP = { spikes: true, boulder: true, log: true };      // nothing to land on
@@ -364,6 +370,7 @@ export class World {
   piece(chunk, type, x, y, z, r) {
     const g = chunk.group;
     switch (type) {
+      case 'root': case 'bough': case 'rock': return [places.hurdle(this, type, r)];      // the grove's own
       case 'beam': return [this.part(this.beamGeo)];
       case 'arrows': return this.volley(chunk, x, y, z, r() < 0.35 ? 'bolt' : 'arrows');
       case 'stone': return this.volley(chunk, x, y, z, 'stone');

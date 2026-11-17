@@ -9,9 +9,9 @@ import { HALL, greatHall, plinth } from './court.js';
 
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
-export const SITA = { n: 2, x: 4.7, z: -11, seat: 0.43, edge: 0.66, up: 0.22, yaw: -0.75 };      // her stone seat on its round platform under the great tree: how far forward of its middle she sits, how high the platform stands, which way the seat faces
-export const TREE = { n: 2, x: 8.8, z: -14.6 };
-export const HIDE = { n: 1, x: -5.4, z: -21 };                         // the old tree at the side of the path that Hanuman hides behind
+export const SITA = { n: 6, x: 4.7, z: -11, seat: 0.43, edge: 0.66, up: 0.22, yaw: -0.75 };      // her stone seat on its round platform under the great tree: how far forward of its middle she sits, how high the platform stands, which way the seat faces
+export const TREE = { n: 6, x: 8.8, z: -14.6 };
+export const HIDE = { n: 5, x: -5.4, z: -21 };                         // the old tree at the side of the path that Hanuman hides behind
 export const GATE = { z: -0.8, half: 0.8 };                           // the wall across the way into the grove, and the low passage through it                      // the great tree Hanuman hides in
 export const THRONE = { n: 1, z: -12.5, top: 1.05, seat: 0.92 };     // the dais and the seat of the throne; behind it, room for Shiva
 export const STAND = { n: 1, z: -1.5 };                              // where Hanuman is made to stand before it
@@ -68,6 +68,32 @@ function garden(world) {
   return world.garden;
 }
 
+// What stands in his way in the grove (Sid: "let him explore that place a bit. only here the things that fall are not the
+// same thing, different hurdles"): a great root arching out of the ground to leap, a low bough across the path to slide
+// under, a standing stone to step round. Wood and stone a little paler than the trees, so the moon shows them in time.
+export function hurdle(world, type, r) {
+  const k = garden(world);
+  if (!k.hurdleWood) {      // lit by the grove's own moon (the trees carry their light painted in, and a shape without that paint is black)
+    k.hurdleWood = world.rockMat.clone(); k.hurdleWood.flatShading = false;
+    if (k.wood.map) { k.hurdleWood.map = k.wood.map; k.hurdleWood.color.set(0xd8c2a4); } else k.hurdleWood.color.set(0x6a5540);      // the trees' own bark where there is a picture of it
+    k.hurdleStone = world.rockMat.clone(); k.hurdleStone.color.set(0x414a48); k.hurdleLeaf = world.rockMat.clone(); k.hurdleLeaf.color.set(0x2c5a3c);
+  }
+  const g = new THREE.Group(), wood = (geo, x, y, z, rx = 0, ry = 0, rz = 0, s = [1, 1, 1]) => { const m = new THREE.Mesh(geo, k.hurdleWood); m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.scale.set(...s); g.add(m); return m; };
+  if (type === 'root') {
+    wood(new THREE.TorusGeometry(0.98, 0.21, 7, 14, Math.PI), 0, -0.08, 0, 0, 0.12, 0, [1, 0.84, 1.25]);      // a great root heaved up out of the ground, lesser ones twisted about it
+    wood(new THREE.TorusGeometry(0.7, 0.13, 6, 10, Math.PI), 0.3, -0.05, 0.22, 0.1, -0.5, 0, [1, 0.7, 1]);
+    wood(new THREE.TorusGeometry(0.5, 0.1, 6, 10, Math.PI), -0.42, -0.04, -0.2, -0.08, 0.7, 0, [1, 0.75, 1]);
+    wood(new THREE.CylinderGeometry(0.1, 0.17, 1.3, 6), -1.0, 0.1, 0.25, 1.2, 0, 0.5);
+  } else if (type === 'bough') {
+    wood(new THREE.CylinderGeometry(0.15, 0.19, 3.0, 8), 0, 1.76, 0, 0, 0, Math.PI / 2 + 0.05);
+    for (const s of [-1, 1]) wood(new THREE.CylinderGeometry(0.13, 0.22, 2.0, 7), s * 1.28, 0.93, 0, 0, 0, s * 0.16);
+    const leaves = new THREE.Mesh(new THREE.SphereGeometry(0.34, 6, 5), k.hurdleLeaf); leaves.userData.soft = true; leaves.position.set(0.5 - r(), 1.98, 0); leaves.scale.set(2.2, 0.5, 1.1); g.add(leaves);
+  } else {      // 'rock': a standing stone, taller than he can leap
+    const m = new THREE.Mesh(world.rockGeo, k.hurdleStone); m.position.y = 1.15; m.scale.set(1.35, 2.3, 1.2); m.rotation.y = r() * 6.3; g.add(m);
+    const foot = new THREE.Mesh(world.rockGeo, k.hurdleStone); foot.position.set(0.5, 0.2, 0.3); foot.scale.set(0.8, 0.6, 0.7); g.add(foot);
+  }
+  return g;
+}
 export function grove(world, chunk, c, r) {
   const g = chunk.group, k = garden(world); chunk.fx = [];
   const ground = new THREE.Mesh(k.grassGeo, k.grassMat); ground.position.z = -L / 2; g.add(ground);
@@ -115,7 +141,7 @@ export function grove(world, chunk, c, r) {
     world.flame(chunk, s * 4.7, 1.22, z, 0.3, r() * 10);
     chunk.braziers.push(new THREE.Vector3(s * 4.7, g.position.y + 1.3, g.position.z + z));
   }
-  if (c.n === 1) {      // a lotus pond that holds the sky
+  if (c.n === HIDE.n || c.n === 2) {      // a lotus pond that holds the sky
     const pond = new THREE.Mesh(k.pondGeo, world.waterMat); pond.position.set(-10, 0.03, -12); g.add(pond);
     for (let i = 0; i < 9; i++) { const a = r() * 6.3, d = r() * 3.6, l = new THREE.Sprite(k.lotusMat); l.position.set(-10 + Math.cos(a) * d, 0.28, -12 + Math.sin(a) * d); l.scale.setScalar(0.55 + r() * 0.4); g.add(l); }
   }

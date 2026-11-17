@@ -43,7 +43,7 @@
         { "at": 30, "type": "boss", "who": "Lankini", "what": "the guardian of the city blocks the gate; one clean strike fells her (as in the epic)" },
         { "at": 70, "type": "spotted", "what": "a guard sees him; the chase begins" }
       ] },
-    { "id": "city", "name": "The City", "kind": "city", "length": 288, "place": "torch-lit bazaar streets", "speed": 10, "rowGap": 12,
+    { "id": "city", "name": "The City", "kind": "city", "length": 384, "place": "torch-lit bazaar streets", "speed": 10, "rowGap": 12,
       "obstacles": ["water-channel", "fallen-pillar", "thrown-pots", "cart", "street-chain", "lamp-beam", "fire-arrows"],
       "events": [
         { "at": 120, "type": "turn", "dir": "left" },
@@ -59,13 +59,13 @@
     { "id": "stairway", "name": "The Stairway", "kind": "stairs", "length": 96, "place": "the grand stairway up to the palace, sloping up", "speed": 11, "rowGap": 10, "slope": 0.22,
       "obstacles": ["rolling-stone", "spear-rack", "sataghni", "spear-guard"],
       "events": [] },
-    { "id": "court", "name": "The Palace Court", "kind": "court", "length": 120, "place": "outer palace court behind the great doors", "speed": 12, "rowGap": 10,
+    { "id": "court", "name": "The Palace Court", "kind": "court", "length": 144, "place": "outer palace court behind the great doors", "speed": 12, "rowGap": 10,
       "obstacles": ["closing-door", "spear-guard", "spear-rack", "pillar"],
       "events": [
         { "at": 0, "type": "shot", "what": "the great doors swing shut; he slides under the locking beam" },
         { "at": 150, "type": "fight", "who": "two guards with swords", "what": "the run stops, he fights with the mace, then runs on" }
       ] },
-    { "id": "halls", "name": "The Inner Palace", "kind": "hall", "length": 240, "place": "pillared halls and corridors of gold and dark stone", "speed": 12.5, "rowGap": 9,
+    { "id": "halls", "name": "The Inner Palace", "kind": "hall", "length": 336, "place": "pillared halls and corridors of gold and dark stone", "speed": 12.5, "rowGap": 9,
       "obstacles": ["pillar", "banquet-table", "lamp-chain", "spear-guard", "closing-door"],
       "events": [
         { "at": 60, "type": "shot", "what": "high gliding view down the pillared hall" },
@@ -73,7 +73,7 @@
         { "at": 220, "type": "pickup", "what": "wind" },
         { "at": 290, "type": "fight", "who": "three guards and a captain", "what": "second fight" }
       ] },
-    { "id": "grove", "name": "The Grove", "kind": "grove", "length": 96, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 0,
+    { "id": "grove", "name": "The Grove", "kind": "grove", "length": 192, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 13,
       "obstacles": [],
       "events": [
         { "at": 10, "type": "shot", "what": "quiet walk under the trees" },

@@ -13,7 +13,7 @@ import { GROVE_AT, THRONE_AT, FIRE_AT, LANKINI_AT, LANKINI_MID, CHUNK } from './
 const S = STORY.scenes;
 const heroYaw = (fx, fz) => Math.atan2(-fx, -fz);      // Hanuman's model faces the other way from the rest
 const yawTo = (fx, fz) => Math.atan2(fx, fz);
-const GROVE_MID = GROVE_AT + 38;                        // the floor the grove fight is fought on
+const GROVE_MID = GROVE_AT + (HIDE.n - 1) * CHUNK + 38;      // the floor the grove fight is fought on: between the tree he hides behind and the stretch before it
 
 // g: what the game lends the story: { scene, hero, fight, director, models, groundAt, sound, buzz, say(text, secs),
 //   hold() (stop the run for a scene), go() (run on), battle(mid, plan, done(how)), fade(then), light(on), ablaze(), finish() }
@@ -279,7 +279,7 @@ export function createStory(g) {
   // and close a ring round him: there is no fighting his way out of that. Taken either way, he is bound where he stands.
   function bound(taken) {
     g.sound.score('bound');
-    g.hold(); const p = hero.root.position, base = -(GROVE_AT + CHUNK);
+    g.hold(); const p = hero.root.position, base = -(GROVE_AT + HIDE.n * CHUNK);
     for (const e of fight.all) { e.reset(); e.trail.clear(); }
     putHero(Math.max(-2, Math.min(2, p.x)), p.z, heroYaw(0, -1), 'great_sword_idle'); G = g.groundAt(p.z);
     const bind = () => { fight.guards.forEach(e => { if (e.march) { e.place(e.march.x, G, e.march.z, yawTo(p.x - e.march.x, p.z - e.march.z)); e.play('great_sword_idle'); e.march = null; } }); hero.bind(true); standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]); };
