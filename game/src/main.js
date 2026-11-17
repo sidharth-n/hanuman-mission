@@ -5,7 +5,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero, LANES as LANE_X } from './hero.js';
 import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, groundAt } from './world.js';
 import { Fight, LIVES, PLANS } from './fight.js';
-import { Director } from './scene.js';
+import { Director, fit } from './scene.js';
 import { createStory } from './story.js';
 import STORY from './story.json';
 import LINES from './lines.json';
@@ -75,6 +75,10 @@ function resize() {
   camera.aspect = w / h; camera.updateProjectionMatrix();
 }
 window.addEventListener('resize', resize); resize();
+
+// Every model and picture is asked for under the name of this build of them (vite.config.js), so a changed one is never
+// answered from a copy kept by the browser or the offline cache.
+THREE.DefaultLoadingManager.setURLModifier(u => (/^(blob:|data:)/.test(u) ? u : u + (u.includes('?') ? '&' : '?') + 'v=' + __STAMP__));
 
 async function load() {
   const loader = new GLTFLoader(); let done = 0;
@@ -412,8 +416,14 @@ function placeCamera(dt, snap) {
   }
 
   if (director.active && director.cam) {      // a scene of the story: the director holds the camera
-    fov = director.frame(); if (tall) fov = Math.min(80, fov * 1.6);      // an upright phone sees a narrow slice: a wider lens keeps both speakers in it
+    fov = director.frame(camera.aspect, tall);      // an upright phone sees a narrow slice: there the director widens the lens, and draws back until those the shot must hold are in it
     look.copy(director.look); view.back = back; view.join = 1; view.fov = fov;
+  } else if (fight.active && fight.cine && state.mode !== 'ready') {
+    // struck down in the fight, and the moment is held: the fight itself says where the view stands
+    const c = fight.cine;
+    if (c.cut) { camera.position.copy(c.at); look.copy(c.look); c.cut = false; } else { camera.position.lerp(c.at, Math.min(1, dt * 9)); look.lerp(c.look, Math.min(1, dt * 9)); }
+    fov = tall ? 72 : 58; view.fov = fov; view.back = back; view.join = 1;
+    fit(camera, look, fov, camera.aspect, c.keep);
   } else if (state.shot) {
     const s = state.shot; s.t += dt;
     const [at, to, f] = SHOTS[s.type](p, k, Math.min(1, s.t / s.secs));
@@ -577,7 +587,7 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) pause
 load().catch(err => { ui.loadLine.textContent = 'Could not load. Check the connection and reload'; console.error(err); });
 requestAnimationFrame(frame);
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js');
+  navigator.serviceWorker.register('sw.js?v=' + __STAMP__);
   // once everything has loaded, hand the offline cache the exact files this visit used
   window.addEventListener('load', () => navigator.serviceWorker.ready.then(reg => setTimeout(() => {
     const used = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && !/\.mp3($|\?)/.test(u));

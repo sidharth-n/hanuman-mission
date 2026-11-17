@@ -13,7 +13,7 @@ export const KINDS = {
   rusher:  { hp: 3, size: 0.98, pace: 1.45, tell: -0.1, reach: 2.4, wound: 1, tint: 0xc9d6ff },                 // lean and quick: on him fast, little warning, soon down
   brute:   { hp: 9, size: 1.34, pace: 0.7, tell: 0.24, reach: 3.0, wound: 2, firm: true, tint: 0xff9a80 },      // huge and slow: a long warning, a terrible blow
   captain: { hp: 12, size: 1.24, pace: 1.1, tell: 0, reach: 2.8, wound: 1, twice: true, tint: 0xffe08a },       // the captain: two blows in a row
-  lankini: { hp: 24, size: 1, pace: 1.05, tell: 0.12, reach: 4.9, wound: 1, firm: true, boss: true, stays: true, twice: true },      // as tall as he is when he has grown to meet her: a great sword, two blows in a row
+  lankini: { hp: 24, size: 1, pace: 1.05, tell: 0.12, reach: 4.2, wound: 1, firm: true, boss: true, stays: true, twice: true },      // as tall as he is when he has grown to meet her: a great sword, two blows in a row
 };
 const GUARD_CLIPS = { idle: 'great_sword_idle', walk: 'great_sword_walk', run: 'great_sword_run', attack: 'great_sword_slash', hit: 'great_sword_impact', death: 'two_handed_sword_death' };
 
@@ -58,12 +58,13 @@ export class Guard {
     this.current = null;
 
     this.hand = this.model.getObjectByName('mixamorigRightHand'); this.arm = this.model.getObjectByName('mixamorigRightForeArm');
-    const long = this.lux ? opt.height / 1.8 * 0.88 : 1; this.blade = 1.2 * long;      // her sword is a guard's, made to her size
+    // her sword is a guard's, made for her hand: opt.sword is its length against a guard's sword on a guard (1 would be as long for her as theirs is for them)
+    const big = this.lux ? opt.height / 1.8 : 1, hold = big * (this.lux ? 0.88 : 1), long = big * (this.lux ? opt.sword ?? 0.88 : 1); this.blade = 1.2 * long;
     if (!this.lux || opt.armed) {      // the sword rides in the right hand, the way Hanuman's mace does
       this.root.updateWorldMatrix(true, true);
       const unit = 1 / this.hand.getWorldScale(new THREE.Vector3()).x;
-      this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit * long, 0.03 * unit * long); this.sword.rotation.set(0, 0, -Math.PI / 2);
-      if (opt.grip) { this.sword.position.set(...opt.grip.at).multiplyScalar(unit * long); this.sword.rotation.set(...opt.grip.turn); }
+      this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit * hold, 0.03 * unit * hold); this.sword.rotation.set(0, 0, -Math.PI / 2);
+      if (opt.grip) { this.sword.position.set(...opt.grip.at).multiplyScalar(unit * hold); this.sword.rotation.set(...opt.grip.turn); }
       if (sword) {      // the made sword, stood on its pommel: sized to 1.35 m, held a little above the pommel
         const s = sword.clone(); s.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(s), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
@@ -102,7 +103,7 @@ export class Guard {
   }
 
   reset() {
-    this.hp = this.max; this.st = 'idle'; this.t = 0; this.vx = 0; this.vz = 0; this.yaw = 0; this.struck = false; this.second = false; this.token = false;
+    this.hp = this.max; this.st = 'idle'; this.t = 0; this.vx = 0; this.vz = 0; this.yaw = 0; this.struck = false; this.second = false; this.token = false; this.poise = 0;
     this.root.visible = false; this.bar.visible = true; this.fill.scale.x = this.wide - 0.04;
     if (this.current) this.current.stop(); this.current = null; this.name = null;
   }

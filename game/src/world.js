@@ -50,7 +50,7 @@ const planAt = i => i < 0 ? BEFORE : PLAN[i] || AFTER;
 // after the one before, and never so near a fixed row ahead that the rule would be broken there. On the stairway a row
 // must stand on a landing. A row may hold things that roll toward him only if it has the extra road that costs.
 const DOOR_EVERY = 5, ROLL = { vz: 5, from: 27 };
-export const LANKINI_AT = 58, LANKINI_MID = 70;      // where Lankini stops him just inside the gate, and the middle of the floor they fight on
+export const LANKINI_AT = 106, LANKINI_MID = 111;      // where Lankini stops him, a good run inside the gate (she is seen standing in the road from far off), and the middle of the floor they fight on
 const FIGHT_N = 3;      // the stretch of the palace court where the guards make their stand
 function placeRows() {
   const rows = [], r = rng(977);

@@ -14,6 +14,28 @@ function aim(bone, child, dir) {
   bone.parent.getWorldQuaternion(_p); bone.quaternion.copy(_p.invert().multiply(_w.premultiply(_q)));
 }
 
+// Draw a camera back along its own line of sight until every one of `points` ([x, y, z] in the world) stands inside
+// the safe part of the picture: clear of the sides, of the black bars and of the words at the foot. Wide screen or
+// upright phone, nobody a shot is meant to hold is ever cut off by its edge.
+const SAFE = { x: 0.8, top: 0.72, bottom: -0.82 };
+const _f = new THREE.Vector3(), _r = new THREE.Vector3(), _u = new THREE.Vector3(), _d = new THREE.Vector3(), UP = new THREE.Vector3(0, 1, 0);
+export function fit(camera, look, fov, aspect, points, most = 3.2) {
+  const th = Math.tan(fov * Math.PI / 360), tw = th * aspect;
+  _f.copy(look).sub(camera.position); const dist = _f.length(); if (dist < 0.01) return 1; _f.divideScalar(dist);
+  _r.crossVectors(_f, UP).normalize(); _u.crossVectors(_r, _f);
+  const holds = m => points.every(pt => {
+    _d.set(pt[0], pt[1], pt[2]).sub(look).addScaledVector(_f, dist * m);      // the point as the camera sees it from m times as far
+    const z = _d.dot(_f); if (z < 0.3) return false;
+    const x = _d.dot(_r) / (z * tw), y = _d.dot(_u) / (z * th);
+    return Math.abs(x) <= SAFE.x && y <= SAFE.top && y >= SAFE.bottom;
+  });
+  if (holds(1)) return 1;
+  let lo = 1, hi = most;
+  if (holds(hi)) for (let i = 0; i < 12; i++) { const mid = (lo + hi) / 2; if (holds(mid)) hi = mid; else lo = mid; }
+  camera.position.copy(look).addScaledVector(_f, -dist * hi);
+  return hi;
+}
+
 export class Actor {
   // height: how tall he or she stands in the world, in metres
   constructor(gltf, height) {
@@ -83,7 +105,8 @@ export class Director {
     el.skip.addEventListener('click', e => { e.stopPropagation(); this.skip(); });
   }
 
-  // beats: [{ who, line, secs, cam: { at, to, look, lookTo, fov, secs }, do }]. A beat without a camera keeps the shot it is in.
+  // beats: [{ who, line, secs, cam: { at, to, look, lookTo, fov, secs, keep }, do }]. A beat without a camera keeps the shot it is in.
+  // keep: a function giving the points the shot must hold in the picture (heads and feet); the camera draws back until it does.
   play(beats, done) {
     this.beats = beats; this.i = -1; this.done = done || null; this.active = true; this.cam = null;
     this.el.root.hidden = false; this.next();
@@ -118,8 +141,9 @@ export class Director {
     if (this.t >= this.len) this.next();
   }
 
-  // Sets the camera for this frame. Returns the lens (field of view) the shot asks for.
-  frame() {
+  // Sets the camera for this frame. Returns the lens (field of view) the shot is taken with.
+  // aspect: the screen's width over its height. tall: an upright phone, which sees a narrow slice and is given a wider lens.
+  frame(aspect = 16 / 9, tall = false) {
     const c = this.cam; if (!c) return null;
     const u = ease(Math.min(1, this.camT / this.camLen)), to = c.to || c.at, lookTo = c.lookTo || c.look;
     if (c.round) {      // carried round a point instead of straight from place to place: { c, from, to (bearings), r: [near, far], y: [low, high] }
@@ -127,6 +151,8 @@ export class Director {
       this.camera.position.set(o.c[0] + Math.sin(a) * r, o.c[1] + o.y[0] + (o.y[1] - o.y[0]) * u, o.c[2] + Math.cos(a) * r);
     } else this.camera.position.set(c.at[0] + (to[0] - c.at[0]) * u, c.at[1] + (to[1] - c.at[1]) * u, c.at[2] + (to[2] - c.at[2]) * u);
     this.look.set(c.look[0] + (lookTo[0] - c.look[0]) * u, c.look[1] + (lookTo[1] - c.look[1]) * u, c.look[2] + (lookTo[2] - c.look[2]) * u);
-    return c.fov || 48;
+    const fov = tall ? Math.min(80, (c.fov || 48) * 1.6) : c.fov || 48;
+    if (c.keep) fit(this.camera, this.look, fov, aspect, c.keep());
+    return fov;
   }
 }
