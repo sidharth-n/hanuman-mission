@@ -62,6 +62,19 @@ export function createStory(g) {
   let torch = null;      // { e: the guard, t, stage, from, to }: he walks round behind Hanuman, strikes at the tail, and it is alight
   const tipOf = new THREE.Vector3();
   const done = { lankini: false, challenged: false, grove: false, end: false, present: false };
+  // What brings him down (the capture): three iron weights on cords, thrown from far off, that wind round his ankles as he runs
+  const iron = new THREE.MeshStandardMaterial({ color: 0x4a423a, metalness: 0.7, roughness: 0.45, emissive: 0x2a1406 }), hemp = new THREE.MeshStandardMaterial({ color: 0xb08a4a, roughness: 0.95 });
+  const bola = new THREE.Group(), cuff = new THREE.Group();
+  for (let i = 0; i < 3; i++) { const arm = new THREE.Group(); arm.rotation.y = i * Math.PI * 2 / 3;
+    const cord = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.014, 0.5, 5), hemp); cord.rotation.z = Math.PI / 2; cord.position.x = 0.25;
+    const weight = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), iron); weight.position.x = 0.52; arm.add(cord, weight); bola.add(arm); }
+  { const flare = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffb060, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, transparent: true, opacity: 0.8 })); flare.scale.setScalar(1.5); bola.add(flare); }
+  for (let i = 0; i < 3; i++) { const t = new THREE.Mesh(new THREE.TorusGeometry(0.2 - i * 0.012, 0.02, 6, 20), hemp); t.rotation.x = Math.PI / 2 + (i % 2 ? 0.12 : -0.1); t.position.y = i * 0.05; cuff.add(t); }
+  for (const side of [-1, 1]) { const w = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), iron); w.position.set(side * 0.2, 0.02, 0.12); cuff.add(w); }
+  for (const o of [bola, cuff]) { o.visible = false; o.traverse(m => { m.userData.soft = true; }); }
+  g.scene.add(bola); hero.root.add(cuff);
+  let snare = null;      // { at: where along the route it takes him, t: how long it has been in the air (-1: not thrown yet), from, fall: { t, v, hit, rest } }
+  const unsnare = () => { snare = null; bola.visible = cuff.visible = false; hero.prone = 0; };
   let trek = null, leapTo = null, turn = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
   let G = 0;      // the height of the floor where the scene is played
 
@@ -280,16 +293,35 @@ export function createStory(g) {
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),
       { ...shot(v(-2.4, 0.7, z + 4.2), v(0, 1.6, z), { to: v(-1.8, 0.8, z + 3.4), fov: 50 }), secs: 4.9, do: () => { vowT = 3.2; vowRoar = roar; } },
-    ]), () => { roar(); g.battle(GROVE_MID, PLANS.grove, how => { bound(how === 'lost'); return true; }); });      // tapped past before the roar: he roars as the fight begins. Won or overcome, the grove ends the same way: he is bound and led to Ravana
+    ]), () => { roar(); g.battle(GROVE_MID, PLANS.grove, how => { if (how === 'lost') bound(true); else chase(); return true; }); });      // tapped past before the roar: he roars as the fight begins. Won or overcome, the grove ends the same way: he is bound and led to Ravana
   }
   // He has beaten the three; then ten more come running out from among the trees on both sides and along the path,
   // and close a ring round him: there is no fighting his way out of that. Taken either way, he is bound where he stands.
-  function bound(taken) {
-    g.sound.score('bound');
-    g.hold(); const p = hero.root.position, base = -(GROVE_AT + HIDE.n * CHUNK);
+  // He has put the three down. He runs on, flat out, for the palace (this is play: the lanes are his); from far ahead
+  // something is thrown, low and spinning; it winds round his ankles and he goes over on his face at full speed.
+  function chase() {
+    for (const e of fight.all) e.bar.visible = false;
+    snare = { at: THRONE_AT - 18, t: -1, from: null, fall: null };
+    g.go(); g.dash(10.5);
+  }
+  function trip() {
+    const p = hero.root.position; g.grow(0, 0.15); g.hold(); G = g.groundAt(p.z);
+    bola.visible = false; cuff.visible = true; cuff.position.set(0, 0.16, 0); cuff.rotation.set(0, 0, 0);
+    hero.play('falling_idle', { fade: 0.12 }); hero.y = hero.floor = 0; hero.vy = 0;
+    snare.fall = { t: 0, v: 10, hit: false, rest: false };
+    g.sound.score('bound'); g.sound.fx('hit', { rate: 1.3 }); g.buzz(40);
+    // seen from in front of him and low, close
+    const x0 = p.x, z0 = p.z, side = x0 > 0.4 ? 1 : -1;
+    const ride = () => { const q = hero.root.position, k = hero.prone; return { at: [x0 - side * (1.7 + 0.9 * k), G + 0.85 - 0.2 * k, q.z - 4.4 + 1.9 * k], look: [q.x, G + 1.2 - 0.9 * k, q.z - 0.9 * k] }; };      // it goes with him, in front and to one side, and comes round and nearer as he lands: he fills the picture from the first frame to the last
+    director.play([{ secs: 2.8, cam: { at: ride().at, look: ride().look, fov: 40, ride } }], () => { if (snare && snare.fall) { snare.fall.rest = true; hero.prone = 1; cuff.rotation.x = -1.5; cuff.position.y = 0.28; } bound(false, true); });
+  }
+  function bound(taken, fallen = false) {
+    if (!fallen) g.sound.score('bound');
+    g.hold(); const hp = hero.root.position, p = fallen ? { x: hp.x, z: hp.z - 0.95 } : { x: Math.max(-2, Math.min(2, hp.x)), z: hp.z }, base = -(GROVE_AT + HIDE.n * CHUNK);      // fallen, he lies ahead of his feet: the ring closes round the middle of him
     for (const e of fight.all) { e.reset(); e.trail.clear(); }
-    putHero(Math.max(-2, Math.min(2, p.x)), p.z, heroYaw(0, -1), 'great_sword_idle'); G = g.groundAt(p.z);
-    const bind = () => { fight.guards.forEach(e => { if (e.march) { e.place(e.march.x, G, e.march.z, yawTo(p.x - e.march.x, p.z - e.march.z)); e.play('great_sword_idle'); e.march = null; } }); hero.bind(true); standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]); };
+    if (!fallen) putHero(p.x, p.z, heroYaw(0, -1), 'great_sword_idle'); G = g.groundAt(p.z);
+    const bind = () => { if (fallen) { unsnare(); putHero(p.x, p.z, heroYaw(0, -1), 'great_sword_idle'); }      // hauled to his feet, and bound
+      fight.guards.forEach(e => { if (e.march) { e.place(e.march.x, G, e.march.z, yawTo(p.x - e.march.x, p.z - e.march.z)); e.play('great_sword_idle'); e.march = null; } }); hero.bind(true); standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]); };
     const tied = beats('grove_bound', [
       { ...shot(v(p.x + 3.4, 1.5, p.z - 3.8), v(p.x, 1.3, p.z), { to: v(p.x + 2.8, 1.5, p.z - 3.2), fov: 48 }), do: bind },
       shot(v(p.x - 0.9, 1.5, p.z - 2.6), v(p.x, 1.45, p.z), { to: v(p.x - 0.6, 1.5, p.z - 2.2), fov: 38 }),
@@ -304,12 +336,13 @@ export function createStory(g) {
       const a = (i + 0.5) / 10 * Math.PI * 2, to = [p.x + Math.sin(a) * 3.4, p.z + Math.cos(a) * 3.4];
       const at = from.reduce((best, f) => f.used || (best && Math.hypot(best[0] - to[0], best[1] - to[1]) <= Math.hypot(f[0] - to[0], f[1] - to[1])) ? best : f, null); at.used = true;      // each from the place nearest where he will stand
       e.kind(['guard', 'rusher', 'guard', 'brute', 'guard', 'captain'][i % 6]); e.reset(); e.place(at[0], G, at[1], yawTo(to[0] - at[0], to[1] - at[1])); e.st = 'idle'; e.bar.visible = false;
-      e.play('great_sword_run', { fade: 0 }); e.march = { x0: at[0], z0: at[1], x: to[0], z: to[1], t: -0.15 * (i % 4), secs: 2.3 };
+      e.play('great_sword_run', { fade: 0 }); e.march = { x0: at[0], z0: at[1], x: to[0], z: to[1], t: -0.15 * (i % 4), secs: fallen ? 1.8 : 2.3 };      // (he is down: they are on him at once)
     });
     g.sound.fx('bell', { rate: 0.8, gap: 1 }); g.buzz([40, 60, 40]); g.sound.warm('hall');      // the court's opening is made ready now: it must sound on the hall's first frame
     director.play([
-      { secs: 2.9, ...shot(v(p.x + 0.6, 5.4, p.z + 9), v(p.x, 1.0, p.z - 1), { to: v(p.x + 0.4, 4.6, p.z + 7.6), fov: 60 }), do: () => hero.play('great_sword_idle', { fade: 0.2 }) },      // from above and behind: they pour in from both sides
-      { secs: 3.0, cam: { round: { c: [p.x, G + 1.25, p.z], from: -0.52, to: 0.52, r: [6.8, 5.6], y: [0.3, 1.1] }, at: v(p.x, 1, p.z + 6), look: v(p.x, 1.3, p.z), fov: 52 }, do: () => g.say(STORY.alerts.bound, 2.6) },      // carried across the road behind the ring as it closes (never out among the lanterns): swords levelled at him on every side
+      { secs: 2.9, ...shot(v(p.x + 0.6, 5.4, p.z + 9), v(p.x, 1.0, p.z - 1), { to: v(p.x + 0.4, 4.6, p.z + 7.6), fov: 60 }), do: () => { if (!fallen) hero.play('great_sword_idle', { fade: 0.2 }); } },      // from above and behind: they pour in from both sides
+      { secs: 3.0, cam: { round: { c: [p.x, G + 1.25, p.z], from: -0.52, to: 0.52, r: [6.8, 5.6], y: fallen ? [2.2, 2.8] : [0.3, 1.1] }, at: v(p.x, 1, p.z + 6), look: v(p.x, fallen ? 0.7 : 1.3, p.z), fov: 52 },      // (brought down, he is low among them: the view looks in over their shoulders)
+        do: () => { g.say(STORY.alerts.bound, 2.6); if (fallen) { hero.prone = 0; squat(p.x, p.z, heroYaw(0, -1)); } } },      // he has got as far as his heels, the cords still round his ankles, and goes no further      // carried across the road behind the ring as it closes (never out among the lanterns): swords levelled at him on every side
       ...tied,
     ], () => g.fade(court));
   }
@@ -317,7 +350,7 @@ export function createStory(g) {
   // ── Ravana's court ──
   function court() {
     g.hold(); g.sound.score('hall', { rise: 0.05 });      // the court's own opening music, an original: its great stroke falls as Ravana is first seen
-    sita.hide(); offer(null);
+    sita.hide(); offer(null); unsnare();
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind
@@ -452,16 +485,19 @@ export function createStory(g) {
   }
 
   return {
-    done, sita, ravana, gate, rematch, yields, grove, meets, wreck, bound, court, brand,
+    done, sita, ravana, gate, rematch, yields, grove, meets, wreck, chase, trip, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; turn = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); unsnare(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; turn = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
       if (!done.lankini && !fire && d >= LANKINI_AT && d < LANKINI_MID + 8) { gate(); return true; }
       if (!done.lankini && !fire && !lankini.root.visible && d > LANKINI_AT - 150 && d < LANKINI_AT) bars();      // on the run in, she is there ahead, growing as he nears
       if (lankini.root.visible && !fight.active && d > LANKINI_MID + 70) lankini.reset();      // long past her: put her away
+      if (snare && snare.t < 0 && !fire && d >= snare.at - 17) {      // thrown from far ahead, from the dark under the palace wall
+        const p = hero.root.position; snare.t = 0; snare.from = [p.x > 0 ? -2.6 : 2.6, g.groundAt(p.z - 40) + 2.4, p.z - 46]; bola.visible = true; g.sound.fx('wing', { rate: 1.7 });
+      }
       if (!done.present && !done.grove && !fire && d >= GROVE_AT - 12 && d < FIRE_AT) present();      // they are there under the great tree before he comes
       if (!done.grove && !fire && d >= GROVE_AT + HIDE.n * CHUNK - HIDE.z - 10 && d < FIRE_AT) { grove(); return true; }      // ten metres short of the tree he will hide behind
       return false;
@@ -510,6 +546,18 @@ export function createStory(g) {
         if (u >= 1) { leapTo = null; hero.y = 0; l.then(); }
       }
       if (vowT > 0 && (vowT -= dt) <= 0 && vowRoar) vowRoar();
+      if (snare && snare.t >= 0 && !snare.fall) {      // it comes on, low and turning, and finds his ankles wherever he has gone
+        snare.t += dt; const u = Math.min(1, snare.t / 1.5), p = hero.root.position, f = snare.from;
+        bola.position.set(f[0] + (p.x - f[0]) * u, f[1] + (p.y + 0.3 - f[1]) * u + 3.6 * u * (1 - u), f[2] + (p.z - f[2]) * u); bola.rotation.set(0.5, snare.t * 26, 0.2);
+        if (u >= 1) trip();
+      }
+      if (snare && snare.fall && !snare.fall.rest) {      // over he goes: the going over is seen slowly, the slide at its own speed
+        const f = snare.fall, step = dt * (f.t < 0.08 ? 1 : f.t < 0.42 ? 0.3 : Math.min(1, 0.3 + (f.t - 0.42) * 3)), p = hero.root.position; f.t += step;
+        hero.prone = Math.min(1, Math.pow(f.t / 0.42, 2)); cuff.rotation.x = -hero.prone * 1.5; cuff.position.y = 0.16 + hero.prone * 0.12;
+        if (!f.hit && f.t >= 0.42) { f.hit = true; g.shake(0.8); g.buzz([60, 30, 160]); g.sound.fx('smash'); fight.sparks.floor = G; fight.sparks.burst({ x: p.x, y: G + 0.15, z: p.z - 1.2 }, 26, [0.75, 0.68, 0.55], 6, 0, -1); }
+        if (f.hit) f.v *= Math.exp(-step * 4.2);
+        p.z -= f.v * step; if (f.hit && f.v < 0.15) f.rest = true;
+      }
       if (clear) { const on = director.active && director.beats === clear.beats && director.i === clear.i; if (on !== clear.on) { clear.on = on; g.veil(!on); g.moonAt(on ? [16, 40, -36] : null); g.mist(on ? 0.008 : null); } if (!on) clear = null; }
       if (held) {      // the ring or the jewel lies in the open hand that holds it, a small light on it
         held.who.offer.hold(held.thing.position, palmUp); held.thing.quaternion.setFromUnitVectors(flat, palmUp);

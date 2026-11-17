@@ -40,6 +40,15 @@ const FLIGHT = [
   ['RightUpLeg', 'RightLeg', [0.1, -0.06, 1]], ['RightLeg', 'RightFoot', [0.04, 0.04, 1]], ['RightFoot', 'RightToeBase', [0, -0.3, 1]],
   ['LeftUpLeg', 'LeftLeg', [-0.12, -0.6, 0.8]], ['LeftLeg', 'LeftFoot', [-0.05, 0.45, 0.9]], ['LeftFoot', 'LeftToeBase', [0, 0.1, 1]],
 ];
+// Thrown forward on his face (his legs caught as he ran): each line as it lies in his own body standing upright (x: his right,
+// y: up, z: behind him); it is tipped with him as he goes over. Arms thrown out ahead to break the fall, legs together, head up.
+const PRONE = [
+  ['Neck', 'Head', [0, 0.8, 0.6]], ['Head', 'HeadTop_End', [0, 0.55, 0.85]],
+  ['LeftArm', 'LeftForeArm', [-0.5, 1, -0.15]], ['LeftForeArm', 'LeftHand', [0.28, 1, -0.1]],
+  ['RightArm', 'RightForeArm', [0.55, 1, -0.12]], ['RightForeArm', 'RightHand', [-0.22, 1, -0.1]],
+  ['LeftUpLeg', 'LeftLeg', [0.03, -1, 0]], ['LeftLeg', 'LeftFoot', [0, -1, 0.03]], ['LeftFoot', 'LeftToeBase', [0, -1, -0.35]],
+  ['RightUpLeg', 'RightLeg', [-0.03, -1, 0]], ['RightLeg', 'RightFoot', [0, -1, 0.03]], ['RightFoot', 'RightToeBase', [0, -1, -0.35]],
+];
 const MACE_UP = new THREE.Vector3(-0.22, 0.5, 0.84);      // the mace lies back over his shoulder, head high behind him
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
 
@@ -85,6 +94,8 @@ export class Hero {
       for (const [f, k] of [['Index', 0.94], ['Middle', 1], ['Ring', 1.04], ['Pinky', 1.08]]) { const to = [1, 2, 3].map(n => this.bones[side + 'HandReal' + f + n]);
         if (to.every(Boolean)) this.fingers.push({ from, to, k, rest: to.map(b => b.quaternion.clone()), inv: to.map(b => b.quaternion.clone().invert()), was: from.map(b => b.quaternion.clone()) }); } }
     this.offer = new Reach(this.model, 'Right');
+    this.pronePose = PRONE.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], d]);
+    this.prone = 0;      // 0 standing .. 1 flat on his face: the story throws him down (the capture)
     this.flightPose = FLIGHT.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], new THREE.Vector3(...d)]);
 
     const blob = new THREE.Mesh(new THREE.CircleGeometry(0.75, 20),
@@ -112,7 +123,7 @@ export class Hero {
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0; this.root.rotation.y = 0; this.free = false; this.pace = 0;
     if (this.offer) { this.offer.on = false; this.offer.w = 0; }
-    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.sink = 0; this.flying = false; this.fly = 0;
+    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.sink = 0; this.flying = false; this.fly = 0; this.prone = 0;
     this.model.rotation.x = 0; this.model.position.z = 0;
     this.root.scale.setScalar(1);
     this.play('breathing_idle', { fade: 0 });
@@ -191,8 +202,8 @@ export class Hero {
     else if (this.y > this.floor || this.vy > 0) { this.vy -= GRAVITY * dt; this.y += this.vy * dt; }
     if (this.y <= this.floor) { this.y = this.floor; this.vy = 0; }      // on the ground, or on top of something he came down on
     // tipped forward to fly level; the body is kept over the spot he is flying above
-    this.model.rotation.x = -this.fly * 1.3;
-    this.model.position.set(0, this.y + this.fly * 0.25 - (this.sink || 0), this.fly * 0.85);      // sink: a held pose whose clip stands him off the ground is set down by that much
+    this.model.rotation.x = -this.fly * 1.3 - this.prone * 1.5;      // (thrown down, he goes over about his feet)
+    this.model.position.set(0, this.y + this.fly * 0.25 - (this.sink || 0) + this.prone * 0.2, this.fly * 0.85);      // sink: a held pose whose clip stands him off the ground is set down by that much
     this.blob.position.y = this.floor + 0.05; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25)); this.blob.visible = this.floor > -1;
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;
@@ -202,6 +213,7 @@ export class Hero {
     this.curl();
     this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();
+    this.poseProne();
     this.offer.update(dt);      // something held out in his open hand, in a scene
   }
 
@@ -215,6 +227,12 @@ export class Hero {
       const over = Math.max(0, CURL.by[1] - 1.83); CURL.by[1] -= over; CURL.by[0] = Math.min(1.5, CURL.by[0] + over * 0.6); CURL.by[2] = Math.min(1.3, CURL.by[2] + over * 0.4);
       for (let n = 0; n < 3; n++) F.to[n].quaternion.copy(F.rest[n]).multiply(CURL.q.setFromAxisAngle(CURL.axis[n], CURL.by[n]));
     }
+  }
+
+  poseProne() {
+    const u = Math.min(1, this.prone * 2.5); if (u < 0.01) return;      // his limbs are where they will be well before he lands
+    const a = -this.model.rotation.x, c = Math.cos(a), s = Math.sin(a), w = u * u * (3 - 2 * u);
+    for (const [bone, child, d] of this.pronePose) aim(bone, child, _t.set(d[0], d[1] * c + d[2] * s, -d[1] * s + d[2] * c), w);
   }
 
   poseFlight() {

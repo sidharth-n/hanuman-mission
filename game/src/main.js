@@ -119,7 +119,7 @@ async function load() {
     jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
 
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
-  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
+  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, dash: v => { state.dash = v; }, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, credits, unask, fireMat: world.flameMat,
     // a great thing broken through in a scene (the doors of Ravana's hall): its pieces thrown on the way he is going
     smash: (x, y, z) => { for (const dx of [-2.6, 0, 2.6]) debris.burst(x + dx, y + (dx ? 2.4 : 4.6), z, 16, 0.6, 10, 0, 7); fight.sparks.floor = y; fight.sparks.burst({ x, y: y + 2.5, z }, 18, [1, 0.6, 0.2], 10, 0, 1); state.shake = Math.max(state.shake, 0.9); sound.fx('smash'); buzz([30, 20, 140]); },
@@ -247,7 +247,7 @@ function start(from = 0, fresh = false, straight = false) {
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
   unrout(); world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
-  Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+  Object.assign(state, { orbit: null, dash: 0, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
@@ -384,7 +384,7 @@ function endFight(how) {
 }
 // A scene of the story begins: the run stops where it is, and nothing of the play is on screen.
 function hold() {
-  state.mode = 'scene'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; state.tscale = 1; state.slowT = 0; sound.rest();
+  state.mode = 'scene'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; state.tscale = 1; state.slowT = 0; state.dash = 0; sound.rest();
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }
   hero.free = true; if (stick) stick.release(); ui.card.hidden = true; screen(null);
 }
@@ -414,8 +414,9 @@ function won() { unrout(); story.ending(); }      // the last scene; it ends in 
 
 function rules(dt) {
   state.speed = Math.min(MAX_SPEED, state.speed + ACCEL * dt);
-  if (!state.fire && world.kindAt(hero.root.position.z) === 'grove') state.speed = Math.max(7.2, state.speed - 9 * dt);      // in the grove he goes softly: the place is to be seen
+  if (!state.fire && !state.dash && world.kindAt(hero.root.position.z) === 'grove') state.speed = Math.max(7.2, state.speed - 9 * dt);      // in the grove he goes softly: the place is to be seen
   if (state.ramp) { state.speed = Math.min(state.ramp, state.speed + 5 * dt); if (state.speed >= state.ramp) state.ramp = 0; }      // back up to pace after the fight
+  if (state.dash) { state.ramp = 0; state.speed = Math.min(state.dash, Math.max(state.speed, 7.2) + 6 * dt); }      // the story has him run flat out (from the grove fight, to where he is brought down)
   if (state.danger > 0) state.danger -= dt;
   if (state.slow > 0) state.slow = Math.max(0, state.slow - dt * 1.1);
   const p = hero.root.position;
