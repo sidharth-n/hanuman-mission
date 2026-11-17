@@ -91,10 +91,24 @@ async function load() {
   // ?debug&try=ravana:picks/ravana-new-faces : a character's file under trial is loaded in place of the game's own, so a reworked
   // character can be seen in the game before it is put there
   const trial = debug ? Object.fromEntries((query.get('try') || '').split(',').filter(Boolean).map(s => s.split(':'))) : {};
-  const one = name => loader.loadAsync(trial[name] ? `${trial[name]}.glb` : `assets/${CAST.includes(name) ? '' : 'world/'}${file(name)}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
-  const tl = new THREE.TextureLoader();
+  // A file that does not come is asked for again, by itself (Sid, on his phone with two bars: "sometimes I get this error.
+  // reload fixes it mostly... this is bad UX at start"): 25 MB in 22 files, and one dropped request used to fail the whole
+  // start. Each file is tried four times, a little longer apart each time, under a fresh address so that no failed answer
+  // is handed back; meanwhile the line says it is slow, not that it failed. No more than five files are fetched at once,
+  // so a weak signal is not shared out among twenty.
+  const words = ui.loadLine.textContent; let slow = 0;
+  const again = async get => {
+    for (let n = 1; ; n++) {
+      try { const got = await get(n > 1 ? (u => u + (u.includes('?') ? '&' : '?') + 'again=' + n) : (u => u)); if (n > 1 && --slow <= 0) { slow = 0; ui.loadLine.textContent = words; } return got; }
+      catch (err) { if (n >= 4) throw err; if (n === 1) slow++; ui.loadLine.textContent = 'Slow connection. Still loading'; await new Promise(r => setTimeout(r, 500 * n * n)); }
+    }
+  };
+  const queue = []; let busy = 0;
+  const turn = job => new Promise((yes, no) => { const run = () => { busy++; job().then(yes, no).finally(() => { busy--; const next = queue.shift(); if (next) next(); }); }; if (busy < 5) run(); else queue.push(run); });
+  const one = name => turn(() => again(u => loader.loadAsync(u(trial[name] ? `${trial[name]}.glb` : `assets/${CAST.includes(name) ? '' : 'world/'}${file(name)}.glb`)))).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
+  const tl = new THREE.TextureLoader(), pic = at => again(u => tl.loadAsync(u(at)));
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
-    tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync(debug && query.get('sky') ? query.get('sky') : 'assets/tex/sky.jpg')]);      // ?debug&sky=<picture>: another sky under trial (a whole panorama is laid once round)
+    pic('assets/tex/city.jpg'), pic('assets/tex/city-glow.jpg'), pic('assets/tex/paving.jpg'), pic(debug && query.get('sky') ? query.get('sky') : 'assets/tex/sky.jpg')]);      // ?debug&sky=<picture>: another sky under trial (a whole panorama is laid once round)
   world = new World(scene, models, { city, glow, paving, sky }, { lite: settings.gfx !== 'rich', bare: explore });
   world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); sound.fx('bell', { gap: 4 }); };
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
@@ -819,7 +833,10 @@ document.addEventListener('contextmenu', e => e.preventDefault());
   if (apple) offer('Install: tap <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7.5 7.5 12 3l4.5 4.5M5 12v8h14v-8"/></svg>Share, then Add to Home Screen', false);
 }
 
-load().catch(err => { ui.loadLine.textContent = 'Could not load. Check the connection and reload'; console.error(err); });
+load().catch(err => {      // four tries of some file have failed: one tap starts again
+  ui.loadLine.textContent = 'Could not load. Tap to try again'; console.error(err);
+  window.addEventListener('pointerdown', () => location.reload(), { once: true });
+});
 requestAnimationFrame(frame);
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js?v=' + __STAMP__);
