@@ -115,6 +115,9 @@ export class Fight {
     this.sparks = new Sparks(this.scene, tex);
     this.flashes = [0, 1, 2, 3].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true })); s.visible = false; s.userData = { t: 0, secs: 1, size: 1 }; this.scene.add(s); return s; });
     this.heroTrail = new Trail(this.scene, [1, 0.72, 0.28]);
+    // the ring of light that runs out over the ground from the mace's great blow
+    this.ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 56).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffc860, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+    this.ring.visible = false; this.ring.frustumCulled = false; this.scene.add(this.ring); this.blast = null;
     const add = g => { g.trail = new Trail(this.scene, [1, 0.42, 0.24]); this.scene.add(g.root); return g; };
     this.guards = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(() => add(new Guard(this.gltf, this.sword)));      // ten: the ring that closes round him in the grove
     // Lankini fights with a great sword, in the guards' own way: far stronger, and she does not fall back from a light blow
@@ -165,7 +168,7 @@ export class Fight {
 
   // Everything put away: a new run, or back to the title.
   clear() {
-    this.active = false; this.over = null; this.result = null; this.nextT = 0; this.stick.x = this.stick.y = 0; this.cine = null;
+    this.active = false; this.over = null; this.result = null; this.nextT = 0; this.stick.x = this.stick.y = 0; this.cine = null; this.blast = null; this.ring.visible = false;
     for (const g of this.all) { g.reset(); g.trail.clear(); }
     this.heroTrail.clear(); this.hero.free = false; this.hero.root.rotation.y = 0;
   }
@@ -194,11 +197,11 @@ export class Fight {
     if (g) {      // he turns on the nearest of them and closes the distance, as fighting games do
       const dx = g.root.position.x - p.x, dz = g.root.position.z - p.z, d = Math.max(0.01, Math.hypot(dx, dz));
       h.fx = dx / d; h.fz = dz / d;
-      const go = Math.min(2.2 * S, Math.max(0, d - (g.k.boss ? 3.0 : 1.55 * S))); h.vx = h.fx * go * 9; h.vz = h.fz * go * 9;
+      const go = Math.min(2.2 * S, Math.max(0, d - (g.k.boss ? 3.0 : 1.55 * S))); h.vx = h.fx * go * 11; h.vz = h.fz * go * 11;      // he is beside his man by the time the blow lands: it counts only where it is seen to reach
     } else if (m > 0.15) { h.fx = s.x / m; h.fz = s.y / m; }
     h.heavy = h.combo === 3; h.act = 'attack'; h.t = 0; h.struck = false; h.queued = false;
-    if (h.heavy) { hero.play('great_sword_slash', { once: true, from: 0.45, speed: 1.25, fade: 0.06 }); h.strikeAt = 0.22; h.len = 0.62; h.reach = 2.8 * S; h.dmg = 2; }      // the third blow of a row is the great one
-    else { hero.play('mutant_punch', { once: true, from: 0.1, speed: 1.3, fade: 0.05 }); h.strikeAt = 0.15; h.len = 0.4; h.reach = 2.35 * S; h.dmg = 1; }
+    if (h.heavy) { hero.play('great_sword_slash', { once: true, from: 0.45, speed: 1.25, fade: 0.06 }); h.strikeAt = 0.22; h.len = 0.62; h.reach = 2.45 * S; h.dmg = 2; }      // the third blow of a row is the great one
+    else { hero.play('mutant_punch', { once: true, from: 0.1, speed: 1.3, fade: 0.05 }); h.strikeAt = 0.15; h.len = 0.4; h.reach = 2.0 * S; h.dmg = 1; }
     this.sound.fx('slide', { rate: h.heavy ? 1.5 : 2.1, gap: 0.04 });
     return true;
   }
@@ -221,18 +224,18 @@ export class Fight {
     h.act = null; h.queued = false; this.sound.fx('leap'); return true;
   }
 
-  // The mace charged with all his strength: every one of them near him is thrown back.
+  // The mace charged with all his strength: he brings it down, a ring of light runs out from him over the ground, and
+  // each of them is thrown back as it reaches him. (Sid: "hanuman does something and at a distance the guards fall even
+  // without hitting them": they fell all at once, eight metres off, with nothing seen to touch them.)
   special() {
-    if (!this.active || this.over) return false;
-    const p = this.hero.root.position; let any = false;
-    for (const g of this.all) {
-      if (g.st === 'dead' || !g.root.visible) continue;
-      const dx = g.root.position.x - p.x, dz = g.root.position.z - p.z, d = Math.max(0.01, Math.hypot(dx, dz));
-      if (d < 8 * this.s) { this.hurt(g, 2, dx / d, dz / d, true); any = true; }
-    }
-    _a.set(p.x, p.y + 1.1 * this.s, p.z); this.sparks.burst(_a, 60, GOLD, 11 * this.s); this.flash(_a, GOLD, 5, 0.22);
-    this.freeze = 0.12; this.shake(0.6);
-    return any;
+    if (!this.active || this.over || this.blast) return false;
+    const p = this.hero.root.position, R = 5.5 * this.s;
+    if (!this.all.some(g => g.st !== 'dead' && g.root.visible && Math.hypot(g.root.position.x - p.x, g.root.position.z - p.z) < R)) return false;
+    this.blast = { t: 0, x: p.x, z: p.z, R, speed: 17 * this.s, done: new Set() };
+    this.ring.position.set(p.x, this.groundAt(p.z) + 0.09, p.z); this.ring.scale.setScalar(0.1); this.ring.material.opacity = 1; this.ring.visible = true;
+    _a.set(p.x, p.y + 0.4 * this.s, p.z); this.sparks.burst(_a, 60, GOLD, 11 * this.s); this.flash(_a, GOLD, 4, 0.22);
+    this.freeze = 0.1; this.shake(0.6);
+    return true;
   }
 
   // ── blows landing ──
@@ -263,9 +266,11 @@ export class Fight {
     this.flash(_a, clash ? WHITE : GOLD, heavy ? 2.6 : 1.7);
     g.hp -= dmg; g.showHp();
     // Lankini is not driven back by a great blow: she takes it and comes on. Only when enough of them have told on her is she stopped for a moment, where she stands.
-    if (g.k.boss && g.hp > 0) { g.poise += dmg; if (g.poise < 7 || g.st === 'windup') { g.vx = nx * 1.2; g.vz = nz * 1.2; return; } g.poise = 0; }
+    // (Sid: "even when i strike lankini the stroke is not hit and she does not react": she took six blows without a sign. Now every
+    // blow that lands rocks her where she stands, and a full row of three makes her reel.)
+    if (g.k.boss && g.hp > 0) { g.poise += dmg; if (g.poise < 4 || g.st === 'windup') { g.vx = nx * 1.2; g.vz = nz * 1.2; this.flinch(g, nx, nz, heavy); return; } g.poise = 0; }
     // a light blow does not stop a sword that is already falling, nor one of the firm ones at any time: get clear, or land the great blow
-    if (!heavy && g.hp > 0 && (clash || g.k.firm)) { g.vx = nx * 1.5; g.vz = nz * 1.5; return; }
+    if (!heavy && g.hp > 0 && (clash || g.k.firm)) { g.vx = nx * 1.5; g.vz = nz * 1.5; this.flinch(g, nx, nz, false); return; }
     g.t = 0; g.struck = false; g.second = false;
     if (g.token) { g.token = false; this.cool = this.rules.rest + Math.random() * 0.4; }
     const push = (heavy ? 9 : 5) * (g.k.boss ? 0.12 : g.k.firm ? 0.45 : 1) * this.s; g.vx = nx * push; g.vz = nz * push;
@@ -276,6 +281,13 @@ export class Fight {
         else { this.over = 'won'; this.overT = 1.9; this.slowMotion(1.3, 0.28); }      // the last one of all falls slowly
       }
     } else { g.st = 'hurt'; g.play(g.clips.hit, { once: true, fade: 0.05, ...g.hitPlay }); }
+  }
+
+  // A blow that lands and does not throw its man back is still seen to land: his body rocks away from it and comes
+  // upright again, without a step of his fight being changed (a sword already falling still falls).
+  flinch(g, nx, nz, heavy) {
+    const fwd = nx * Math.sin(g.yaw) + nz * Math.cos(g.yaw), right = nx * Math.cos(g.yaw) - nz * Math.sin(g.yaw);
+    g.rock = { t: 0, x: fwd * (heavy ? 0.34 : 0.24), z: -right * (heavy ? 0.34 : 0.24) };
   }
 
   // A blow lands on him: he is thrown backward off his feet and lands on his back, lies a moment, and springs up; nothing
@@ -338,14 +350,24 @@ export class Fight {
     if (this.freeze > 0) { this.freeze -= real; this.cineView(); return; }      // the instant a blow lands, everything holds
     const hero = this.hero, h = this.h, p = hero.root.position, s = this.stick, m = Math.hypot(s.x, s.y);
     h.comboT -= dt; h.safe -= dt; h.dodgeCd -= dt;
+    if (this.blast) {      // the ring runs out, and throws back each of them as it reaches him
+      const b = this.blast; b.t += dt; const r = Math.min(b.R, b.t * b.speed);
+      for (const g of this.all) {
+        if (b.done.has(g) || g.st === 'dead' || !g.root.visible) continue;
+        const dx = g.root.position.x - b.x, dz = g.root.position.z - b.z, d = Math.max(0.01, Math.hypot(dx, dz));
+        if (d <= r) { b.done.add(g); this.hurt(g, 2, dx / d, dz / d, true); }
+      }
+      this.ring.scale.setScalar(Math.max(0.1, r)); this.ring.material.opacity = 1 - (r / b.R) ** 2 * 0.85;
+      if (r >= b.R) { this.blast = null; this.ring.visible = false; }
+    }
     const S = this.s;
     if (h.slam && !hero.airborne) {      // down out of the air, mace first: all of them round him feel it
-      h.slam = false; h.heavy = true; h.dmg = 2; h.reach = 3.3 * S; this.round = true; this.heroStrike(); this.round = false;
+      h.slam = false; h.heavy = true; h.dmg = 2; h.reach = 2.9 * S; this.round = true; this.heroStrike(); this.round = false;
       _a.set(p.x, p.y + 0.25, p.z); this.sparks.burst(_a, 44, GOLD, 9 * S); this.flash(_a, GOLD, 3.2 * S, 0.2); this.shake(0.55); this.sound.fx('smash', { gap: 0.04 });
     }
     if (h.act) {
       h.t += dt;
-      p.x += h.vx * dt; p.z += h.vz * dt; const drag = Math.exp(-dt * (h.act === 'dodge' ? 2.2 : h.act === 'hurt' && !h.down ? 2.5 : 9)); h.vx *= drag; h.vz *= drag;
+      p.x += h.vx * dt; p.z += h.vz * dt; const drag = Math.exp(-dt * (h.act === 'dodge' ? 2.2 : h.act === 'hurt' && !h.down ? 2.5 : h.act === 'attack' ? 11 : 9)); h.vx *= drag; h.vz *= drag;
       if (h.act === 'hurt') {
         if (!h.down && h.t * FALL.speed >= FALL.land) {      // he comes down on his back
           h.down = h.t;
@@ -471,6 +493,7 @@ export class Fight {
     for (const g of this.all) {
       g.trail.update(real); if (!g.root.visible) continue;
       g.mixer.update(hold);
+      if (g.rock) { const r = g.rock; r.t += hold; const u = r.t / 0.34, k = u >= 1 ? 0 : Math.min(1, u * 7) * (1 - u) * (1 - u); g.body.rotation.x = g.lean0[0] + r.x * k; g.body.rotation.z = g.lean0[1] + r.z * k; if (u >= 1) g.rock = null; }
       if (g.st === 'dead') {      // thrown back by the blow, down, and after a moment sinking away (Lankini stays where she fell)
         const gp = g.root.position; g.t += hold; gp.x += g.vx * hold; gp.z += g.vz * hold; const drag = Math.exp(-hold * 8); g.vx *= drag; g.vz *= drag;
         if (g.t > 3 && !g.k.stays) { gp.y -= hold * 0.7; if (g.t > 4.3) g.root.visible = false; }

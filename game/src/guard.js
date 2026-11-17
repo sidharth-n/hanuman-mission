@@ -49,7 +49,7 @@ export class Guard {
       this.model.position.set(-c.x, -box.min.y, -c.z);
       this.body = new THREE.Group(); this.body.add(this.model); this.base = opt.height / size.y; this.tall = opt.height; this.body.scale.setScalar(this.base);
     } else { this.body = this.model; this.base = this.model.scale.x; this.tall = 1.8; }
-    this.root.add(this.body);
+    this.root.add(this.body); this.lean0 = [this.body.rotation.x, this.body.rotation.z];      // as he stands, before any blow rocks him
     this.meshes = []; this.model.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.6; this.meshes.push(o); } });
     this.plain = this.meshes.map(m => m.material); this.gltf = gltf;
     this.mixer = new THREE.AnimationMixer(this.model);
@@ -104,6 +104,7 @@ export class Guard {
 
   reset() {
     this.hp = this.max; this.st = 'idle'; this.t = 0; this.vx = 0; this.vz = 0; this.yaw = 0; this.struck = false; this.second = false; this.token = false; this.poise = 0;
+    this.rock = null; this.body.rotation.x = this.lean0[0]; this.body.rotation.z = this.lean0[1];
     this.root.visible = false; this.bar.visible = true; this.fill.scale.x = this.wide - 0.04;
     if (this.current) this.current.stop(); this.current = null; this.name = null;
   }
