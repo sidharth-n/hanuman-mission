@@ -396,7 +396,8 @@ export function createStory(g) {
         { ...onHero, do: () => ravana.play('sit') },
         { ...shot(v(-2.3, 1.2, hz - 1.3), v(0, 1.6, hz - 0.4), { to: v(-2.0, 1.3, hz - 1.9), fov: 50 }) },
         { ...shot(v(-1.6, T + 1.9, tz + 4.4), v(0, T + 2.5, tz), { to: v(-1.2, T + 2.2, tz + 3.8), fov: 44 }), do: () => { ravana.play('sit_exit', { once: true }); ravana.rise = 1.1; ravana.root.position.y = G + T; ravana.root.position.z = tz + 1.5; } },
-        { ...over, do: () => ravana.play('command', { once: true, fade: 0.2 }) },
+        // his order, seen from in front of him and a little below: the whole of him standing before his throne, the row of heads, the arm thrown out (Sid: "where he points his fingers and tells them to burn... the camera more to the front"; it had been taken from far behind Hanuman, and he was small)
+        { ...shot(v(-1.6, T + 1.25, tz + 5.9), v(either(0.15, 0.38), T + 1.42, tz + 1.5), { to: v(-1.15, T + 1.35, tz + 5.2), fov: either(40, 34) }), do: () => ravana.play('command', { once: true, fade: 0.2 }) },
       ]),
       // Ravana's word is carried out before our eyes: a guard brings a burning brand round behind him and puts it to his tail
       { ...shot(v(-1.5, 0.8, hz + 3.5), v(0.35, 1.3, hz + 1.0), { to: v(-1.2, 0.85, hz + 3.0), fov: either(50, 40) }), secs: 3.4, do: kindle },
