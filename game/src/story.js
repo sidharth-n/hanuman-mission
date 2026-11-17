@@ -25,7 +25,7 @@ export function createStory(g) {
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
   gift.visible = false; g.scene.add(gift);
   const pass = { t: 0, secs: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
-  const done = { lankini: false, grove: false, end: false };
+  const done = { lankini: false, challenged: false, grove: false, end: false };
   let G = 0;      // the height of the floor where the scene is played
 
   const v = (x, y, z) => [x, G + y, z];
@@ -47,12 +47,14 @@ export function createStory(g) {
     const hz = -LANKINI_AT, lz = hz - 8.5;
     putHero(0, hz, 0);
     lankini.kind('lankini'); lankini.reset(); lankini.place(0, G, lz, 0); lankini.st = 'idle'; lankini.bar.visible = false; lankini.play('fold_arms', { fade: 0 });
+    const fightHer = () => g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? yields() : null);
+    if (done.challenged) { lankini.play('idle', { fade: 0 }); return fightHer(); }      // she threw him back before: the words are said, the fight begins at once
     director.play(beats('lankini_challenge', [
       { ...shot(v(1.9, 1.1, hz - 4.6), v(0, 2.2, lz), { to: v(1.5, 1.3, hz - 5.4), fov: 46 }), do: () => lankini.play('talk') },
       { ...shot(v(-1.4, 1.5, hz - 3.4), v(0, 1.35, hz), { to: v(-1.1, 1.5, hz - 2.9), fov: 42 }), do: () => lankini.play('fold_arms') },
       { ...shot(v(1.3, 2.1, hz + 2.6), v(0, 2.0, lz), { to: v(1.0, 2.0, hz + 2.0), fov: 50 }), do: () => lankini.play('talk') },
       { ...either(shot(v(6.4, 1.5, hz - 4), v(0, 1.5, hz - 4.3), { to: v(5.6, 1.5, hz - 4), fov: 52 }), shot(v(1.9, 2.7, hz + 3.6), v(0, 1.7, lz), { to: v(1.5, 2.5, hz + 3.0), fov: 46 })), do: () => lankini.play('idle') },
-    ]), () => g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? yields() : null));
+    ]), () => { done.challenged = true; fightHer(); });
   }
   function yields() {
     done.lankini = true; g.hold();
@@ -122,13 +124,14 @@ export function createStory(g) {
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),
       { ...shot(v(-2.4, 0.7, z + 4.2), v(0, 1.6, z), { to: v(-1.8, 0.8, z + 3.4), fov: 50 }), do: () => hero.play('mutant_roaring', { once: true, fade: 0.2 }) },
-    ]), () => g.battle(GROVE_MID, PLANS.grove, how => how === 'won' ? bound() : null));
+    ]), () => g.battle(GROVE_MID, PLANS.grove, how => { bound(how === 'lost'); return true; }));      // won or overcome, the grove ends the same way: he is bound and led to Ravana
   }
-  function bound() {
+  function bound(taken) {
     g.hold(); const p = hero.root.position;
+    if (taken) for (const e of fight.all) { e.reset(); e.trail.clear(); }      // those still standing round him give way to the two who bind him
     putHero(p.x, p.z, heroYaw(0, -1)); hero.bind(true);
     standGuards([[p.x - 1.5, p.z + 0.5, yawTo(1, -0.4)], [p.x + 1.5, p.z + 0.5, yawTo(-1, -0.4)]]);
-    g.say(STORY.alerts.bound, 2.4);
+    if (!taken) g.say(STORY.alerts.bound, 2.4);
     director.play(beats('grove_bound', [
       shot(v(p.x + 3.4, 1.5, p.z - 3.8), v(p.x, 1.3, p.z), { to: v(p.x + 2.8, 1.5, p.z - 3.2), fov: 48 }),
       shot(v(p.x - 0.9, 1.5, p.z - 2.6), v(p.x, 1.45, p.z), { to: v(p.x - 0.6, 1.5, p.z - 2.2), fov: 38 }),
@@ -198,7 +201,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = false; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
+      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {

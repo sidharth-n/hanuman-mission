@@ -203,7 +203,10 @@ function startFight(mid = FIGHT_MID, plan = PLANS.court) {
 function endFight(how) {
   fight.result = null; if (stick) stick.release();
   const then = state.fightDone; state.fightDone = null;
-  if (how === 'lost') { screen(null); return caught(); }      // he stays where he fell, among them, until the next run
+  if (how === 'lost') {
+    screen(null); if (then && then(how)) return;      // the story takes him as he fell: in the grove he is bound and led to Ravana
+    return caught();      // he stays where he fell, among them, until the next run
+  }
   sound.fx('power'); buzz([40, 40, 120]);
   if (then) return then(how);      // the story goes on from here
   say(STORY.alerts.cleared, 2.4); resumeRun();
