@@ -207,7 +207,7 @@ function fell() {
 // The palace court: the guards make their stand. The run stops, the fight's controls come up, and he must put all three
 // down to go on. If they take all his lives he is captured, and the next run takes up from the gate of the court.
 function startFight(mid = FIGHT_MID, plan = PLANS.court, scale = 1) {
-  state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null;
+  state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; sound.rest();
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
   fight.begin(mid, plan, scale); painted.lives = null;
   if (scale === 1) say(STORY.alerts.guards, 2.6);
@@ -227,13 +227,13 @@ function endFight(how) {
 }
 // A scene of the story begins: the run stops where it is, and nothing of the play is on screen.
 function hold() {
-  state.mode = 'scene'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; state.tscale = 1; state.slowT = 0;
+  state.mode = 'scene'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; state.tscale = 1; state.slowT = 0; sound.rest();
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }
   hero.free = true; if (stick) stick.release(); ui.card.hidden = true; screen(null);
 }
 // The run goes on from where he stands: after a fight, after a scene.
 function resumeRun() {
-  const p = hero.root.position; hero.free = false; hero.floor = 0;
+  const p = hero.root.position; hero.free = false; hero.floor = 0; sound.run();
   hero.root.rotation.y = 0; hero.lane = [0, 1, 2].reduce((a, b) => Math.abs(LANE_X[b] - p.x) < Math.abs(LANE_X[a] - p.x) ? b : a);
   state.mode = 'run'; state.ramp = Math.max(state.speed, speedAt(-p.z)); state.speed = 7; state.safe = 2; state.dist = -p.z; last = performance.now(); view.join = 1;
   state.kept = { gold: state.gold, meter: state.meter, wind: state.wind }; screen(null);

@@ -172,11 +172,15 @@ body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + va
 #drama .bar.low { top: auto; bottom: 0; height: calc(8vh + var(--bottom)); }
 /* in a scene the edges of the picture fall away into shadow: the eye stays on the one who speaks */
 #drama::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 78% 62% at 50% 44%, rgba(0,0,0,0) 52%, rgba(0,0,0,.34) 78%, rgba(0,0,0,.62) 100%); }
-#drama .say { position: absolute; left: 50%; bottom: calc(8vh + 16px + var(--bottom)); transform: translateX(-50%); width: min(92vw, 880px); text-align: center; padding: 18px 14px 10px;
-  background: radial-gradient(ellipse at 50% 60%, rgba(8, 6, 4, .78), rgba(8, 6, 4, 0) 72%); animation: line .35s ease-out; }
-#who { display: block; font: 700 clamp(14px, .5vw + 12px, 20px)/1.2 var(--head); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); padding-left: .22em; margin-bottom: 4px; text-shadow: 0 1px 3px #000; }
-#line { margin: 0; font: 500 clamp(26px, 1.2vw + 21px, 40px)/1.22 var(--text); color: var(--ink); text-shadow: 0 2px 6px #000, 0 0 2px #000; text-wrap: balance; }
-#drama .say.told #line { font-style: italic; color: var(--gold-light); }
+/* the words of a scene (Sid's pick, look A): a dark lacquer plate in a fine double line of gold; who speaks is named on a gold tab riding its top edge; the teller's words stand on a lighter plate, in italic, with no name */
+#drama .say { position: absolute; left: 50%; bottom: calc(8vh + 20px + var(--bottom)); transform: translateX(-50%); width: min(92vw, 900px); box-sizing: border-box; text-align: center; padding: 22px 24px 15px;
+  background: rgba(14, 9, 5, .76); border: 1px solid var(--gold); outline: 1px solid rgba(232, 180, 76, .45); outline-offset: 3px; border-radius: 3px; box-shadow: 0 6px 24px rgba(0, 0, 0, .6); animation: line .35s ease-out; }
+#who { position: absolute; top: 0; left: 50%; transform: translate(-50%, -56%); margin: 0; font: 700 clamp(14px, .5vw + 12px, 20px)/1.2 var(--head); letter-spacing: .2em; text-transform: uppercase; white-space: nowrap;
+  color: #2a1705; background: linear-gradient(#f3cf78, #c8922e); padding: 4px 16px 2px 18px; border-radius: 2px; box-shadow: 0 2px 6px rgba(0, 0, 0, .6); }
+#who[hidden] { display: none; }
+#line { margin: 0; font: 600 clamp(30px, 1.3vw + 24px, 44px)/1.16 var(--text); color: #f6ecd9; text-shadow: 0 1px 3px #000; text-wrap: balance; }
+#drama .say.told { background: rgba(14, 9, 5, .5); border-color: rgba(232, 180, 76, .55); outline: none; padding-top: 15px; }
+#drama .say.told #line { font-style: italic; font-weight: 500; color: var(--gold-light); }
 #skip { position: absolute; right: calc(12px + var(--right)); top: calc(8px + var(--top)); pointer-events: auto; min-width: 68px; min-height: 44px; padding: 0 14px;
   font: 700 12px/1 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--gold-light); background: rgba(26, 22, 19, .72); border: 1px solid var(--gold-deep); border-radius: 4px; }
 @keyframes line { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translate(-50%, 0); } }

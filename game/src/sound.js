@@ -14,6 +14,7 @@ export function createSound(store) {
   const AC = window.AudioContext || window.webkitAudioContext;
   const ctx = AC ? new AC() : null, out = ctx ? ctx.createGain() : null, buffers = {}, last = {};
   let voice = null;      // the chant while it sounds
+  let resting = false, fading = null;      // the song is for the run only: in a scene or a fight it has faded away and waits
   let burn = null;       // the city burning, on a loop
 
   const track = new Audio();
@@ -70,9 +71,17 @@ export function createSound(store) {
     toggle() { on = !on; store.set('sound', on ? 'on' : 'off'); track.muted = !on; if (out) out.gain.value = on ? 1 : 0; if (!on) hush(); return on; },
     // a run begins: the chant, then the song (one track, begun by the player's own tap)
     blaze,
-    start() { wake(); hush(); blaze(false); track.muted = !on; track.volume = 1; try { track.currentTime = 0; } catch { /* not loaded yet */ } track.play().catch(e => { trackError = trackError || e.name; }); },
+    start() { wake(); hush(); blaze(false); resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; try { track.currentTime = 0; } catch { /* not loaded yet */ } track.play().catch(e => { trackError = trackError || e.name; }); },
     pause() { track.pause(); hush(); blaze(false); },                              // the game is paused: the track held where it is, the chant cut
-    resume() { wake(); track.play().catch(() => {}); },             // and taken up again from there
+    resume() { wake(); if (!resting) track.play().catch(() => {}); },             // and taken up again from there (unless a scene or a fight has it at rest)
+    // the run stops for a scene or a fight: the song fades away over a second and a half and waits (a phone that fixes the volume simply stops it then)
+    rest() {
+      if (resting) return; resting = true; hush(); clearInterval(fading);
+      const from = track.volume, t0 = performance.now();
+      fading = setInterval(() => { const u = Math.min(1, (performance.now() - t0) / 1500); track.volume = from * (1 - u) * (1 - u); if (u >= 1) { clearInterval(fading); fading = null; track.pause(); track.volume = 1; } }, 40);
+    },
+    // and he runs again: the song is simply there, from where it left off
+    run() { if (!resting) return; resting = false; clearInterval(fading); fading = null; track.volume = 1; wake(); track.play().catch(() => {}); },
     stop() { track.pause(); blaze(false); },                                       // the run is over
     // the chant over a big moment: once per moment, and not on top of the opening chant
     chant() {
