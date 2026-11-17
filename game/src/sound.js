@@ -58,7 +58,7 @@ export function createSound(store) {
       // music that is on this machine only (it lies beside the song of the run and is in no public build): listed in local.json, it is used where a scene asks for it
       .then(() => fetch(TRACKS + 'local.json')).then(r => (r.ok ? r.json() : null)).then(j => { if (j && j.cues) { cues = cues || {}; for (const k of Object.keys(j.cues)) cues[k] = { ...j.cues[k], dir: TRACKS }; } }).catch(() => {});
     const get = (name, url) => decode(url).then(buf => { if (buf) buffers[name] = buf; });
-    get('chant', TRACKS + 'chant.mp3');
+    get('chant', TRACKS + 'chant.mp3').then(() => { if (!buffers.chant) get('chant', EFFECTS + 'chant.mp3'); });      // the cry of Rama's name: the maker's own where it is, a recording of our own in every published build
     for (const name of Object.keys(LEVEL)) if (name !== 'chant') get(name, EFFECTS + name + '.mp3');
   }
 
@@ -185,7 +185,7 @@ export function createSound(store) {
     stop() { held = false; if (ctx && ctx.state === 'suspended') ctx.resume(); blaze(false); quiet(); score(null, { fade: 1.5 }); clearInterval(fading); fading = null; if (level && !track.paused) { loud(0, 1.2); fading = setTimeout(() => { fading = null; track.pause(); }, 1260); } else track.pause(); },                                       // the run is over
     // the chant over a big moment: once per moment, and not on top of the opening chant
     chant() {
-      if (!track.paused && track.currentTime < INTRO) return;
+      if (!noSong && !track.paused && track.currentTime < INTRO) return;      // (a build without the song has no opening chant to wait for)
       const now = performance.now();
       if (voice || now - (last.chant || 0) < 22000) return;      // said once at a great moment, never again and again (Sid: "just say Ram once, not in loop")
       hush();
