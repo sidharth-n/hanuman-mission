@@ -22,14 +22,16 @@ export function listen(target, on) {
 }
 
 // The fight's controls, laid out the way action games on a phone lay them out: a thumb stick on the left that comes to
-// wherever the thumb lands, attack and dodge under the right thumb. On a keyboard: arrows or WASD, Space or J, Shift or K.
+// wherever the thumb lands; strike, dodge and jump under the right thumb. On a keyboard, as games there have it: WASD or the
+// arrows to move, Space to jump, J (or F, Enter, or the mouse) to strike, Shift (or K) to dodge, E (or Q) for the great blow.
 // live(): whether a fight is on. Returns the stick: x to the right of the screen, y toward the player, each -1..1.
-export function fightControls(pad, { live, attack, dodge }) {
+export function fightControls(pad, { live, attack, dodge, jump, special }) {
   const stick = { x: 0, y: 0 }, knob = pad.firstElementChild, R = 46, held = new Set();
   let id = null, ox = 0, oy = 0;
   const keys = () => { if (id !== null) return; stick.x = (held.has('right') ? 1 : 0) - (held.has('left') ? 1 : 0); stick.y = (held.has('down') ? 1 : 0) - (held.has('up') ? 1 : 0); };
   const drop = () => { id = null; knob.style.transform = ''; pad.style.transform = ''; pad.classList.remove('held'); stick.x = stick.y = 0; keys(); };
   window.addEventListener('pointerdown', e => {
+    if (live() && e.pointerType === 'mouse' && !(e.target.closest && e.target.closest('button, .tablet'))) { attack(); return; }      // with a mouse, a click is a blow: he is moved by the keys
     if (!live() || id !== null || (e.target.closest && e.target.closest('button, .tablet')) || e.clientX > window.innerWidth * 0.5) return;      // the right half belongs to the buttons
     const r = pad.getBoundingClientRect(); id = e.pointerId; ox = e.clientX; oy = e.clientY;
     pad.style.transform = `translate(${ox - r.left - r.width / 2}px, ${oy - r.top - r.height / 2}px)`; pad.classList.add('held');
@@ -46,8 +48,10 @@ export function fightControls(pad, { live, attack, dodge }) {
     if (!live()) return;
     const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
     if (MOVE[k]) { held.add(MOVE[k]); keys(); e.preventDefault(); }
-    else if (!e.repeat && (k === ' ' || k === 'j')) { attack(); e.preventDefault(); }
+    else if (!e.repeat && k === ' ') { jump(); e.preventDefault(); }
+    else if (!e.repeat && (k === 'j' || k === 'f' || k === 'Enter')) { attack(); e.preventDefault(); }
     else if (!e.repeat && (k === 'Shift' || k === 'k')) { dodge(); e.preventDefault(); }
+    else if (!e.repeat && (k === 'e' || k === 'q')) { special(); e.preventDefault(); }
   });
   window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (MOVE[k]) { held.delete(MOVE[k]); keys(); } });
   stick.release = () => { held.clear(); drop(); };

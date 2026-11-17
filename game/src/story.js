@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import STORY from './story.json';
 import { Actor } from './scene.js';
+import { Aura } from './aura.js';
 import { PLANS } from './fight.js';
 import { SITA, TREE, THRONE, STAND } from './places.js';
 import { GROVE_AT, THRONE_AT, FIRE_AT, LANKINI_AT, LANKINI_MID, CHUNK } from './world.js';
@@ -24,6 +25,7 @@ export function createStory(g) {
   // a small bright thing passed from hand to hand: Rama's ring, Sita's jewel
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
   gift.visible = false; g.scene.add(gift);
+  const aura = new Aura(g.scene, fight.sparks.points.material.map);      // the light round him when he changes size
   const pass = { t: 0, secs: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
   const done = { lankini: false, challenged: false, grove: false, end: false };
   let G = 0;      // the height of the floor where the scene is played
@@ -41,20 +43,55 @@ export function createStory(g) {
   function give(from, to, color, secs = 1.3) { pass.from.set(...from); pass.to.set(...to); pass.t = 0; pass.secs = secs; gift.material.color.set(color); gift.visible = true; }
   function standGuards(list, who = escort, up = 0) { list.forEach(([x, z, yaw], i) => { const e = who[i]; e.kind('guard'); e.reset(); e.place(x, g.groundAt(z) + up, z, yaw); e.st = 'idle'; e.bar.visible = false; e.play('great_sword_idle', { fade: 0 }); }); }
 
-  // ── the gate: Lankini bars the way ──
+  // ── the gate: Lankini bars the way. She is far bigger than he is, so the player is asked whether he should grow to
+  // her size (one of his powers, like flight); he grows in a storm of light, she gives ground, and they fight as equals.
+  // When she is down he takes his own size again, and she yields. ──
+  const hz = -LANKINI_AT, lz = hz - 9.5;
+  let retreat = 0;
   function gate() {
-    g.hold(); G = g.groundAt(-LANKINI_AT);
-    const hz = -LANKINI_AT, lz = hz - 8.5;
+    g.hold(); G = g.groundAt(hz); retreat = 0;
     putHero(0, hz, 0);
-    lankini.kind('lankini'); lankini.reset(); lankini.place(0, G, lz, 0); lankini.st = 'idle'; lankini.bar.visible = false; lankini.play('fold_arms', { fade: 0 });
-    const fightHer = () => g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? yields() : null);
-    if (done.challenged) { lankini.play('idle', { fade: 0 }); return fightHer(); }      // she threw him back before: the words are said, the fight begins at once
-    director.play(beats('lankini_challenge', [
-      { ...shot(v(1.9, 1.1, hz - 4.6), v(0, 2.2, lz), { to: v(1.5, 1.3, hz - 5.4), fov: 46 }), do: () => lankini.play('talk') },
-      { ...shot(v(-1.4, 1.5, hz - 3.4), v(0, 1.35, hz), { to: v(-1.1, 1.5, hz - 2.9), fov: 42 }), do: () => lankini.play('fold_arms') },
-      { ...shot(v(1.3, 2.1, hz + 2.6), v(0, 2.0, lz), { to: v(1.0, 2.0, hz + 2.0), fov: 50 }), do: () => lankini.play('talk') },
-      { ...either(shot(v(6.4, 1.5, hz - 4), v(0, 1.5, hz - 4.3), { to: v(5.6, 1.5, hz - 4), fov: 52 }), shot(v(1.9, 2.7, hz + 3.6), v(0, 1.7, lz), { to: v(1.5, 2.5, hz + 3.0), fov: 46 })), do: () => lankini.play('idle') },
-    ]), () => { done.challenged = true; fightHer(); });
+    lankini.kind('lankini'); lankini.reset(); lankini.place(0, G, lz, 0); lankini.st = 'idle'; lankini.bar.visible = false; lankini.play('sword_idle', { fade: 0 });
+    if (done.challenged) return transform(true);      // she threw him back before: the words are said, he grows at once
+    director.play([
+      ...beats('lankini_challenge', [
+        { ...shot(v(1.9, 1.1, hz - 4.6), v(0, 2.7, lz), { to: v(1.5, 1.3, hz - 5.4), fov: 46 }), do: () => lankini.play('talk') },
+        { ...shot(v(-1.4, 1.5, hz - 3.4), v(0, 1.35, hz), { to: v(-1.1, 1.5, hz - 2.9), fov: 42 }), do: () => lankini.play('sword_idle') },
+        { ...shot(v(1.3, 2.1, hz + 2.6), v(0, 2.5, lz), { to: v(1.0, 2.0, hz + 2.0), fov: 50 }), do: () => lankini.play('talk') },
+        { ...either(shot(v(6.4, 1.5, hz - 4), v(0, 1.7, hz - 4.6), { to: v(5.6, 1.5, hz - 4), fov: 52 }), shot(v(1.9, 2.7, hz + 3.6), v(0, 2.0, lz), { to: v(1.5, 2.5, hz + 3.0), fov: 46 })), do: () => lankini.play('sword_idle') },
+      ]),
+      // the question: he stands small before her (seen from the side; on an upright phone, over her shoulder and down on him) until the player answers
+      { hold: true, secs: 1e9, ...either(shot(v(6.2, 0.9, (hz + lz) / 2 + 0.6), v(0, 1.7, (hz + lz) / 2), { to: v(5.4, 1.0, (hz + lz) / 2 + 0.4), fov: 54, secs: 7 }),
+          shot(v(1.5, 4.6, lz - 2.6), v(0, 0.7, hz), { to: v(1.2, 4.4, lz - 2.1), fov: 46, secs: 7 })), do: () => { done.challenged = true; g.ask(() => director.skip()); } },
+    ], () => transform(false));
+  }
+  // He grows to her size. quick: the short telling, for a second meeting.
+  function transform(quick) {
+    g.hold(); const mid = (hz + lz) / 2;
+    putHero(0, hz, 0); lankini.place(0, G, lz, 0); lankini.play('sword_idle');
+    const rise = { ...shot(v(0, 1, hz), v(0, 1.2, hz), { lookTo: v(0, 2.4, hz), fov: 56, round: { c: v(0, 0, hz), from: Math.PI * 1.22, to: Math.PI * 0.72, r: [3.9, 6.4], y: [0.9, 2.7] } }), secs: quick ? 1.7 : 3.0,
+      do: () => { if (quick) aura.begin(0, G, hz); g.grow(1, quick ? 1.4 : 2.6); aura.storm = true; g.sound.fx('fire'); g.sound.fx('beam', { gap: 0.3 }); g.sound.chant(); g.buzz([40, 30, 40, 30, 120]); hero.play('mutant_roaring', { once: true, fade: 0.15 }); } };
+    const face = { ...either(shot(v(8.6, 2.0, mid), v(0, 2.2, mid), { to: v(7.6, 2.1, mid), fov: 50 }), shot(v(2.7, 1.3, hz + 5.4), v(0, 2.7, mid), { to: v(2.2, 1.5, hz + 4.6), fov: 50 })), secs: 1.4,
+      do: () => { aura.end(); hero.play('great_sword_idle', { fade: 0.3 }); lankini.play('sword_idle', { fade: 0.2 }); g.sound.fx('bell', { rate: 0.7, gap: 0.5 }); } };
+    director.play(quick ? [rise, face] : [
+      { ...shot(v(1.0, 0.45, hz - 2.4), v(0, 1.25, hz), { to: v(0.7, 0.4, hz - 2.0), fov: 46 }), secs: 1.5,      // the power gathers at his feet
+        do: () => { aura.begin(0, G, hz); g.sound.fx('power'); g.buzz([30, 40, 60]); hero.play('great_sword_idle', { fade: 0.2 }); } },
+      rise,
+      { ...shot(v(2.0, 3.1, hz + 3.6), v(0, 2.6, lz), { to: v(1.5, 3.2, hz + 2.7), fov: 44 }), secs: 1.7,      // over his shoulder, level with her now: she gives ground
+        do: () => { aura.want = 0.3; aura.storm = false; lankini.play('sword_hit', { once: true, fade: 0.06 }); retreat = 1.35; g.sound.fx('hit', { rate: 0.7 }); } },
+      face,
+    ], () => {      // however it was watched or skipped, it ends the same: he is her size, she has stepped back, the light is gone
+      g.grow(1, 0.05); aura.end(); retreat = 0; lankini.root.position.z = Math.min(lankini.root.position.z, lz - (quick ? 0 : 1.4)); lankini.play('sword_idle');
+      g.battle(LANKINI_MID, PLANS.gate, how => how === 'won' ? shrink() : null, g.giant);
+    });
+  }
+  // She is down: the view is carried round him as he takes his own size again.
+  function shrink() {
+    g.hold(); const p = hero.root.position; G = g.groundAt(p.z);
+    putHero(p.x, p.z, hero.root.rotation.y, 'great_sword_idle'); lankini.bar.visible = false;
+    director.play([{ ...shot(v(p.x, 1, p.z), v(p.x, 2.3, p.z), { lookTo: v(p.x, 1.2, p.z), fov: 54, round: { c: v(p.x, 0, p.z), from: Math.PI * 0.2, to: Math.PI * 1.25, r: [6.2, 3.6], y: [3.0, 1.3] } }), secs: 3.0,
+      do: () => { aura.begin(p.x, G, p.z, 0xbfdcff); g.grow(0, 2.5); g.sound.fx('wing'); g.sound.chant(); g.buzz([30, 30, 60]); } }],
+      () => { g.grow(0, 0.05); aura.end(); yields(); });
   }
   function yields() {
     done.lankini = true; g.hold();
@@ -201,7 +238,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
+      sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.end = false; swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -214,6 +251,12 @@ export function createStory(g) {
     // Every frame of a scene: the characters move, the gift passes from hand to hand.
     update(dt) {
       sita.update(dt); ravana.update(dt);
+      if (aura.update(dt, hero.root.scale.x)) { g.sound.fx('smash', { rate: 1.9, gap: 0.12 }); g.shake(0.4); g.buzz(25); }      // each bolt that strikes is heard and felt
+      if (retreat > 0) {      // Lankini gives ground: back two paces, her eyes on him
+        retreat -= dt; lankini.root.position.z -= 1.5 * dt;
+        if (retreat < 0.95) lankini.play('sword_walk', { speed: -1, fade: 0.15 });
+        if (retreat <= 0) lankini.play('sword_idle', { fade: 0.25 });
+      }
       if (ravana.rise > 0) { ravana.rise -= dt; if (ravana.rise <= 0) ravana.play('idle', { fade: 0.3 }); }
       if (swell.t < swell.secs) { swell.t += dt; const u = Math.min(1, swell.t / swell.secs); hero.root.scale.setScalar(swell.from + (swell.to - swell.from) * u * u * (3 - 2 * u)); }      // he grows as the player watches
       if (leap.on) { leap.t += dt; hero.root.position.z -= (2 + leap.t * leap.t * 2.2) * dt; }      // and at the last he leaps for the sea

@@ -21,7 +21,7 @@ if base_action:
     base_action.name = snake(os.path.splitext(os.path.basename(skin_fbx))[0])
     base_action.use_fake_user = True
 
-if len(argv) > 6 and argv[6] == 'fix':
+if 'fix' in argv[6:]:
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import fix_weights
     for m in meshes:
@@ -45,6 +45,17 @@ if src_mat:
         if img.size[0] > tex_px:
             img.scale(tex_px, tex_px)
 print('MATERIAL', src_mat.name if src_mat else 'none')
+
+# 2b. polish=<dir>: his face, fists and feet repainted from the redrawn pictures in that folder (tools/hanuman_fix.py)
+polish = next((x.split('=', 1)[1] for x in argv[6:] if x.startswith('polish=')), None)
+if polish:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import bmesh, hanuman_fix
+    for m in meshes:
+        bm = bmesh.new(); bm.from_mesh(m.data); bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:]); bm.to_mesh(m.data); bm.free()
+        print('POLISH', hanuman_fix.repaint(m, polish))
+    for img in bpy.data.images:
+        if img.name.startswith('hanuman_hand') and img.size[0] > 512: img.scale(512, 512)
 
 # 3. Slim the skinned mesh (vertex groups survive the decimate modifier)
 for m in meshes:

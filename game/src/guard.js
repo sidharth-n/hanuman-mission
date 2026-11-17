@@ -13,7 +13,7 @@ export const KINDS = {
   rusher:  { hp: 3, size: 0.98, pace: 1.45, tell: -0.1, reach: 2.4, wound: 1, tint: 0xc9d6ff },                 // lean and quick: on him fast, little warning, soon down
   brute:   { hp: 9, size: 1.34, pace: 0.7, tell: 0.24, reach: 3.0, wound: 2, firm: true, tint: 0xff9a80 },      // huge and slow: a long warning, a terrible blow
   captain: { hp: 12, size: 1.24, pace: 1.1, tell: 0, reach: 2.8, wound: 1, twice: true, tint: 0xffe08a },       // the captain: two blows in a row
-  lankini: { hp: 14, size: 1, pace: 0.8, tell: 0.3, reach: 3.3, wound: 1, firm: true, boss: true, stays: true },
+  lankini: { hp: 24, size: 1, pace: 1.05, tell: 0.12, reach: 4.9, wound: 1, firm: true, boss: true, stays: true, twice: true },      // as tall as he is when he has grown to meet her: a great sword, two blows in a row
 };
 const GUARD_CLIPS = { idle: 'great_sword_idle', walk: 'great_sword_walk', run: 'great_sword_run', attack: 'great_sword_slash', hit: 'great_sword_impact', death: 'two_handed_sword_death' };
 
@@ -47,7 +47,7 @@ export class Guard {
       this.model.updateMatrixWorld(true);
       const box = new THREE.Box3().setFromObject(this.model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
       this.model.position.set(-c.x, -box.min.y, -c.z);
-      this.body = new THREE.Group(); this.body.add(this.model); this.base = opt.height / size.y; this.tall = opt.height;
+      this.body = new THREE.Group(); this.body.add(this.model); this.base = opt.height / size.y; this.tall = opt.height; this.body.scale.setScalar(this.base);
     } else { this.body = this.model; this.base = this.model.scale.x; this.tall = 1.8; }
     this.root.add(this.body);
     this.meshes = []; this.model.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.6; this.meshes.push(o); } });
@@ -58,16 +58,18 @@ export class Guard {
     this.current = null;
 
     this.hand = this.model.getObjectByName('mixamorigRightHand'); this.arm = this.model.getObjectByName('mixamorigRightForeArm');
-    if (!this.lux) {      // the sword rides in the right hand, the way Hanuman's mace does
+    const long = this.lux ? opt.height / 1.8 * 0.88 : 1; this.blade = 1.2 * long;      // her sword is a guard's, made to her size
+    if (!this.lux || opt.armed) {      // the sword rides in the right hand, the way Hanuman's mace does
       this.root.updateWorldMatrix(true, true);
       const unit = 1 / this.hand.getWorldScale(new THREE.Vector3()).x;
-      this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit, 0.03 * unit); this.sword.rotation.set(0, 0, -Math.PI / 2);
+      this.sword = new THREE.Group(); this.sword.scale.setScalar(unit); this.sword.position.set(0, 0.09 * unit * long, 0.03 * unit * long); this.sword.rotation.set(0, 0, -Math.PI / 2);
+      if (opt.grip) { this.sword.position.set(...opt.grip.at).multiplyScalar(unit * long); this.sword.rotation.set(...opt.grip.turn); }
       if (sword) {      // the made sword, stood on its pommel: sized to 1.35 m, held a little above the pommel
         const s = sword.clone(); s.updateMatrixWorld(true);
         const box = new THREE.Box3().setFromObject(s), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
         s.position.set(-c.x, -box.min.y - size.y * 0.1, -c.z);
         s.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.8; } });
-        const fit = new THREE.Group(); fit.add(s); fit.scale.setScalar(1.35 / size.y); this.sword.add(fit);
+        const fit = new THREE.Group(); fit.add(s); fit.scale.setScalar(1.35 * long / size.y); this.sword.add(fit);
       } else this.sword.add(standInSword());
       this.hand.add(this.sword);
     }
@@ -127,7 +129,7 @@ export class Guard {
 
   // The two ends of what he strikes with, in the world, for the trail of the blow: the sword's point and hilt, or her fist and forearm.
   swordEnds(tip, base) {
-    if (this.sword) { this.sword.updateWorldMatrix(true, false); tip.set(0, 1.2, 0).applyMatrix4(this.sword.matrixWorld); base.set(0, 0.2, 0).applyMatrix4(this.sword.matrixWorld); }
+    if (this.sword) { this.sword.updateWorldMatrix(true, false); tip.set(0, this.blade, 0).applyMatrix4(this.sword.matrixWorld); base.set(0, 0.2, 0).applyMatrix4(this.sword.matrixWorld); }
     else { this.hand.updateWorldMatrix(true, false); this.hand.getWorldPosition(tip); this.arm.getWorldPosition(base); }
   }
 }

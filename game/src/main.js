@@ -41,6 +41,7 @@ const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibra
 const sound = createSound(store);      // the song under the game and the chant over its big moments
 const query = new URLSearchParams(location.search), debug = query.has('debug');
 const explore = query.has('explore');      // ?explore: the whole route with nothing in his way, for looking round
+const GIANT = 1.8;      // how many times his own size he grows to meet Lankini (one of his powers, like flight)
 const startAt = debug || explore || query.has('fight') ? Math.max(0, SECTIONS.findIndex(s => s.id === (query.get('at') || (query.has('fight') ? 'court' : '')))) : 0;      // ?fight starts at the palace court, a short run from the guards      // &at=court starts a run at that section
 const t0 = performance.now();
 
@@ -89,10 +90,11 @@ async function load() {
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
   ui.lives.innerHTML = '<img src="ui/lotus.jpg" alt="">'.repeat(LIVES);
   fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, lankini: models.lankini, sound, buzz, groundAt, more: what => { say(STORY.alerts[what], 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
-  stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()) }); fight.stick = stick;
+  stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()),
+    jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
 
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') });
-  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done) => { state.fightDone = done; startFight(mid, plan); },
+  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, finish: () => { result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; } });
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
@@ -114,7 +116,7 @@ function screen(name) {
   const inRun = state.mode === 'run' || state.mode === 'paused' || state.mode === 'fight';
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
   const inFight = inRun && fight && fight.active;      // the fight's own controls and his lives
-  ui.pad.hidden = ui.strike.hidden = ui.dodge.hidden = ui.lives.hidden = !inFight; document.body.classList.toggle('fighting', !!inFight);
+  ui.pad.hidden = ui.strike.hidden = ui.dodge.hidden = ui.lives.hidden = $('jump').hidden = !inFight; document.body.classList.toggle('fighting', !!inFight);
   if (!inRun) ui.alert.hidden = true;
 }
 
@@ -127,8 +129,8 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
-  Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
+  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
 }
@@ -146,10 +148,10 @@ function result(title, thirdLabel, third) {
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
-  story.reset(fresh); if (director.active) director.skipQuiet(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from), -sec.from);
-  Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
+  Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
   world.behind = 3;
@@ -162,6 +164,11 @@ function start(from = 0, fresh = false) {
   card(SECTIONS[from].id);
 }
 
+// The player is asked before he grows to meet Lankini: one button, or Enter.
+function ask(then) { $('ask').hidden = false; state.asking = () => { $('ask').hidden = true; state.asking = null; sound.fx('tap'); then(); }; }
+function unask() { $('ask').hidden = true; state.asking = null; }
+// to: 0 his own size, 1 grown to hers; secs: how long the change takes
+function grow(to, secs) { state.tw = { from: state.tall, to, t: 0, secs: Math.max(0.01, secs) }; }
 function say(text, secs = 2.2) { ui.alert.textContent = text; ui.alert.hidden = false; state.alertT = secs; }
 // The name of a place as he comes to it, with its line of the story.
 function card(id, secs = 4.2) {
@@ -194,11 +201,12 @@ function fell() {
 
 // The palace court: the guards make their stand. The run stops, the fight's controls come up, and he must put all three
 // down to go on. If they take all his lives he is captured, and the next run takes up from the gate of the court.
-function startFight(mid = FIGHT_MID, plan = PLANS.court) {
+function startFight(mid = FIGHT_MID, plan = PLANS.court, scale = 1) {
   state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null;
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
-  fight.begin(mid, plan); painted.lives = null;
-  say(STORY.alerts.guards, 2.6); sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
+  fight.begin(mid, plan, scale); painted.lives = null;
+  if (scale === 1) say(STORY.alerts.guards, 2.6);
+  sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
 }
 function endFight(how) {
   fight.result = null; if (stick) stick.release();
@@ -266,7 +274,7 @@ function rules(dt) {
     if (state.dist >= END_AT) return won();
   }
   state.vast += ((state.fire ? 1 : 0) - state.vast) * Math.min(1, dt * 1.1);
-  hero.root.scale.setScalar(1 + state.vast * 1.4 + state.grow * 3.1);      // set alight, he grows vast: half as tall again as the doors allow in the palace, a giant over the roofs at the last
+  hero.root.scale.setScalar((1 + state.vast * 1.4 + state.grow * 3.1) * (1 + state.tall * (GIANT - 1)));      // set alight, he grows vast: half as tall again as the doors allow in the palace, a giant over the roofs at the last
   aura.visible = state.big > 0.02; aura.material.opacity = state.big * 0.55; aura.scale.setScalar(3.4 + Math.sin(performance.now() * 0.012) * 0.25);
   const smash = state.fire || state.big > 0.3, pace = state.speed * (state.fire ? 1.15 : 1);
   const reach = 0.82 * hero.root.scale.x;
@@ -414,8 +422,9 @@ function placeCamera(dt, snap) {
   } else if (fight.active && state.mode !== 'ready') {
     // the fight: the view stands off, behind and above, the way action games hold it, so the whole floor and every guard are seen
     const c = fight.focus;
-    want.set(c.x * 0.8, G + (tall ? 6.0 : 3.9), c.z + (tall ? 7.4 : 5.9));
-    lookWant.set(c.x * 0.92, G + 0.9, c.z - (tall ? 0 : 1.6));      // he stands just below the middle of the screen, clear of the thumbs, with room to see a guard coming up behind him
+    const far = 1 + (fight.s - 1) * 0.55;      // grown, he and she are seen from further off, so both still stand whole in the view
+    want.set(c.x * 0.8, G + (tall ? 6.0 : 3.9) * far, c.z + (tall ? 7.4 : 5.9) * far);
+    lookWant.set(c.x * 0.92, G + 0.9 * fight.s, c.z - (tall ? 0 : 1.6));      // he stands just below the middle of the screen, clear of the thumbs, with room to see a guard coming up behind him
     camera.position.lerp(want, Math.min(1, dt * 4.5)); look.lerp(lookWant, Math.min(1, dt * 5.5));
     fov = tall ? 62 : 50; view.back = back; view.join = 1;
   } else if (state.mode === 'ready' || state.intro > 0) {
@@ -465,6 +474,10 @@ function frame(now) {
   fight.tick(dt, state.mode === 'paused' ? 0 : real);
   if (state.mode === 'scene') director.update(real);
   story.update(state.mode === 'paused' ? 0 : real);
+  if (state.tw) {      // he is changing size: eased from what he was to what he will be
+    const w = state.tw; w.t += real; const u = Math.min(1, w.t / w.secs); state.tall = w.from + (w.to - w.from) * u * u * (3 - 2 * u); if (u >= 1) state.tw = null;
+    hero.root.scale.setScalar((1 + state.vast * 1.4 + state.grow * 3.1) * (1 + state.tall * (GIANT - 1)));
+  }
   if (state.cardT > 0) { state.cardT -= real; if (state.cardT <= 0) ui.card.hidden = true; }
   if (running && queued) { queued.t -= real; const went = hero.move('up'); if (went) sound.fx('leap'); if (went || queued.t <= 0) queued = null; }
   const falling = state.mode === 'fall';
@@ -537,7 +550,9 @@ for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEvent
 // the fight's two buttons answer on touch down, with a pulse when the move is made
 function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }
 $('strike').addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'fight') tap('strike', () => fight.attack()); });
-$('dodge').addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'fight') tap('dodge', () => fight.dodge()); });      // on touch down, not on release
+$('dodge').addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'fight') tap('dodge', () => fight.dodge()); });
+$('jump').addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'fight') tap('jump', () => fight.jump()); });
+$('askYes').addEventListener('click', e => { e.stopPropagation(); if (state.asking) state.asking(); });      // on touch down, not on release
 // settings
 function showSettings() {
   for (const b of $('gfx').children) b.classList.toggle('on', b.dataset.v === settings.gfx);
@@ -552,6 +567,7 @@ press('mute', () => { sound.toggle(); showSound(); sound.fx('tap'); }); showSoun
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
 window.addEventListener('keydown', e => {
+  if (state.asking && (e.key === 'Enter' || e.key === 'y' || e.key === 'Y' || e.key === ' ')) { e.preventDefault(); return state.asking(); }
   if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start(ui.menu.hidden ? state.from : startAt, !ui.menu.hidden);
   if (e.key === 'Escape' || e.key === 'p') { if (state.mode === 'run') pause(); else if (state.mode === 'paused') resume(); }
 });

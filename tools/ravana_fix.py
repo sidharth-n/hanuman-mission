@@ -241,6 +241,7 @@ def export(arm, out, tex_px, names=NAMES):
         tr.strips.new(a.name, int(a.frame_range[0]), a); tr.mute = True
     for a in list(bpy.data.actions):
         if a not in acts: bpy.data.actions.remove(a)
+    for x in [x for x in bpy.context.scene.objects if x.type == 'MESH' and not x.find_armature()]: bpy.data.objects.remove(x, do_unlink=True)
     bpy.ops.export_scene.gltf(filepath=out, export_format='GLB', export_animations=True, export_animation_mode='NLA_TRACKS',
                               export_image_format='JPEG', export_jpeg_quality=88, export_apply=True, export_skins=True)
     return f'written {out}: {os.path.getsize(out) / 1e6:.2f} MB, {len(acts)} animations'

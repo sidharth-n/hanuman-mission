@@ -9,7 +9,7 @@ export const LIVES = 5;
 // Each fight is a list of waves. foes: who comes, by kind (guard.js). most: how many may come at him at once.
 // tell: seconds from a sword going up to the blow landing. rest: the pause between attacks.
 export const PLANS = {
-  gate: [{ foes: ['lankini'], most: 1, tell: 0.62, rest: 0.9 }],
+  gate: [{ foes: ['lankini'], most: 1, tell: 0.66, rest: 0.5 }],
   court: [{ foes: ['guard', 'rusher', 'guard'], most: 1, tell: 0.62, rest: 0.7 }, { foes: ['guard', 'brute', 'guard', 'rusher', 'rusher'], most: 2, tell: 0.58, rest: 0.55 }],
   grove: [{ foes: ['rusher', 'guard', 'rusher', 'guard'], most: 2, tell: 0.6, rest: 0.6 }, { foes: ['brute', 'captain', 'brute'], most: 2, tell: 0.58, rest: 0.5 }],
 };
@@ -114,22 +114,24 @@ export class Fight {
     this.heroTrail = new Trail(this.scene, [1, 0.72, 0.28]);
     const add = g => { g.trail = new Trail(this.scene, [1, 0.42, 0.24]); this.scene.add(g.root); return g; };
     this.guards = [0, 1, 2, 3, 4, 5, 6, 7].map(() => add(new Guard(this.gltf, this.sword)));
-    // Lankini fights with her fists: slower than a guard, far stronger, and she does not fall back from a light blow
-    this.boss = add(new Guard(this.lankini, null, { lux: true, height: 3.1, kind: 'lankini', blowAt: 0.42, hitPlay: { from: 0, speed: 1 },
-      clips: { idle: 'idle', walk: 'walk', run: 'jog', attack: 'punch', hit: 'hit', death: 'knockback' } }));
+    // Lankini fights with a great sword, in the guards' own way: far stronger, and she does not fall back from a light blow
+    this.boss = add(new Guard(this.lankini, this.sword, { lux: true, armed: true, height: 3.6, kind: 'lankini',
+      clips: { idle: 'sword_idle', walk: 'sword_walk', run: 'sword_run', attack: 'sword_slash', hit: 'sword_hit', death: 'knockback' } }));
     this.all = [...this.guards, this.boss];
     this.stick = { x: 0, y: 0 };      // the thumb stick: x to his right on the screen, y toward the player
-    this.focus = new THREE.Vector3(); this.active = false; this.over = null; this.result = null; this.lives = LIVES; this.freeze = 0; this.left = 0;
+    this.s = 1; this.focus = new THREE.Vector3(); this.active = false; this.over = null; this.result = null; this.lives = LIVES; this.freeze = 0; this.left = 0;
   }
 
   get frozen() { return this.freeze > 0; }
 
   // mid: the middle of the floor, in metres along the route. plan: the waves (PLANS).
-  begin(mid, plan = PLANS.court) {
+  // scale: how many times his own size he fights at (grown to meet Lankini): every distance of the fight grows with him
+  begin(mid, plan = PLANS.court, scale = 1) {
+    this.s = scale;
     const hero = this.hero, p = hero.root.position;
     this.cz = -mid; this.plan = plan; this.active = true; this.over = null; this.result = null; this.overT = 0; this.lives = LIVES; this.freeze = 0;
     this.t = 0; this.wave = 0; this.nextT = 0; this.used = 0;
-    this.h = { act: null, t: 0, len: 0, strikeAt: 0, struck: false, heavy: false, combo: 0, comboT: 0, queued: false, safe: 0, dodgeCd: 0, vx: 0, vz: 0, fx: 0, fz: -1, reach: 0, dmg: 1 };
+    this.h = { act: null, t: 0, len: 0, strikeAt: 0, struck: false, heavy: false, combo: 0, comboT: 0, queued: false, safe: 0, dodgeCd: 0, vx: 0, vz: 0, fx: 0, fz: -1, reach: 0, dmg: 1, slam: false };
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.floor = 0;
     this.sparks.floor = this.groundAt(this.cz);
     for (const g of this.guards) g.reset();
@@ -178,20 +180,21 @@ export class Fight {
   // ── what the player does ──
   attack() {
     const h = this.h; if (!this.active || this.over) return false;
+    if (this.hero.airborne) { if (h.slam) return false; h.slam = true; h.act = null; this.hero.vy = -17; return true; }      // struck from the air: he comes down on them with the mace
     if (h.act === 'attack') { if (h.t > 0.1) h.queued = true; return true; }      // pressed again in mid swing: the next blow follows on
     if (h.act) return false;                                                       // rolling or reeling
     const hero = this.hero, p = hero.root.position, s = this.stick, m = Math.hypot(s.x, s.y);
     h.combo = h.comboT > 0 && h.combo < 3 ? h.combo + 1 : 1;
-    const g = this.nearest(p, 5.2);
+    const S = this.s, g = this.nearest(p, 5.2 * S);
     h.vx = h.vz = 0;
     if (g) {      // he turns on the nearest of them and closes the distance, as fighting games do
       const dx = g.root.position.x - p.x, dz = g.root.position.z - p.z, d = Math.max(0.01, Math.hypot(dx, dz));
       h.fx = dx / d; h.fz = dz / d;
-      const go = Math.min(2.2, Math.max(0, d - (g.k.boss ? 2.1 : 1.55))); h.vx = h.fx * go * 9; h.vz = h.fz * go * 9;
+      const go = Math.min(2.2 * S, Math.max(0, d - (g.k.boss ? 3.0 : 1.55 * S))); h.vx = h.fx * go * 9; h.vz = h.fz * go * 9;
     } else if (m > 0.15) { h.fx = s.x / m; h.fz = s.y / m; }
     h.heavy = h.combo === 3; h.act = 'attack'; h.t = 0; h.struck = false; h.queued = false;
-    if (h.heavy) { hero.play('great_sword_slash', { once: true, from: 0.45, speed: 1.25, fade: 0.06 }); h.strikeAt = 0.22; h.len = 0.62; h.reach = 2.8; h.dmg = 2; }      // the third blow of a row is the great one
-    else { hero.play('mutant_punch', { once: true, from: 0.1, speed: 1.3, fade: 0.05 }); h.strikeAt = 0.15; h.len = 0.4; h.reach = 2.35; h.dmg = 1; }
+    if (h.heavy) { hero.play('great_sword_slash', { once: true, from: 0.45, speed: 1.25, fade: 0.06 }); h.strikeAt = 0.22; h.len = 0.62; h.reach = 2.8 * S; h.dmg = 2; }      // the third blow of a row is the great one
+    else { hero.play('mutant_punch', { once: true, from: 0.1, speed: 1.3, fade: 0.05 }); h.strikeAt = 0.15; h.len = 0.4; h.reach = 2.35 * S; h.dmg = 1; }
     this.sound.fx('slide', { rate: h.heavy ? 1.5 : 2.1, gap: 0.04 });
     return true;
   }
@@ -201,10 +204,17 @@ export class Fight {
     const s = this.stick, m = Math.hypot(s.x, s.y);
     const dx = m > 0.2 ? s.x / m : -h.fx, dz = m > 0.2 ? s.y / m : -h.fz;      // no direction held: away from what he is facing
     h.act = 'dodge'; h.t = 0; h.len = 0.46; h.queued = false; h.safe = Math.max(h.safe, 0.4); h.dodgeCd = 0.7;
-    h.vx = dx * 11; h.vz = dz * 11; h.fx = dx; h.fz = dz;
+    h.vx = dx * 11 * this.s; h.vz = dz * 11 * this.s; h.fx = dx; h.fz = dz;
     this.hero.play('sprinting_forward_roll', { once: true, from: 0.2, speed: 1.55, fade: 0.06 });
     this.sound.fx('slide', { rate: 1.2, gap: 0.04 });
     return true;
+  }
+
+  // A leap: over a blade swung low, and into a blow from above if he strikes in the air.
+  jump() {
+    const h = this.h; if (!this.active || this.over || h.act === 'hurt' || h.act === 'dodge') return false;
+    if (!this.hero.leap()) return false;
+    h.act = null; h.queued = false; this.sound.fx('leap'); return true;
   }
 
   // The mace charged with all his strength: every one of them near him is thrown back.
@@ -214,9 +224,9 @@ export class Fight {
     for (const g of this.all) {
       if (g.st === 'dead' || !g.root.visible) continue;
       const dx = g.root.position.x - p.x, dz = g.root.position.z - p.z, d = Math.max(0.01, Math.hypot(dx, dz));
-      if (d < 8) { this.hurt(g, 2, dx / d, dz / d, true); any = true; }
+      if (d < 8 * this.s) { this.hurt(g, 2, dx / d, dz / d, true); any = true; }
     }
-    _a.set(p.x, p.y + 1.1, p.z); this.sparks.burst(_a, 60, GOLD, 11); this.flash(_a, GOLD, 5, 0.22);
+    _a.set(p.x, p.y + 1.1 * this.s, p.z); this.sparks.burst(_a, 60, GOLD, 11 * this.s); this.flash(_a, GOLD, 5, 0.22);
     this.freeze = 0.12; this.shake(0.6);
     return any;
   }
@@ -227,7 +237,7 @@ export class Fight {
     for (const g of this.all) {
       if (g.st === 'dead' || !g.root.visible) continue;
       const dx = g.root.position.x - p.x, dz = g.root.position.z - p.z, d = Math.max(0.01, Math.hypot(dx, dz));
-      if (d > h.reach + (g.k.boss ? 0.7 : 0) || (dx * h.fx + dz * h.fz) / d < 0.3) continue;      // in reach and in front of him
+      if (d > h.reach + (g.k.boss ? 1.0 : 0) || (!this.round && (dx * h.fx + dz * h.fz) / d < 0.3)) continue;      // in reach and in front of him
       hit++; this.hurt(g, h.dmg, dx / d, dz / d, h.heavy);
     }
     if (hit) {
@@ -237,7 +247,7 @@ export class Fight {
   }
 
   hurt(g, dmg, nx, nz, heavy) {
-    const gp = g.root.position, clash = g.st === 'windup' && !g.struck, high = g.k.boss ? 1.9 : 1.3;      // clash: the blow was already coming, mace meets steel
+    const gp = g.root.position, clash = g.st === 'windup' && !g.struck, high = g.k.boss ? g.tall * 0.6 : 1.3;      // clash: the blow was already coming, mace meets steel
     _a.set(gp.x - nx * 0.45, gp.y + high, gp.z - nz * 0.45);
     // a guard standing ready sometimes turns the first blow of a row aside on his sword: sparks, no hurt, and he is driven back a step
     if (!heavy && !g.lux && g.st === 'ready' && this.h.combo === 1 && Math.random() < 0.25) {
@@ -252,7 +262,7 @@ export class Fight {
     if (!heavy && g.hp > 0 && (clash || g.k.firm)) { g.vx = nx * 1.5; g.vz = nz * 1.5; return; }
     g.t = 0; g.struck = false; g.second = false;
     if (g.token) { g.token = false; this.cool = this.rules.rest + Math.random() * 0.4; }
-    const push = (heavy ? 9 : 5) * (g.k.firm ? 0.45 : 1); g.vx = nx * push; g.vz = nz * push;
+    const push = (heavy ? 9 : 5) * (g.k.firm ? 0.45 : 1) * this.s; g.vx = nx * push; g.vz = nz * push;
     if (g.hp <= 0) {
       g.st = 'dead'; g.play(g.clips.death, { once: true, fade: 0.08, speed: 1.15 });
       if (--this.left === 0) {
@@ -263,12 +273,12 @@ export class Fight {
   }
 
   hitHero(g) {
-    const h = this.h; if (h.safe > 0 || this.over) return false;
+    const h = this.h; if (h.safe > 0 || this.over || this.hero.y > 0.55) return false;      // in the air the blade passes under him
     const hero = this.hero, p = hero.root.position, gp = g.root.position, d = Math.max(0.01, Math.hypot(p.x - gp.x, p.z - gp.z));
     this.lives -= g.k.wound; h.act = 'hurt'; h.t = 0; h.len = 0.42; h.queued = false; h.combo = 0; h.safe = 1.25; this.cool = Math.max(this.cool, 0.9);      // a moment's mercy after every wound
-    const push = g.k.wound > 1 || g.k.boss ? 11 : 7; h.vx = (p.x - gp.x) / d * push; h.vz = (p.z - gp.z) / d * push;
+    const push = (g.k.wound > 1 || g.k.boss ? 11 : 7) * this.s; h.vx = (p.x - gp.x) / d * push; h.vz = (p.z - gp.z) / d * push;
     hero.play('hit_reaction', { once: true, speed: 2.2, fade: 0.06 });
-    _a.set(p.x, p.y + 1.2, p.z); this.sparks.burst(_a, 18 * g.k.wound, RED, 6); this.flash(_a, RED, 2 * g.k.wound);
+    _a.set(p.x, p.y + 1.2 * this.s, p.z); this.sparks.burst(_a, 18 * g.k.wound, RED, 6 * this.s); this.flash(_a, RED, 2 * g.k.wound);
     this.freeze = 0.08; this.shake(0.4 + 0.2 * g.k.wound); this.buzz([60, 30, 60]); this.sound.fx('hit', { rate: 0.8, gap: 0.04 });
     if (this.lives <= 0) { this.lives = 0; this.over = 'lost'; this.overT = 0.9; }
     return true;
@@ -288,6 +298,11 @@ export class Fight {
     if (this.freeze > 0) { this.freeze -= real; return; }      // the instant a blow lands, everything holds
     const hero = this.hero, h = this.h, p = hero.root.position, s = this.stick, m = Math.hypot(s.x, s.y);
     h.comboT -= dt; h.safe -= dt; h.dodgeCd -= dt;
+    const S = this.s;
+    if (h.slam && !hero.airborne) {      // down out of the air, mace first: all of them round him feel it
+      h.slam = false; h.heavy = true; h.dmg = 2; h.reach = 3.3 * S; this.round = true; this.heroStrike(); this.round = false;
+      _a.set(p.x, p.y + 0.25, p.z); this.sparks.burst(_a, 44, GOLD, 9 * S); this.flash(_a, GOLD, 3.2 * S, 0.2); this.shake(0.55); this.sound.fx('smash', { gap: 0.04 });
+    }
     if (h.act) {
       h.t += dt;
       p.x += h.vx * dt; p.z += h.vz * dt; const drag = Math.exp(-dt * (h.act === 'dodge' ? 2.2 : 9)); h.vx *= drag; h.vz *= drag;
@@ -299,11 +314,11 @@ export class Fight {
     }
     if (!h.act) {
       if (m > 0.15) {
-        const k = Math.min(1, m); p.x += s.x / m * k * PACE * dt; p.z += s.y / m * k * PACE * dt; h.fx = s.x / m; h.fz = s.y / m;
-        hero.play('fast_run', { speed: 0.7 + 0.22 * k, fade: 0.12 }); hero.pace = PACE * k;
+        const k = Math.min(1, m); p.x += s.x / m * k * PACE * S * dt; p.z += s.y / m * k * PACE * S * dt; h.fx = s.x / m; h.fz = s.y / m;
+        if (!hero.airborne) hero.play('fast_run', { speed: 0.7 + 0.22 * k, fade: 0.12 }); hero.pace = PACE * k;
       } else {
-        hero.play('great_sword_idle', { fade: 0.18 }); hero.pace = 0;
-        const g = this.nearest(p, 7);      // standing still, he keeps his eyes on the nearest of them
+        if (!hero.airborne) hero.play('great_sword_idle', { fade: 0.18 }); hero.pace = 0;
+        const g = this.nearest(p, 7 * S);      // standing still, he keeps his eyes on the nearest of them
         if (g) { const dx = g.root.position.x - p.x, dz = g.root.position.z - p.z, d = Math.max(0.01, Math.hypot(dx, dz)); h.fx += (dx / d - h.fx) * Math.min(1, dt * 6); h.fz += (dz / d - h.fz) * Math.min(1, dt * 6); }
       }
     }
@@ -323,7 +338,7 @@ export class Fight {
     }
     let cx = 0, czs = 0;
     for (const g of alive) {
-      const gp = g.root.position, k = g.k, TELL = this.rules.tell + k.tell, near = k.boss ? 2.7 : 2.05; g.t += dt;
+      const gp = g.root.position, k = g.k, TELL = this.rules.tell + k.tell, near = k.boss ? 3.7 : 2.05 * S, body = (k.boss ? 1.2 : 1.15) * S; g.t += dt;
       const dx = p.x - gp.x, dz = p.z - gp.z, d = Math.max(0.01, Math.hypot(dx, dz)), toHero = Math.atan2(dx, dz);
       gp.x += g.vx * dt; gp.z += g.vz * dt; const drag = Math.exp(-dt * 8); g.vx *= drag; g.vz *= drag;
       cx += gp.x; czs += gp.z;
@@ -331,39 +346,39 @@ export class Fight {
         g.turn(toHero, dt);
         if (g.t > 0.5) {      // on his feet again: often he answers at once, if no other is already coming
           g.st = 'ready'; g.t = 0;
-          if (coming < this.rules.most && !this.over && d < 3.2 && Math.random() < 0.3) { g.st = 'approach'; g.token = true; g.second = false; }
+          if (coming < this.rules.most && !this.over && d < near + 1.2 && Math.random() < (k.boss ? 0.55 : 0.3)) { g.st = 'approach'; g.token = true; g.second = false; }
         }
       } else if (g.st === 'enter' || g.st === 'ready') {
         // each holds his own bearing round him, eased apart from the others, drifting a little so the ring is never still
         for (const o of alive) { if (o === g) continue; const diff = wrap(g.angle - o.angle); if (Math.abs(diff) < 0.95) g.angle += Math.sign(diff || 1) * (0.95 - Math.abs(diff)) * dt * 2.2; }
         g.angle += Math.sin(this.t * 0.55 + g.wob) * 0.22 * dt;
-        const ring = RING + (k.boss ? 0.8 : 0), tx = Math.max(-HX - 0.9, Math.min(HX + 0.9, p.x + Math.sin(g.angle) * ring)), tz = Math.max(this.cz - HZ - 1.5, Math.min(this.cz + HZ + 0.5, p.z - Math.cos(g.angle) * ring));
-        const ex = tx - gp.x, ez = tz - gp.z, e = Math.hypot(ex, ez), v = (e > 4 ? 5.4 : e > 0.4 ? 2.3 : 0) * Math.min(1.2, k.pace);
+        const ring = (RING + (k.boss ? 0.8 : 0)) * S, tx = Math.max(-HX - 0.9, Math.min(HX + 0.9, p.x + Math.sin(g.angle) * ring)), tz = Math.max(this.cz - HZ - 1.5, Math.min(this.cz + HZ + 0.5, p.z - Math.cos(g.angle) * ring));
+        const ex = tx - gp.x, ez = tz - gp.z, e = Math.hypot(ex, ez), v = (e > 4 * S ? 5.4 : e > 0.4 ? 2.3 : 0) * Math.min(1.2, k.pace) * S;
         if (v > 0) { gp.x += ex / e * v * dt; gp.z += ez / e * v * dt; }
-        g.play(v > 3 ? g.clips.run : v > 0 ? g.clips.walk : g.clips.idle, { fade: 0.2 });
-        g.turn(v > 3 ? Math.atan2(ex, ez) : toHero, dt, 8);
+        g.play(v > 3 * S ? g.clips.run : v > 0 ? g.clips.walk : g.clips.idle, { fade: 0.2 });
+        g.turn(v > 3 * S ? Math.atan2(ex, ez) : toHero, dt, 8);
         if (g.st === 'enter' && d < ring + 1.6) { g.st = 'ready'; g.t = 0; }
       } else if (g.st === 'approach') {
-        if (d > near) { gp.x += dx / d * 4.6 * k.pace * dt; gp.z += dz / d * 4.6 * k.pace * dt; g.play(g.clips.run, { fade: 0.15 }); }
+        if (d > near) { gp.x += dx / d * 4.6 * k.pace * S * dt; gp.z += dz / d * 4.6 * k.pace * S * dt; g.play(g.clips.run, { fade: 0.15 }); }
         g.turn(toHero, dt, 12);
         if (d <= near || g.t > 2.4) {
-          if (d < near + 1.4) this.raise(g, TELL);
+          if (d < near + 1.4 * S) this.raise(g, TELL);
           else { g.st = 'ready'; g.t = 0; g.token = false; this.cool = 0.4; }      // he could not reach him: back to the ring
         }
       } else if (g.st === 'windup') {
         if (g.t < TELL - 0.25) g.turn(toHero, dt, 12);                    // he commits to where the player was a quarter of a second before the blow
-        else if (g.t < TELL) { gp.x += Math.sin(g.yaw) * 3.4 * dt; gp.z += Math.cos(g.yaw) * 3.4 * dt; }      // and steps into it
+        else if (g.t < TELL) { gp.x += Math.sin(g.yaw) * 3.4 * S * dt; gp.z += Math.cos(g.yaw) * 3.4 * S * dt; }      // and steps into it
         if (g.t > TELL - 0.16 && g.t < TELL + 0.14) { g.swordEnds(_a, _b); g.trail.add(_a, _b); }
         if (!g.struck && g.t >= TELL) {
           g.struck = true; this.sound.fx('slide', { rate: k.boss ? 1.1 : 1.7, gap: 0.04 });
           const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw), hx = p.x - gp.x, hz = p.z - gp.z, hd = Math.max(0.01, Math.hypot(hx, hz));
           if (hd < k.reach && (hx * fx + hz * fz) / hd > 0.42) this.hitHero(g);
-          else if (k.boss) { _a.set(gp.x + fx * 2, gp.y + 0.2, gp.z + fz * 2); this.sparks.burst(_a, 16, WHITE, 5); this.shake(0.25); }      // her fist comes down on the stone
+          else if (k.boss) { _a.set(gp.x + fx * 3.8, gp.y + 0.2, gp.z + fz * 3.8); this.sparks.burst(_a, 22, WHITE, 7); this.shake(0.3); }      // her sword comes down on the stone
         }
         if (k.twice && !g.second && g.t >= TELL + 0.3) { g.second = true; this.raise(g, Math.max(0.42, TELL - 0.12)); }      // the captain's second blow follows the first
         else if (g.t >= TELL + 0.55) { g.st = 'ready'; g.t = 0; g.token = false; }
       }
-      if (d < 1.15 && g.st !== 'windup') { gp.x -= dx / d * (1.15 - d); gp.z -= dz / d * (1.15 - d); }      // never standing inside him
+      if (d < body && g.st !== 'windup') { gp.x -= dx / d * (body - d); gp.z -= dz / d * (body - d); }      // never standing inside him
       gp.x = Math.max(-HX - 1.2, Math.min(HX + 1.2, gp.x)); if (g.st !== 'enter') gp.z = Math.max(this.cz - HZ - 2.5, Math.min(this.cz + HZ + 0.5, gp.z)); gp.y = this.groundAt(gp.z);
     }
     for (let i = 0; i < alive.length; i++) for (let j = i + 1; j < alive.length; j++) {      // nor inside one another

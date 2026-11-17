@@ -102,7 +102,7 @@ export class Director {
     line.parentElement.style.animation = 'none'; void line.parentElement.offsetWidth; line.parentElement.style.animation = '';
   }
 
-  tap() { if (this.active && this.t > 0.35) this.next(); }
+  tap() { if (this.active && this.t > 0.35 && !(this.beats[this.i] && this.beats[this.i].hold)) this.next(); }      // a beat that holds waits for its own answer, not for a tap
   // Stopped without going on to what follows: the player has left for the title.
   skipQuiet() { this.active = false; this.done = null; this.el.root.hidden = true; }
   skip() { if (this.active) this.finish(); }
@@ -122,7 +122,10 @@ export class Director {
   frame() {
     const c = this.cam; if (!c) return null;
     const u = ease(Math.min(1, this.camT / this.camLen)), to = c.to || c.at, lookTo = c.lookTo || c.look;
-    this.camera.position.set(c.at[0] + (to[0] - c.at[0]) * u, c.at[1] + (to[1] - c.at[1]) * u, c.at[2] + (to[2] - c.at[2]) * u);
+    if (c.round) {      // carried round a point instead of straight from place to place: { c, from, to (bearings), r: [near, far], y: [low, high] }
+      const o = c.round, a = o.from + (o.to - o.from) * u, r = o.r[0] + (o.r[1] - o.r[0]) * u;
+      this.camera.position.set(o.c[0] + Math.sin(a) * r, o.c[1] + o.y[0] + (o.y[1] - o.y[0]) * u, o.c[2] + Math.cos(a) * r);
+    } else this.camera.position.set(c.at[0] + (to[0] - c.at[0]) * u, c.at[1] + (to[1] - c.at[1]) * u, c.at[2] + (to[2] - c.at[2]) * u);
     this.look.set(c.look[0] + (lookTo[0] - c.look[0]) * u, c.look[1] + (lookTo[1] - c.look[1]) * u, c.look[2] + (lookTo[2] - c.look[2]) * u);
     return c.fov || 48;
   }

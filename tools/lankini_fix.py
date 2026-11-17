@@ -34,6 +34,59 @@ def repaint(o, pictures):
     return T.project(o, 'lankini_face', T.VIEWS['lankini']['face'], os.path.join(pictures, 'face-before.png'), after, os.path.join(pictures, 'face-texture.png'))
 
 
+# Sword-fighting moves for her, taken from the guards' Mixamo animations. Her skeleton has the same bones by name but
+# her own proportions, so each bone is turned, frame by frame, by as much as the guard's bone has turned from his rest
+# pose (measured in the world, from the guard's skinned file, since an animation file alone carries no true rest pose).
+# Her hips rise and fall with his, scaled to her height; she does not travel (the fight places her), except in the fall.
+SWORD = {'Great Sword Idle': 'sword_idle', 'Great Sword Walk': 'sword_walk', 'Great Sword Run': 'sword_run', 'Great Sword Slash': 'sword_slash',
+         'Great Sword Impact': 'sword_hit', 'Two Handed Sword Death': 'sword_death'}
+def sword_clips(arm, skinned, anim_dir):
+    sc = bpy.context.scene; fps = sc.render.fps; had = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=skinned, automatic_bone_orientation=False)
+    ref = next(x for x in bpy.data.objects if x not in had and x.type == 'ARMATURE')
+    rest_s = {b.name: (ref.matrix_world @ b.matrix_local).to_quaternion() for b in ref.data.bones}
+    hips = next(b.name for b in ref.data.bones if b.name.endswith('Hips')); high_s = (ref.matrix_world @ ref.data.bones[hips].matrix_local).translation.z
+    for x in [x for x in bpy.data.objects if x not in had]: bpy.data.objects.remove(x, do_unlink=True)
+    rest_t = {b.name: (arm.matrix_world @ b.matrix_local).to_quaternion() for b in arm.data.bones}
+    frame_t = {b.name: (arm.matrix_world @ b.matrix_local).to_3x3() for b in arm.data.bones}
+    high_t = (arm.matrix_world @ arm.data.bones[hips].matrix_local).translation.z; k = high_t / high_s
+    order = [b.name for b in arm.data.bones if b.name in rest_s]; parent = {b.name: (b.parent.name if b.parent else None) for b in arm.data.bones}
+    for pb in arm.pose.bones: pb.rotation_mode = 'QUATERNION'
+    made = []
+    for f in sorted(os.listdir(anim_dir)):
+        name = SWORD.get(os.path.splitext(f)[0])
+        if not name: continue
+        had = set(bpy.data.objects); bpy.ops.import_scene.fbx(filepath=os.path.join(anim_dir, f), automatic_bone_orientation=False)
+        new = [x for x in bpy.data.objects if x not in had]; a = next(x for x in new if x.type == 'ARMATURE'); src = a.animation_data.action
+        their = sc.render.fps; sc.render.fps = fps
+        first, last = src.frame_range; n = int(round((last - first) / their * fps))
+        act = bpy.data.actions.new(name); act.use_fake_user = True; arm.animation_data.action = act
+        try:
+            if act.slots and arm.animation_data.action_slot is None: arm.animation_data.action_slot = act.slots[0]
+        except Exception: pass
+        for pb in arm.pose.bones: pb.matrix_basis.identity()
+        start = None; prev = {}
+        for i in range(n + 1):
+            t = first + i * their / fps; sc.frame_set(int(t), subframe=t - int(t))
+            pose = {b: (a.matrix_world @ a.pose.bones[b].matrix) for b in order if b in a.pose.bones}
+            turn = {b: pose[b].to_quaternion() @ rest_s[b].inverted() @ rest_t[b] for b in pose}      # where her bone should point, in the world
+            for b in order:
+                if b not in turn: continue
+                p = parent[b]; q = rest_t[b].inverted() @ turn[b] if not p or p not in turn else rest_t[b].inverted() @ rest_t[p] @ turn[p].inverted() @ turn[b]
+                if b in prev and q.dot(prev[b]) < 0: q.negate()
+                prev[b] = q; pb = arm.pose.bones[b]; pb.rotation_quaternion = q; pb.keyframe_insert('rotation_quaternion', frame=i)
+            at = pose[hips].translation
+            if start is None: start = at.copy()
+            move = (at - Vector((start.x, start.y, high_s))) * k if 'death' in name else Vector((0, 0, (at.z - high_s) * k))
+            pb = arm.pose.bones[hips]; pb.location = frame_t[hips].inverted() @ move; pb.keyframe_insert('location', frame=i)
+        made.append(f'{name} {n}')
+        for x in new: bpy.data.objects.remove(x, do_unlink=True)
+        bpy.data.actions.remove(src)
+    arm.animation_data.action = None
+    for pb in arm.pose.bones: pb.matrix_basis.identity()
+    return 'sword moves from the guards: ' + ', '.join(made) + ' frames'
+
+
 # For looking at her in Blender only: a sword in her right hand (in the game the sword is put there by the game itself).
 def show_sword(arm, path, length=1.35):
     before = set(bpy.data.objects); bpy.ops.import_scene.gltf(filepath=path)
@@ -55,4 +108,7 @@ if __name__ == '__main__' and '--' in sys.argv:
     src, pictures, out, tris, tex = sys.argv[sys.argv.index('--') + 1:][:5]
     arm, o = R.load(src); T.rest(arm)
     print('STEP', weld(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
-    print('STEP', R.slim(o, int(tris), 0.16, fine)); print('STEP', R.export(arm, out, int(tex), NAMES))
+    print('STEP', R.slim(o, int(tris), 0.16, fine))
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    print('STEP', sword_clips(arm, os.path.join(root, 'assets/rig/guard/Breathing Idle.fbx'), os.path.join(root, 'assets/rig/guard/anims')))
+    print('STEP', R.export(arm, out, int(tex), NAMES + list(SWORD.values())))

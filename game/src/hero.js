@@ -116,6 +116,13 @@ export class Hero {
   }
 
   get airborne() { return this.y > this.floor + 0.02; }
+  // A leap where he stands, in a fight: the same leap as on the run.
+  leap() {
+    if (this.airborne) return false;
+    this.vy = JUMP_V; this.y = this.floor + 0.03; this.slide = 0;
+    const w = this.actions.running_jump.getClip().userData, lead = 0.06;
+    this.play('running_jump', { once: true, from: Math.max(0, w.from - lead), speed: (w.to - w.from + lead) / AIR_TIME, fade: 0.07 }); return true;
+  }
   get sliding() { return this.slide > 0; }
   // How far down he is in a slide, 0..1: eases in as he drops and out as he rises, for the camera to follow.
   get low() {
