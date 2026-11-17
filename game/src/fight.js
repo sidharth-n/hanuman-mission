@@ -13,6 +13,9 @@ export const PLANS = {
   court: [{ foes: ['guard', 'rusher', 'guard'], most: 1, tell: 0.62, rest: 0.7 }, { foes: ['guard', 'brute', 'guard', 'rusher', 'rusher'], most: 2, tell: 0.58, rest: 0.55 }],
   grove: [{ foes: ['rusher', 'guard', 'rusher', 'guard'], most: 2, tell: 0.6, rest: 0.6 }, { foes: ['brute', 'captain', 'brute'], most: 2, tell: 0.58, rest: 0.5 }],
 };
+// Struck down: the fall he is thrown back in (he lands on his back at `land` seconds of the clip) and the kip up that
+// brings him to his feet (he lies still until `from`). Both are played faster than they were made.
+const FALL = { clip: 'fall_flying_back', speed: 1.35, land: 0.9 }, KIP = { clip: 'rise_kip_up', from: 0.3, end: 2.0, speed: 1.6, slow: 1.3 };
 const PACE = 5.8;                       // how fast he moves under the stick, metres a second
 const RING = 3.1;                       // how far the guards who are waiting stand off from him
 const GOLD = [1, 0.74, 0.3], WHITE = [1, 0.95, 0.82], RED = [1, 0.25, 0.12];
@@ -130,9 +133,9 @@ export class Fight {
   begin(mid, plan = PLANS.court, scale = 1) {
     this.s = scale; this.hz = HZ * (scale > 1 ? 1.5 : 1);      // grown, they need a longer floor: a blow throws him further
     const hero = this.hero, p = hero.root.position;
-    this.cz = -mid; this.plan = plan; this.active = true; this.over = null; this.result = null; this.overT = 0; this.lives = LIVES; this.freeze = 0; this.falls = 0; this.cineAt = 3; this.cine = null;
+    this.cz = -mid; this.plan = plan; this.active = true; this.over = null; this.result = null; this.overT = 0; this.lives = LIVES; this.freeze = 0; this.falls = 0; this.cineAt = plan === PLANS.gate ? 1 : 3; this.cine = null;      // against Lankini the very first fall is the one that is held: it opens the game
     this.t = 0; this.wave = 0; this.nextT = 0; this.used = 0;
-    this.h = { act: null, t: 0, len: 0, strikeAt: 0, struck: false, heavy: false, combo: 0, comboT: 0, queued: false, safe: 0, dodgeCd: 0, vx: 0, vz: 0, fx: 0, fz: -1, reach: 0, dmg: 1, slam: false, down: 0, epic: false, roared: false };
+    this.h = { act: null, t: 0, len: 0, strikeAt: 0, struck: false, heavy: false, combo: 0, comboT: 0, queued: false, safe: 0, dodgeCd: 0, vx: 0, vz: 0, fx: 0, fz: -1, reach: 0, dmg: 1, slam: false, down: 0, up: 0, epic: false, roared: false };
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.floor = 0;
     this.sparks.floor = this.groundAt(this.cz);
     for (const g of this.guards) g.reset();
@@ -275,23 +278,24 @@ export class Fight {
     } else { g.st = 'hurt'; g.play(g.clips.hit, { once: true, fade: 0.05, ...g.hitPlay }); }
   }
 
-  // A blow lands on him: he is thrown back through the air, comes down hard and gets up; nothing can touch him until
-  // he is on his feet. Every third to sixth time the moment is held: slow, seen from the side, the chant over it; he
-  // rises with a roar and his next blow is the great one.
+  // A blow lands on him: he is thrown backward off his feet and lands on his back, lies a moment, and springs up; nothing
+  // can touch him until he is standing, and those who fight him hold off until then. The fall that is held (the first
+  // against Lankini, every third to sixth after) is slow and seen from close; he rises with a roar and his next blow
+  // is the great one.
   hitHero(g) {
     const h = this.h; if (h.safe > 0 || this.over || this.hero.y > 0.55) return false;      // in the air the blade passes under him
     const hero = this.hero, p = hero.root.position, gp = g.root.position, d = Math.max(0.01, Math.hypot(p.x - gp.x, p.z - gp.z));
     this.lives -= g.k.wound; this.falls++;
     const epic = this.lives > 0 && this.falls >= this.cineAt;
-    h.act = 'hurt'; h.t = 0; h.len = 9; h.down = 0; h.epic = epic; h.roared = false; h.queued = false; h.combo = 0; h.slam = false; h.safe = 9; this.cool = Math.max(this.cool, epic ? 3.4 : 1.5);
+    h.act = 'hurt'; h.t = 0; h.len = 9; h.down = 0; h.up = 0; h.epic = epic; h.roared = false; h.queued = false; h.combo = 0; h.slam = false; h.safe = 9; this.cool = Math.max(this.cool, epic ? 5.4 : 2.4);
     const push = (g.k.wound > 1 || g.k.boss ? 8 : 6) * this.s; h.vx = (p.x - gp.x) / d * push; h.vz = (p.z - gp.z) / d * push;
     h.fx = (gp.x - p.x) / d; h.fz = (gp.z - p.z) / d;      // thrown back with his face to the one who struck him
-    hero.vy = epic ? 7 : 5.6; hero.y = hero.floor + 0.05; hero.play('falling_idle', { fade: 0.08 });
+    hero.play(FALL.clip, { once: true, speed: FALL.speed, fade: 0.08 });
+    for (const o of this.all) { o.second = true; if (o !== g && o.st === 'approach') { o.st = 'ready'; o.token = false; } }      // nobody strikes at a man on the ground
     if (epic) {
       this.cineAt = this.falls + 3 + Math.floor(Math.random() * 4);
-      this.cine = { cut: true, from: g, side: 0, at: new THREE.Vector3(), look: new THREE.Vector3(), keep: [[0, 0, 0], [0, 0, 0]] };
+      this.cine = { cut: true, from: g, side: 0, at: new THREE.Vector3(), look: new THREE.Vector3(), keep: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]] };
       this.slowMotion(1.7, 0.24);
-      for (const o of this.all) { o.second = true; if (o !== g && o.st === 'approach') { o.st = 'ready'; o.token = false; } }      // the others hold while it is seen
     }
     _a.set(p.x, p.y + 1.2 * this.s, p.z); this.sparks.burst(_a, 18 * g.k.wound, RED, 6 * this.s); this.flash(_a, RED, 2 * g.k.wound);
     this.freeze = 0.08; this.shake(0.4 + 0.2 * g.k.wound); this.buzz([60, 30, 60]); this.sound.fx('hit', { rate: 0.8, gap: 0.04 });
@@ -322,13 +326,16 @@ export class Fight {
       h.t += dt;
       p.x += h.vx * dt; p.z += h.vz * dt; const drag = Math.exp(-dt * (h.act === 'dodge' ? 2.2 : h.act === 'hurt' && !h.down ? 2.5 : 9)); h.vx *= drag; h.vz *= drag;
       if (h.act === 'hurt') {
-        if (!h.down && h.t > 0.15 && !hero.airborne) {      // down he comes, hard, and up again
-          h.down = h.t; h.len = h.t + (h.epic ? 2.45 : 0.62);
-          hero.play('hard_landing', { once: true, from: 0.22, speed: h.epic ? 1.35 : 2.1, fade: 0.06 });
-          _a.set(p.x, p.y + 0.15, p.z); this.sparks.burst(_a, 16, WHITE, 5 * S); this.shake(0.35); this.buzz(40); this.sound.fx('stone', { rate: 1.3, gap: 0.1 });
+        if (!h.down && h.t * FALL.speed >= FALL.land) {      // he comes down on his back
+          h.down = h.t;
+          _a.set(p.x, p.y + 0.15, p.z); this.sparks.burst(_a, 18, WHITE, 5 * S); this.shake(0.4); this.buzz(40); this.sound.fx('stone', { rate: 1.3, gap: 0.1 });
         }
-        if (h.epic && h.down && !h.roared && h.t > h.down + 0.95) {      // on his feet, and he roars
-          h.roared = true; hero.play('mutant_roaring', { once: true, from: 1.0, speed: 1.35, fade: 0.18 });
+        if (h.down && !h.up && h.t >= h.down + (h.epic ? 0.75 : 0.22)) {      // a moment on the ground, and he springs to his feet
+          const speed = h.epic ? KIP.slow : KIP.speed; h.up = h.t; h.len = h.t + (KIP.end - KIP.from) / speed - 0.06 + (h.epic ? 1.2 : 0);
+          hero.play(KIP.clip, { once: true, from: KIP.from, speed, fade: 0.12 });
+        }
+        if (h.epic && h.up && !h.roared && h.t >= h.up + (KIP.end - KIP.from) / KIP.slow - 0.12) {      // on his feet, and he roars
+          h.roared = true; hero.play('mutant_roaring', { once: true, from: 1.0, speed: 1.35, fade: 0.2 });
           _a.set(p.x, p.y + 1.2 * S, p.z); this.sparks.burst(_a, 50, GOLD, 9 * S); this.flash(_a, GOLD, 4 * S, 0.3); this.shake(0.5); this.buzz([40, 30, 120]); this.sound.fx('power', { gap: 0.2 });
         }
       }
@@ -353,17 +360,17 @@ export class Fight {
     }
     p.x = Math.max(-HX, Math.min(HX, p.x)); p.z = Math.max(this.cz - this.hz, Math.min(this.cz + this.hz, p.z));
     if (this.cine) {
-      // The held moment. While he is in the air the view is low on the road behind him, so he is thrown toward it with
-      // her beyond him; when he is down it cuts to his front and a little to one side, low, and closes as he rises and roars.
-      // It never leaves the paved road: the braziers and stalls along its edge would stand in front of the lens.
+      // The held moment, in one shot that goes with him: close, low, from his front and a little to one side, so the
+      // fall itself fills the picture. It follows his body (hips, head and feet, wherever the fall has put them), never
+      // leaves the paved road (the braziers and stalls along its edge would stand in front of the lens) and is never far off.
       const c = this.cine, q = c.from.root.position, fx = q.x - p.x, fz = q.z - p.z, fd = Math.max(0.01, Math.hypot(fx, fz)), ux = fx / fd, uz = fz / fd;
-      const front = h.down > 0 && h.t > h.down + 0.3, rise = h.down ? Math.min(1, (h.t - h.down) / 1.4) : 0;
-      if (front !== !!c.front) { c.front = front; c.cut = true; }
+      const B = this.bones || (this.bones = ['Hips', 'Head', 'LeftFoot', 'RightFoot'].map(n => hero.model.getObjectByName('mixamorig' + n)));
+      B.forEach((bone, i) => { bone.getWorldPosition(_b); c.keep[i][0] = _b.x; c.keep[i][1] = _b.y + (i === 1 ? 0.3 * S : 0); c.keep[i][2] = _b.z; });      // all of him stays in the picture
+      const hx = c.keep[0][0], hy = c.keep[0][1], hz = c.keep[0][2], rise = h.up ? Math.min(1, (h.t - h.up) / 1.2) : 0;
       if (!c.side) c.side = Math.abs(p.x - uz * 3) < Math.abs(p.x + uz * 3) ? 1 : -1;      // the side nearer the middle of the road
-      const D = front ? (2.0 + 1.6 * S) * (1 - 0.18 * rise) : 2.6 + 1.9 * S, along = front ? 0.35 : -1, across = (front ? 0.92 : 0.22) * c.side;
-      c.at.set(Math.max(-3.2, Math.min(3.2, p.x + ux * D * along - uz * D * across)), p.y + (front ? 0.4 + 0.25 * rise : 0.5) * S, p.z + uz * D * along + ux * D * across);
-      c.look.set(p.x, p.y + (front ? 1.15 + 0.2 * rise : 1.0) * S + hero.y * S * 0.5, p.z);
-      c.keep[0][0] = c.keep[1][0] = p.x; c.keep[0][2] = c.keep[1][2] = p.z; c.keep[0][1] = p.y; c.keep[1][1] = p.y + (hero.y + 2.05) * S;      // all of him, from the road under him to the top of his head, stays in the picture
+      const D = (1.5 + 1.25 * S) * (1 - 0.15 * rise), across = 0.86 * c.side;
+      c.at.set(Math.max(-3.2, Math.min(3.2, hx + ux * D * 0.5 - uz * D * across)), p.y + (0.35 + 0.3 * rise) * S, hz + uz * D * 0.5 + ux * D * across);
+      c.look.set(hx, hy + 0.1 * S, hz);
     }
     const yaw = Math.atan2(-h.fx, -h.fz); hero.root.rotation.y += wrap(yaw - hero.root.rotation.y) * Math.min(1, dt * (h.act ? 26 : 14));
 
@@ -392,7 +399,7 @@ export class Fight {
         }
       } else if (g.st === 'enter' || g.st === 'ready') {
         if (k.boss) {      // Lankini keeps no distance and gives no ground: between her blows she comes on at a walk
-          const v = d > near + 0.5 && !this.cine ? 2.5 * S : 0;      // (she stands while his fall is being shown)
+          const v = d > near + 0.5 && h.act !== 'hurt' ? 2.5 * S : 0;      // (she stands while he is down)
           if (v > 0) { gp.x += dx / d * v * dt; gp.z += dz / d * v * dt; }
           g.play(v > 0 ? g.clips.walk : g.clips.idle, { fade: 0.2 }); g.turn(toHero, dt, 8);
           if (g.st === 'enter') { g.st = 'ready'; g.t = 0; }

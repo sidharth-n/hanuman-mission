@@ -7,7 +7,9 @@ export const LANES = [-2.4, 0, 2.4];
 const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 // Mixamo clips move the hips: forward with the run-up, up with a leap, down with a slide. The game alone decides
-// where he is, so the hips are pinned in place; only a slide keeps their height, so that he really goes down.
+// where he is, so the hips are pinned in place. Their height is kept in every move made on the ground (a crouch, a
+// roar, a landing, a blow, a fall: with the hips held up and the knees bent his feet would leave the road) and pinned
+// only where the game itself lifts him: a leap, the hang he flies in, a climb.
 // The rig may stand along any axis: his height is whichever part of the hips' place is large when he stands.
 export function pinHips(clip, keepHeight) {
   for (const t of clip.tracks) {
@@ -62,7 +64,7 @@ export class Hero {
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
     for (const clip of gltf.animations) {
-      pinHips(clip, /slide|roll/.test(clip.name));      // a slide and a roll really go down
+      pinHips(clip, !/jump|hang|climb/.test(clip.name));      // on the ground the hips go down with the knees; in a leap or in flight the game lifts him
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     this.current = null;

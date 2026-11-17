@@ -126,6 +126,57 @@ for f in sorted(os.listdir(anim_dir)):
     for o in new:
         bpy.data.objects.remove(o, do_unlink=True)
 
+# 4b. falls=<dir>,<skinned.fbx>: moves exported from Mixamo for ANOTHER character (the guard), put on this one.
+# The two skeletons have the same bones and other proportions, so nothing is copied as it stands: each bone is turned
+# by as much as the source bone has turned from its true rest pose (read from that character's skinned file), and the
+# hips travel as the source's do, scaled to this character's height. Names: FALLS below.
+FALLS = {'Dying Flying Backward': 'fall_flying_back', 'Knocked Out Falling To Back': 'fall_knocked_out', 'Knocked Over And Falling To The Ground': 'fall_knocked_over',
+         'Getting Up From Back': 'rise_from_back', 'Getting Up From Being Knocked Down On The Ground': 'rise_knocked_down', 'Male Kip Up To Standing': 'rise_kip_up'}
+falls = next((x.split('=', 1)[1] for x in argv[6:] if x.startswith('falls=')), None)
+if falls:
+    from mathutils import Vector
+    falls_dir, ref_fbx = falls.split(',')
+    fps = scene.render.fps; had = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=ref_fbx, automatic_bone_orientation=False)
+    ref = next(x for x in bpy.data.objects if x not in had and x.type == 'ARMATURE')
+    rest_s = {b.name: (ref.matrix_world @ b.matrix_local).to_quaternion() for b in ref.data.bones}
+    hips = next(b.name for b in ref.data.bones if b.name.endswith('Hips')); high_s = (ref.matrix_world @ ref.data.bones[hips].matrix_local).translation.z
+    for x in [x for x in bpy.data.objects if x not in had]: bpy.data.objects.remove(x, do_unlink=True)
+    for act in [x for x in bpy.data.actions if x.users == 0 and not x.use_fake_user]: bpy.data.actions.remove(act)
+    rest_t = {b.name: (arm.matrix_world @ b.matrix_local).to_quaternion() for b in arm.data.bones}
+    frame_t = {b.name: (arm.matrix_world @ b.matrix_local).to_3x3() for b in arm.data.bones}
+    high_t = (arm.matrix_world @ arm.data.bones[hips].matrix_local).translation.z; k = high_t / high_s
+    names = [b.name for b in arm.data.bones if b.name in rest_s]
+    for f in sorted(os.listdir(falls_dir)):
+        name = FALLS.get(os.path.splitext(f)[0])
+        if not name: continue
+        had = set(bpy.data.objects); bpy.ops.import_scene.fbx(filepath=os.path.join(falls_dir, f), automatic_bone_orientation=False)
+        new = [x for x in bpy.data.objects if x not in had]; a = next(x for x in new if x.type == 'ARMATURE'); src = a.animation_data.action
+        first, last = src.frame_range; n = int(round(last - first))
+        act = bpy.data.actions.new(name); act.use_fake_user = True; arm.animation_data.action = act
+        try:
+            if act.slots and arm.animation_data.action_slot is None: arm.animation_data.action_slot = act.slots[0]
+        except Exception: pass
+        for pb in arm.pose.bones: pb.matrix_basis.identity()
+        start = None; prev = {}
+        for i in range(n + 1):
+            scene.frame_set(int(first) + i)
+            pose = {b: (a.matrix_world @ a.pose.bones[b].matrix) for b in names if b in a.pose.bones}
+            turn = {b: pose[b].to_quaternion() @ rest_s[b].inverted() @ rest_t[b] for b in pose}      # where this character's bone should point, in the world
+            for b in names:
+                if b not in turn: continue
+                p = parent[b]; q = rest_t[b].inverted() @ turn[b] if not p or p not in turn else rest_t[b].inverted() @ rest_t[p] @ turn[p].inverted() @ turn[b]
+                if b in prev and q.dot(prev[b]) < 0: q.negate()
+                prev[b] = q; pb = arm.pose.bones[b]; pb.rotation_quaternion = q; pb.keyframe_insert('rotation_quaternion', frame=i)
+            at = pose[hips].translation
+            if start is None: start = at.copy()
+            pb = arm.pose.bones[hips]; pb.location = frame_t[hips].inverted() @ ((at - Vector((start.x, start.y, high_s))) * k); pb.keyframe_insert('location', frame=i)
+        print('FALL', name, n, 'frames, hips scaled by %.2f' % k)
+        for x in new: bpy.data.objects.remove(x, do_unlink=True)
+        bpy.data.actions.remove(src)
+    arm.animation_data.action = None
+    for pb in arm.pose.bones: pb.matrix_basis.identity()
+
 # 5. Push every action onto the character's NLA so the glTF exporter writes them all as separate clips
 arm.animation_data_create()
 arm.animation_data.action = None

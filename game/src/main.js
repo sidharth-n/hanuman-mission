@@ -193,8 +193,8 @@ function hit(o, chunk) {
   hero.stumble(); say(LINES.stumble);
 }
 
-function caught() {
-  hero.play('hit_reaction', { once: true, fade: 0.08 }); buzz([80, 60, 140]); sound.fx('hit'); sound.chant();
+function caught(down) {
+  if (!down) hero.play('hit_reaction', { once: true, fade: 0.08 });      // struck down in a fight he is left lying where he fell buzz([80, 60, 140]); sound.fx('hit'); sound.chant();
   result('Captured', 'Best');
 }
 
@@ -218,7 +218,7 @@ function endFight(how) {
   if (how === 'lost') {
     for (const foe of fight.all) foe.bar.visible = false;      // nothing of the fight is left hanging over what comes next
     screen(null); if (then && then(how)) return;      // the story takes him as he fell: in the grove he is bound and led to Ravana
-    return caught();      // he stays where he fell, among them, until the next run
+    return caught(true);      // he stays where he fell, among them, until the next run
   }
   sound.fx('power'); buzz([40, 40, 120]);
   if (then) return then(how);      // the story goes on from here
@@ -422,7 +422,7 @@ function placeCamera(dt, snap) {
     // struck down in the fight, and the moment is held: the fight itself says where the view stands
     const c = fight.cine;
     if (c.cut) { camera.position.copy(c.at); look.copy(c.look); c.cut = false; } else { camera.position.lerp(c.at, Math.min(1, dt * 9)); look.lerp(c.look, Math.min(1, dt * 9)); }
-    fov = tall ? 72 : 58; view.fov = fov; view.back = back; view.join = 1;
+    fov = tall ? 66 : 50; view.fov = fov; view.back = back; view.join = 1;
     fit(camera, look, fov, camera.aspect, c.keep);
   } else if (state.shot) {
     const s = state.shot; s.t += dt;
@@ -444,6 +444,7 @@ function placeCamera(dt, snap) {
     const a = (2.5 + Math.sin(performance.now() * 0.0004) * 0.16) * (1 - e), R = 4.0 * k + (back - 4.0 * k) * e, y0 = (tall ? 0.95 : 0.75) * k;
     const lift = hero.y * (1 - e);      // while the view is still in front of him it rises with him as he takes wing
     camera.position.set(p.x + Math.sin(a) * R, G + 1.3 * k + lift * 0.7 + (height - 1.3 * k) * e, p.z + Math.cos(a) * R);
+    if (!ui.result.hidden) camera.position.x = Math.max(-3, Math.min(3, camera.position.x));      // behind the result of a run the view stays on the road: grown, he would put it among the braziers
     look.set(p.x * (1 - 0.15 * e), G + y0 + lift + (lookY - y0) * e + slope * 0.5 * e, p.z - 9 * e * e * e);      // the view stays on him until it is nearly behind him, then looks down the road
     view.back = back;
   } else {
@@ -594,5 +595,32 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
-if (debug || import.meta.env.DEV) window.__game = { get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+// ── for the tests (checklist.md is run before anything is shown): what a picture must never have wrong ──
+// Is anything of the world standing between the camera and those the picture is of, or is the camera inside something?
+// Returns a line for each one that is hidden; nothing when all are clear. Only those inside the frame are judged.
+function blocked() {
+  const k = hero.root.scale.x, v = new THREE.Vector3(), pts = [];
+  for (const n of ['Head', 'Spine2']) { const b = hero.model.getObjectByName('mixamorig' + n); if (b) pts.push(['hanuman ' + (n === 'Head' ? 'head' : 'chest'), b.getWorldPosition(v).toArray()]); }
+  for (const g of fight.all) if (g.root.visible && g.st !== 'dead') { const q = g.root.position; pts.push([(g.k.boss ? 'lankini' : 'guard') + ' chest', [q.x, q.y + g.tall * 0.62, q.z]]); }
+  const solid = []; scene.traverseVisible(o => { const m = Array.isArray(o.material) ? o.material[0] : o.material; if (o.isMesh && !o.isSkinnedMesh && m && !m.transparent && m.depthWrite !== false) solid.push(o); });
+  const ray = new THREE.Raycaster(), out = [], t = new THREE.Vector3(), d = new THREE.Vector3(), ndc = new THREE.Vector3(), mine = new Set(); hero.root.traverse(o => mine.add(o)); fight.all.forEach(g => g.root.traverse(o => mine.add(o)));
+  for (const [name, pt] of pts) {
+    t.set(...pt); ndc.copy(t).project(camera); if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1 || ndc.z > 1) continue;
+    const len = d.copy(t).sub(camera.position).length(); d.divideScalar(len);
+    for (const back of [false, true]) {      // from the lens to him, and from him to the lens: the second finds a lens that is inside a wall
+      ray.set(back ? t : camera.position, back ? d.clone().negate() : d); ray.near = 0.05; ray.far = len - 0.4 * k;
+      const hit = ray.intersectObjects(solid, false).find(x => !mine.has(x.object));
+      if (hit) { out.push(`${name} hidden by ${hit.object.name || (hit.object.parent && hit.object.parent.name) || 'a mesh'} ${hit.distance.toFixed(1)} m ${back ? 'from him (lens inside or behind it)' : 'from the lens'}`); break; }
+    }
+  }
+  return out;
+}
+// How far the lowest part of him is above the road, in his own metres, with the height the game itself gives him (a
+// leap, flight) taken off: near 0.1 when he stands or lies. Much more, and he is hanging in the air.
+function feet() {
+  const k = hero.root.scale.x, p = hero.root.position, v = new THREE.Vector3(); let low = Infinity;
+  hero.model.traverse(o => { if (o.isBone && /(Foot|ToeBase|Hips|Spine|Head)$/.test(o.name)) low = Math.min(low, o.getWorldPosition(v).y); });
+  return +((low - groundAt(p.z)) / k - hero.y).toFixed(2);
+}
+if (debug || import.meta.env.DEV) window.__game = { blocked, feet, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
