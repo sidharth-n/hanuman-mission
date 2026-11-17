@@ -27,6 +27,11 @@ export function createStory(g) {
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
   gift.visible = false; g.scene.add(gift);
   const aura = new Aura(g.scene, fight.sparks.points.material.map);      // the light round him when he changes size
+  // the burning brand a guard of the court puts to his tail: a flame that rides the point of the guard's sword
+  const brand = new THREE.Group(); brand.visible = false; g.scene.add(brand);
+  for (const [size, up] of [[1.25, 0], [0.95, 0.3], [0.6, 0.62]]) { const f = new THREE.Sprite(g.fireMat); f.userData.s = size; f.position.y = up; brand.add(f); }
+  let torch = null;      // { e: the guard, t, stage, from, to }: he walks round behind Hanuman, strikes at the tail, and it is alight
+  const tipOf = new THREE.Vector3();
   const pass = { t: 0, secs: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
   const done = { lankini: false, challenged: false, grove: false, end: false, present: false };
   let trek = null, leapTo = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
@@ -43,8 +48,8 @@ export function createStory(g) {
   // The score (Hans's audio screenplay): where the music changes or stops dead (null), the hits that land on a line, and
   // the lines that wait a moment for a great sound to pass before they are spoken.
   const CUES = { 'throne-0': 'court', 'throne-8': null, 'grove_ravana-8': null };      // the court's opening music holds until Ravana speaks
-  const HITS = { 'lankini_yields-1': 'toll', 'grove_sita-5': 'gift', 'grove_bound-1': 'bind', 'ignite-0': 'alight', 'ignite-1': 'burst' };
-  const LEAD = { 'ignite-0': 1.0, 'ignite-1': 1.2 };
+  const HITS = { 'lankini_yields-1': 'toll', 'grove_sita-5': 'gift', 'grove_bound-1': 'bind', 'ignite-1': 'burst' };      // the fire catching ('alight') is heard as the brand touches his tail
+  const LEAD = { 'ignite-1': 1.2 };
   const beats = (key, shots = []) => S[key].map((l, i) => { const id = key + '-' + i, b = { who: l.who, line: l.line, voice: id, ...(shots[i] || {}) };
     if (id in CUES) b.cue = CUES[id]; if (HITS[id]) b.hit = HITS[id]; if (LEAD[id]) b.lead = LEAD[id]; return b; });
   function putHero(x, z, yaw, clip = 'breathing_idle', up = 0) {
@@ -276,11 +281,28 @@ export function createStory(g) {
       see(v(0, 9.5, base + 21.5), v(0, 7.5, szv), { to: v(0, 3.4, base + 18), lookTo: v(0, 5.5, szv), fov: 62 }, 3.4),
     ];
     // his tail is alight: he grows, the ropes burst, and the two who hold him are thrown back
+    const RING = [[-3.5, -1.0], [3.4, 1.5], [-2.6, 3.2], [0.6, 4.4]];      // where the guards who run in take their stand round him (x, and z from where he stands)
     const hurl = (e, dx, dz) => { if (!e.root.visible) return; const q = e.root.position; e.play('two_handed_sword_death', { once: true, fade: 0.08 }); e.march = { x0: q.x, z0: q.z, x: q.x + dx, z: q.z + dz, t: 0, secs: 0.6, stay: true }; };
     const burst = () => {
       hero.bind(false); aura.begin(0, G, hz); aura.storm = true; g.grow(1, 2.2); hero.play('mutant_roaring', { once: true, fade: 0.15 });
+      brand.visible = false; torch = null; g.light(true);
       escort.forEach((e, i) => hurl(e, (i ? 1 : -1) * 2.6, 1.6)); wardens.forEach(e => e.play('great_sword_impact', { once: true, fade: 0.1 }));
+      // the guards of the court come running up the hall and close round him, swords out, and none of them comes nearer
+      RING.forEach(([x, z], i) => { const e = fight.guards[i], from = [x * 0.55, hz + 13 + (i % 2) * 1.5]; e.kind(i === 3 ? 'captain' : 'guard'); e.reset(); e.place(from[0], G, from[1], Math.PI); e.st = 'idle'; e.bar.visible = false;
+        e.play('great_sword_run', { fade: 0 }); e.march = { x0: from[0], z0: from[1], x, z: hz + z, t: -0.5 - 0.2 * i, secs: 2.0 }; });
       g.sound.fx('power'); g.sound.fx('fire'); g.sound.chant(); g.shake(0.5); g.buzz([60, 40, 160]);
+    };
+    // The brand: the guard at his right hand walks round behind him with fire on his blade and strikes at the tail.
+    const kindle = () => { const e = escort[1], q = e.root.position; torch = { e, t: 0, stage: 0, from: [q.x, q.z], to: [1.05, hz + 1.75] }; brand.visible = true; e.play('great_sword_walk', { fade: 0.15 }); };
+    // The word is given: he roars and those round him are thrown outward, seen from where the camera already is; the
+    // picture goes to black from that view, and the run begins. (Ending the scene at once showed the chase camera in
+    // the court for a few frames before the black: a view from nowhere between the choice and what it brings.)
+    let loosed = false, gone = false;
+    const leave = () => { hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
+    const loose = () => {
+      loosed = true; hero.play('mutant_roaring', { once: true, fade: 0.1 }); g.sound.fx('power'); g.shake(0.7); g.buzz([40, 30, 140]);
+      RING.forEach(([x, z], i) => { const k = 2.4 / Math.hypot(x, z); hurl(fight.guards[i], x * k, z * k); });
+      setTimeout(() => { if (!gone) g.fade(() => { if (!gone) director.skip(); }); }, 420);
     };
     director.play([
       ...hall,
@@ -297,11 +319,17 @@ export function createStory(g) {
         { ...shot(v(-1.6, T + 1.9, tz + 4.4), v(0, T + 2.5, tz), { to: v(-1.2, T + 2.2, tz + 3.8), fov: 44 }), do: () => { ravana.play('sit_exit', { once: true }); ravana.rise = 1.1; ravana.root.position.y = G + T; ravana.root.position.z = tz + 1.5; } },
         { ...over, do: () => ravana.play('command', { once: true, fade: 0.2 }) },
       ]),
+      // Ravana's word is carried out before our eyes: a guard brings a burning brand round behind him and puts it to his tail
+      { ...shot(v(-1.5, 0.8, hz + 3.5), v(0.35, 1.3, hz + 1.0), { to: v(-1.2, 0.85, hz + 3.0), fov: either(50, 40) }), secs: 3.4, do: kindle },
       ...beats('ignite', [
-        { ...shot(v(2.2, 0.9, hz + 3.2), v(0, 1.3, hz), { to: v(1.6, 1.1, hz + 2.6), fov: 48 }), do: () => g.light(true) },
+        { ...shot(v(1.4, 1.15, hz - 2.9), v(0, 1.5, hz), { to: v(1.0, 1.3, hz - 2.3), fov: either(40, 32) }), do: () => g.light(true) },      // his face, quiet, the fire at his back
         { ...shot(v(0, 1, hz), v(0, 1.3, hz), { lookTo: v(0, 2.3, hz), fov: 60, round: { c: v(0, 0, hz), from: Math.PI * 1.2, to: Math.PI * 0.78, r: [3.0, 3.9], y: [0.8, 2.0] } }), secs: 3.6, do: burst },      // carried round him inside the ranks as he grows
       ]),
-    ], () => g.fade(() => { hero.bind(false); aura.end(); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); }));
+      // and there he stands, grown, his tail burning, the guards of the court closing round him: the player is given the word.
+      // The camera goes on round him from where it was, slowly, until the answer comes.
+      { hold: true, secs: 1e9, ...shot(v(0, 1, hz), v(0, 2.3, hz), { fov: 60, secs: 11, keep: him, round: { c: v(0, 0, hz), from: Math.PI * 0.78, to: Math.PI * 0.56, r: [3.9, 5.2], y: [2.0, 1.5] } }),
+        do: () => { aura.end(); hero.play('breathing_idle', { fade: 0.3 }); g.ask(loose, 'Burn Lanka', ''); } },
+    ], () => { gone = true; g.unask(); if (loosed) leave(); else g.fade(leave); });      // loosed: the picture is already black
   }
 
   // ── the end: grown vast, he roars in the middle of the burning city, then leaps for the sea ──
@@ -337,10 +365,10 @@ export function createStory(g) {
   }
 
   return {
-    done, sita, ravana, gate, yields, grove, meets, wreck, bound, court,
+    done, sita, ravana, gate, yields, grove, meets, wreck, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); gift.visible = false; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); gift.visible = false; brand.visible = false; torch = null; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -365,6 +393,16 @@ export function createStory(g) {
       if (swell.t < swell.secs) { swell.t += dt; const u = Math.min(1, swell.t / swell.secs); hero.root.scale.setScalar(swell.from + (swell.to - swell.from) * u * u * (3 - 2 * u)); }      // he grows as the player watches
       if (leap.on) { leap.t += dt; hero.root.position.z -= (2 + leap.t * leap.t * 2.2) * dt; }      // and at the last he leaps for the sea
       for (const e of escort) if (e.leave > 0 && e.root.visible) { const w = e.go || [0, 0.72]; e.root.position.x += w[0] * 2.1 * dt; e.root.position.z += w[1] * 2.1 * dt; }      // they go the way their lord goes
+      if (torch) {      // the guard with the brand: round behind him, the blow at his tail, the fire catching
+        const { e } = torch, hp = hero.root.position; torch.t += dt;
+        if (torch.stage === 0) {
+          const u = Math.min(1, torch.t / 1.3), x = torch.from[0] + (torch.to[0] - torch.from[0]) * u, z = torch.from[1] + (torch.to[1] - torch.from[1]) * u;
+          e.root.position.x = x; e.root.position.z = z; e.root.rotation.y = e.yaw = yawTo(hp.x + 0.1 - x, hp.z + 0.7 - z);
+          if (u >= 1) { torch.stage = 1; torch.t = 0; e.play('great_sword_slash', { once: true, fade: 0.12 }); }
+        } else if (torch.stage === 1 && torch.t >= e.blowAt) { torch.stage = 2; g.light(true); g.sound.hit('alight'); g.sound.blaze(true); g.shake(0.25); g.buzz([30, 30, 80]); }      // and from here the fire is heard burning, through the wait for the player's word and into the run
+        else if (torch.stage === 2 && torch.t >= 1.7) { torch.stage = 3; e.play('great_sword_idle', { fade: 0.3 }); }
+        if (e.sword) { e.sword.localToWorld(tipOf.set(0, 0.78, 0)); brand.position.copy(tipOf); brand.children.forEach((f, n) => { const k = f.userData.s * (1 + Math.sin(torch.t * 23 + n * 2) * 0.12); f.scale.set(k, k * 1.3, 1); }); }      // the upper half of the blade burns
+      }
       for (const e of fight.guards) if (e.march) {      // the ten who close the ring in the grove
         const m = e.march; m.t += dt; const u = Math.min(1, Math.max(0, m.t / m.secs));
         e.root.position.x = m.x0 + (m.x - m.x0) * u; e.root.position.z = m.z0 + (m.z - m.z0) * u;

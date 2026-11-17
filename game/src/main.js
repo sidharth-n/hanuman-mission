@@ -103,7 +103,7 @@ async function load() {
 
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
   story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
-    fade, light: on => { tailFire.visible = on; }, ablaze, credits,
+    fade, light: on => { tailFire.visible = on; }, ablaze, credits, unask, fireMat: world.flameMat,
     // the picture held for a character's entrance: the air thick and dark so that all but what is close to the lens falls away, and her name under her
     hush: on => { state.held = on ? fight.boss.root : null; },
     name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
@@ -238,7 +238,12 @@ function start(from = 0, fresh = false) {
 }
 
 // The player is asked before he grows to meet Lankini: one button, or Enter.
-function ask(then) { $('ask').hidden = false; state.asking = () => { $('ask').hidden = true; state.asking = null; sound.fx('tap'); then(); }; }
+// A question the story waits on. With no words of its own it is the one the page carries (Lankini's); label: what the button says.
+function ask(then, label = 'Yes', text = null) {
+  const el = $('ask'), p = el.firstElementChild; p.dataset.own ??= p.innerHTML;
+  p.innerHTML = text ?? p.dataset.own; p.hidden = text === ''; $('askYes').textContent = label;
+  el.hidden = false; state.asking = () => { el.hidden = true; state.asking = null; sound.fx('tap'); then(); };
+}
 function unask() { $('ask').hidden = true; state.asking = null; }
 // to: 0 his own size, 1 grown to hers; secs: how long the change takes
 function grow(to, secs) { state.tw = { from: state.tall, to, t: 0, secs: Math.max(0.01, secs) }; }
