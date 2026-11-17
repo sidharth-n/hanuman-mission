@@ -3,15 +3,59 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>Hanuman Mission</title>
-<meta name="description" content="Run through the golden city of Lanka as Hanuman. A chase game from the Ramayana.">
+<title>Hanuman Mission: A Ramayana Action Game</title>
+<meta name="description" content="Play as Hanuman: find Sita in Lanka, face Ravana and set the golden city ablaze. A free 3D Ramayana action game in your browser, on phone or computer.">
+<link rel="canonical" href="https://hanuman-mission.pages.dev/">
+<meta name="robots" content="index, follow, max-image-preview:large">
 <meta name="theme-color" content="#070b1c">
+<meta name="color-scheme" content="dark">
+<!-- how a shared link looks: the cast poster with the title, and words that say it is a game you can play now -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Hanuman Mission">
+<meta property="og:title" content="Hanuman Mission: A Ramayana Action Game">
+<meta property="og:description" content="Play as Hanuman: find Sita in Lanka, face Ravana and set the golden city ablaze. A free 3D Ramayana action game in your browser, on phone or computer.">
+<meta property="og:url" content="https://hanuman-mission.pages.dev/">
+<meta property="og:image" content="https://hanuman-mission.pages.dev/og-image.jpg">
+<meta property="og:image:type" content="image/jpeg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Hanuman with his tail on fire before burning Lanka, Ravana's ten heads above him, Sita and Lankini at his side, and the title Hanuman Mission">
+<meta property="og:locale" content="en_GB">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Hanuman Mission: A Ramayana Action Game">
+<meta name="twitter:description" content="Play as Hanuman: find Sita in Lanka, face Ravana and set the golden city ablaze. A free 3D Ramayana action game in your browser, on phone or computer.">
+<meta name="twitter:image" content="https://hanuman-mission.pages.dev/og-image.jpg">
+<meta name="twitter:image:alt" content="Hanuman with his tail on fire before burning Lanka, Ravana's ten heads above him, and the title Hanuman Mission">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+ {"@type":"WebSite","name":"Hanuman Mission","alternateName":["Hanuman Mission game","Hanuman Mission: A Ramayana Action Game"],"url":"https://hanuman-mission.pages.dev/"},
+ {"@type":"VideoGame","name":"Hanuman Mission","url":"https://hanuman-mission.pages.dev/","image":"https://hanuman-mission.pages.dev/og-image.jpg","description":"Play as Hanuman: find Sita in Lanka, face Ravana and set the golden city ablaze. A free 3D Ramayana action game in your browser, on phone or computer.",
+  "genre":["Action","Adventure"],"gamePlatform":["Web browser","iPhone","Android"],"applicationCategory":"Game","operatingSystem":"Any",
+  "inLanguage":"en","isAccessibleForFree":true,"offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},
+  "author":{"@type":"Person","name":"Sidharth N"}}]}
+</script>
+<!-- installed, it is an app: full screen, its own icon, a dark launch screen -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Hanuman">
+<meta name="application-name" content="Hanuman Mission">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icons/icon-192.png">
-<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
+<link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+<link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+<link rel="apple-touch-startup-image" href="icons/launch-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1206x2622.png" media="(device-width: 402px) and (device-height: 874px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1320x2868.png" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-828x1792.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="apple-touch-startup-image" href="icons/launch-750x1334.png" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
+<link rel="preload" as="image" href="ui/brand/gada.webp">
+<link rel="preload" as="image" href="ui/brand/title.webp">
 <link rel="stylesheet" href="/src/style.css">
 </head>
 <body>
@@ -45,7 +89,16 @@
 <div id="fps" hidden></div>
 
 <section id="loading" class="veil">
-  <div class="emblem"><img src="ui/mace.jpg" alt=""></div>
+  <!-- the sign of the game assembles itself: the sun wakes, its rays turn, the ring is drawn, the gada rises and light runs over it -->
+  <div class="sigil" aria-hidden="true">
+    <i class="sun"></i>
+    <img class="rays" src="ui/brand/rays.webp" alt="">
+    <svg class="halo" viewBox="0 0 100 100"><circle class="r1" cx="50" cy="50" r="24.9"/><circle class="r2" cx="50" cy="50" r="26.8"/></svg>
+    <img class="gada" src="ui/brand/gada.webp" alt="">
+    <i class="shine"></i>
+    <i class="ember"></i><i class="ember"></i><i class="ember"></i><i class="ember"></i><i class="ember"></i><i class="ember"></i>
+  </div>
+  <h1 class="brand"><img src="ui/brand/title.webp" alt="Hanuman Mission: A Ramayana action game"></h1>
   <div id="bar"><i></i></div>
   <p class="caps" id="loadLine">Loading</p>
 </section>
@@ -53,9 +106,7 @@
 <section id="menu" class="veil" hidden>
   <div id="install" hidden><p id="installText"></p><button id="installGo" hidden>Install</button><button id="installNo" aria-label="Dismiss">&times;</button></div>
   <div class="group">
-    <h1 class="logo">Hanuman<span>Mission</span></h1>
-    <div class="trim"></div>
-    <p class="lead">A search for Sita in Lanka</p>
+    <h2 class="brand"><img src="ui/brand/title.webp" alt="Hanuman Mission: A Ramayana action game"></h2>
     <p class="made">Made with <b>Aholo Lux3D</b></p>
   </div>
   <div class="group">

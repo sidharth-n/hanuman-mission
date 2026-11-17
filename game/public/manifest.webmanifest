@@ -1,15 +1,18 @@
 {
+  "id": "./",
   "name": "Hanuman Mission",
   "short_name": "Hanuman",
-  "description": "Run through the golden city of Lanka as Hanuman.",
+  "description": "Play as Hanuman: find Sita in Lanka, face Ravana and set the golden city ablaze. A Ramayana action game.",
   "start_url": "./",
   "scope": "./",
   "display": "fullscreen",
   "orientation": "any",
   "background_color": "#070b1c",
   "theme_color": "#070b1c",
+  "categories": ["games", "entertainment"],
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
-    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

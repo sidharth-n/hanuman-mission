@@ -1,0 +1,150 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- The game's icon, drawn: Hanuman's gada before the sun he leapt for as a child, on sindoor red.
+     #small draws it for 16 to 48 px (no rays, no embers, a heavier outline). #clear leaves the corners empty. -->
+<style>
+html, body { margin: 0; background: transparent; }
+svg { display: block; width: 100vw; height: 100vh; }
+.small .fine { display: none; }
+</style></head>
+<body>
+<svg id="art" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="sky" cx="512" cy="400" r="720" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff8a2a"/>
+      <stop offset=".16" stop-color="#e24a12"/>
+      <stop offset=".42" stop-color="#9c1c0c"/>
+      <stop offset=".72" stop-color="#4a0909"/>
+      <stop offset="1" stop-color="#1c0406"/>
+    </radialGradient>
+    <radialGradient id="sun" cx="512" cy="392" r="330" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fff2b8" stop-opacity=".95"/>
+      <stop offset=".45" stop-color="#ffc24a" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/>
+    </radialGradient>
+    <!-- the head of the mace: lit from the upper left, fire light from below -->
+    <radialGradient id="orb" cx="430" cy="300" r="260" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#fffbe6"/>
+      <stop offset=".18" stop-color="#ffe398"/>
+      <stop offset=".5" stop-color="#e8a52c"/>
+      <stop offset=".78" stop-color="#9a5410"/>
+      <stop offset="1" stop-color="#5c320a"/>
+    </radialGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6b3c0c"/>
+      <stop offset=".3" stop-color="#ffe6a0"/>
+      <stop offset=".55" stop-color="#e2a43c"/>
+      <stop offset="1" stop-color="#5c320a"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff0bf"/>
+      <stop offset=".5" stop-color="#e8b44c"/>
+      <stop offset="1" stop-color="#9a6216"/>
+    </linearGradient>
+    <radialGradient id="rim" cx="512" cy="560" r="200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff9a3a" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#ff9a3a" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="head"><circle cx="512" cy="392" r="168"/></clipPath>
+    <filter id="ray" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.2"/></filter>
+    <radialGradient id="fadeG" cx="512" cy="392" r="520" gradientUnits="userSpaceOnUse">
+      <stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#000"/></radialGradient>
+    <mask id="fade"><rect width="1024" height="1024" fill="url(#fadeG)"/></mask>
+    <filter id="metal" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="7" specularConstant="1.05" specularExponent="28" lighting-color="#fff6dc" result="s">
+        <feDistantLight azimuth="225" elevation="50"/></feSpecularLighting>
+      <feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>
+      <feComposite in="SourceGraphic" in2="si" operator="arithmetic" k2="1" k3=".38"/>
+    </filter>
+    <filter id="soft"><feGaussianBlur stdDeviation="6"/></filter>
+    <filter id="drop" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#1a0402" flood-opacity=".75"/>
+    </filter>
+  </defs>
+
+  <rect id="ground" width="1024" height="1024" fill="url(#sky)"/>
+
+  <!-- the sun: rays, glow, and two gold rings -->
+  <g id="raysWrap" class="fine" opacity=".42" filter="url(#ray)" mask="url(#fade)">
+    <g id="rays" fill="#ffe2a0">
+      <script>/* rays drawn below */</script>
+    </g>
+  </g>
+  <circle id="sunGlow" cx="512" cy="392" r="330" fill="url(#sun)"/>
+  <circle id="ring1" cx="512" cy="392" r="262" fill="none" stroke="url(#ring)" stroke-width="7"/>
+  <circle id="ring2" class="fine" cx="512" cy="392" r="282" fill="none" stroke="url(#ring)" stroke-width="2.5" opacity=".75"/>
+
+  <!-- embers rising -->
+  <g id="embers" class="fine" fill="#ffd27a">
+    <circle cx="214" cy="702" r="5" opacity=".8"/><circle cx="262" cy="612" r="3" opacity=".6"/><circle cx="180" cy="520" r="4" opacity=".5"/>
+    <circle cx="812" cy="690" r="5" opacity=".8"/><circle cx="770" cy="600" r="3" opacity=".6"/><circle cx="850" cy="500" r="4" opacity=".5"/>
+    <circle cx="300" cy="800" r="3" opacity=".7"/><circle cx="728" cy="812" r="3" opacity=".7"/><circle cx="160" cy="300" r="3" opacity=".4"/>
+    <circle cx="870" cy="320" r="3" opacity=".4"/>
+  </g>
+
+  <!-- the gada -->
+  <g id="gadaWrap" filter="url(#drop)"><g id="gada" filter="url(#metal)">
+    <!-- shaft, bound in three gold bands -->
+    <path d="M488 560 L536 560 L530 842 L494 842 Z" fill="url(#bar)" stroke="#3a1e06" stroke-width="5"/>
+    <g fill="url(#bar)" stroke="#3a1e06" stroke-width="5">
+      <rect x="478" y="640" width="68" height="22" rx="8"/>
+      <rect x="480" y="740" width="64" height="20" rx="8"/>
+      <rect x="470" y="836" width="84" height="26" rx="10"/>
+      <path d="M512 862 C540 862 548 884 512 910 C476 884 484 862 512 862 Z"/>
+    </g>
+    <!-- lotus collar under the head -->
+    <path d="M430 540 C450 520 480 536 512 520 C544 536 574 520 594 540 C580 572 548 578 512 576 C476 578 444 572 430 540 Z"
+          fill="url(#bar)" stroke="#3a1e06" stroke-width="5"/>
+    <!-- the head -->
+    <circle cx="512" cy="392" r="168" fill="url(#orb)" stroke="#3a1e06" stroke-width="7"/>
+    <g clip-path="url(#head)" fill="none">
+      <!-- flutes: meridians of the sphere -->
+      <g stroke="#7a4610" stroke-width="5" opacity=".7">
+        <ellipse cx="512" cy="392" rx="40" ry="168"/><ellipse cx="512" cy="392" rx="84" ry="168"/><ellipse cx="512" cy="392" rx="128" ry="168"/>
+      </g>
+      <g class="fine" stroke="#fff3c8" stroke-width="3" opacity=".55">
+        <ellipse cx="505" cy="392" rx="40" ry="168"/><ellipse cx="503" cy="392" rx="84" ry="168"/><ellipse cx="501" cy="392" rx="128" ry="168"/>
+      </g>
+      <!-- the jewelled band round its middle -->
+      <path d="M344 392 Q512 452 680 392" stroke="#3a1e06" stroke-width="30"/>
+      <path d="M344 392 Q512 452 680 392" stroke="url(#bar)" stroke-width="20"/>
+      <circle cx="512" cy="422" r="16" fill="#c4161c" stroke="#3a1e06" stroke-width="4"/>
+      <circle class="fine" cx="507" cy="417" r="5" fill="#ffb3a8"/>
+      <circle cx="512" cy="392" r="168" fill="url(#rim)" opacity=".35"/>
+    </g>
+    <!-- highlight -->
+    <ellipse class="fine" cx="448" cy="318" rx="44" ry="28" fill="#fffbe6" opacity=".7" transform="rotate(-35 448 318)" filter="url(#soft)"/>
+    <!-- the finial -->
+    <path d="M512 150 C524 186 540 206 540 226 L484 226 C484 206 500 186 512 150 Z" fill="url(#bar)" stroke="#3a1e06" stroke-width="5"/>
+    <rect x="474" y="218" width="76" height="20" rx="8" fill="url(#bar)" stroke="#3a1e06" stroke-width="5"/>
+    <!-- lotus petals where the finial meets the head -->
+    <g fill="url(#bar)" stroke="#3a1e06" stroke-width="4">
+      <path d="M512 236 C490 238 470 250 462 262 C482 262 500 254 512 246 C524 254 542 262 562 262 C554 250 534 238 512 236 Z"/>
+    </g>
+    <!-- studs on the band -->
+    <g class="fine" fill="url(#ring)" stroke="#3a1e06" stroke-width="3">
+      <circle cx="388" cy="408" r="9"/><circle cx="440" cy="418" r="9"/><circle cx="584" cy="418" r="9"/><circle cx="636" cy="408" r="9"/>
+    </g>
+  </g></g>
+</svg>
+<script>
+// 32 rays round the sun, long and short in turn
+const g = document.getElementById('rays'), NS = 'http://www.w3.org/2000/svg';
+for (let i = 0; i < 64; i++) {
+  const a = i / 64 * Math.PI * 2, r0 = 290, r1 = i % 2 ? 430 : 540, w = i % 2 ? .012 : .02;
+  const p = (r, t) => `${512 + Math.cos(t) * r} ${392 + Math.sin(t) * r}`;
+  const el = document.createElementNS(NS, 'path');
+  el.setAttribute('d', `M${p(r0, a - w)} L${p(r1, a)} L${p(r0, a + w)} Z`); el.setAttribute('opacity', i % 2 ? .6 : 1); g.appendChild(el);
+}
+if (location.hash.includes('small')) document.body.className = 'small';
+if (location.hash.includes('clear')) document.getElementById('ground').remove();
+// #part=gada|rays : one layer alone on a clear ground, framed square on the sun's centre, for the loading animation
+const part = (location.hash.match(/part=(\w+)/) || [])[1];
+if (part) {
+  document.getElementById('art').setAttribute('viewBox', '-14 -134 1052 1052');
+  const keep = { gada: ['gadaWrap'], rays: ['raysWrap'] }[part];
+  for (const id of ['ground', 'raysWrap', 'sunGlow', 'ring1', 'ring2', 'embers', 'gadaWrap']) if (!keep.includes(id)) document.getElementById(id).remove();
+}
+</script>
+</body></html>

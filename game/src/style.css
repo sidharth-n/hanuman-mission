@@ -74,12 +74,48 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
 #installGo { min-height: 32px; padding: 0 12px; font: 700 12px/1 var(--head); letter-spacing: .14em; text-transform: uppercase; color: #2b1a08; background: linear-gradient(#fbe7ae, #c48a2c); border-radius: 4px; white-space: nowrap; }
 #installNo { min-width: 34px; min-height: 34px; font: 400 22px/1 Georgia, serif; color: var(--quiet); }
 #menu.offer { padding-top: calc(64px + var(--top)); }
-#loading { justify-content: center; gap: 24px; background: radial-gradient(circle at 50% 42%, #141a3a 0%, var(--night) 62%); }
-.emblem { width: 128px; height: 128px; border-radius: 50%; box-shadow: 0 0 48px rgba(232, 180, 76, .35), 0 8px 24px rgba(0, 0, 0, .7); animation: breathe 2.4s ease-in-out infinite alternate; }
-.emblem img { width: 100%; height: 100%; border-radius: 50%; display: block; }
-@keyframes breathe { from { transform: scale(.97); } to { transform: scale(1.03); } }
-#bar { width: min(280px, 64vw); height: 8px; border-radius: 4px; background: #120e0b; border: 1px solid var(--gold-deep); overflow: hidden; }
-#bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-deep), var(--gold) 70%, #fff3c4); transition: width .2s; }
+/* the loading screen: the sign of the game assembles itself over the night (sun, rays, ring, gada, a run of light) */
+#loading { justify-content: center; gap: 14px; background: radial-gradient(ellipse 70% 55% at 50% 38%, #2b100c 0%, #140a1a 46%, var(--night) 78%); }
+.sigil { --s: min(66vw, 40vh, 300px); position: relative; width: var(--s); height: var(--s); flex: none; }
+.sigil > * { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sigil .sun { inset: 18.6%; width: auto; height: auto; border-radius: 50%; opacity: 0; transform: scale(.5);
+  background: radial-gradient(circle, rgba(255, 238, 176, .95) 0%, rgba(255, 178, 66, .55) 30%, rgba(226, 74, 18, .3) 56%, transparent 72%);
+  animation: sunUp 1.1s cubic-bezier(.2, .7, .2, 1) .1s forwards, sunBreathe 3.2s ease-in-out 1.2s infinite alternate; }
+.sigil .rays { opacity: 0; animation: raysIn 1.4s ease-out .35s forwards, turn 90s linear infinite; }
+.sigil .halo { overflow: visible; filter: drop-shadow(0 0 3px rgba(255, 196, 90, .7)); }
+.sigil .halo circle { fill: none; stroke: #f2c565; stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; }
+.sigil .halo .r1 { stroke-width: .8; stroke-dasharray: 157 157; stroke-dashoffset: 157; animation: draw 1.3s cubic-bezier(.6, .1, .2, 1) .3s forwards; }
+.sigil .halo .r2 { stroke-width: .3; opacity: .75; stroke-dasharray: 169 169; stroke-dashoffset: -169; animation: draw 1.6s cubic-bezier(.6, .1, .2, 1) .5s forwards; }
+.sigil .gada { opacity: 0; transform: translateY(14%) scale(.9); animation: rise 1.1s cubic-bezier(.2, .8, .2, 1) .7s forwards; }
+.sigil .shine { -webkit-mask: url(/ui/brand/gada.webp) center / 100% 100% no-repeat; mask: url(/ui/brand/gada.webp) center / 100% 100% no-repeat;
+  background: linear-gradient(112deg, transparent 40%, rgba(255, 250, 226, .9) 50%, transparent 60%) no-repeat; background-size: 250% 100%; background-position: 130% 0;
+  mix-blend-mode: screen; animation: shine 3.6s ease-in-out 1.7s infinite; }
+.sigil .ember { inset: auto; left: 50%; top: 72%; width: 4px; height: 4px; border-radius: 50%; background: #ffd889; box-shadow: 0 0 6px 2px rgba(255, 140, 40, .75);
+  opacity: 0; animation: ember 3.4s ease-out 1s infinite; }
+.sigil .ember:nth-child(6) { left: 24%; --dx: -14px; animation-delay: 1.1s; } .sigil .ember:nth-child(7) { left: 74%; --dx: 12px; animation-delay: 1.7s; }
+.sigil .ember:nth-child(8) { left: 36%; top: 82%; --dx: -6px; animation-delay: 2.3s; } .sigil .ember:nth-child(9) { left: 64%; top: 80%; --dx: 8px; animation-delay: 2.9s; }
+.sigil .ember:nth-child(10) { left: 15%; top: 60%; --dx: -10px; animation-delay: 3.4s; } .sigil .ember:nth-child(11) { left: 86%; top: 58%; --dx: 14px; animation-delay: 4s; }
+@keyframes sunUp { to { opacity: 1; transform: scale(1); } }
+@keyframes sunBreathe { from { transform: scale(1); opacity: 1; } to { transform: scale(1.06); opacity: .85; } }
+@keyframes raysIn { to { opacity: .95; } }
+@keyframes turn { to { transform: rotate(360deg); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes rise { to { opacity: 1; transform: none; } }
+@keyframes shine { 0% { background-position: 130% 0; } 38%, 100% { background-position: -30% 0; } }
+@keyframes ember { 0% { opacity: 0; transform: translate(0, 0) scale(1); } 15% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--dx, 10px), -130px) scale(.4); } }
+@keyframes rise2 { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+/* the title: the drawn logo, on the loading screen and the menu */
+.brand { margin: 0; line-height: 0; }
+.brand img { display: block; width: min(88vw, 540px); height: auto; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, .8)); }
+#loading .brand { opacity: 0; animation: rise2 1s ease-out 1.2s forwards; }
+#loading .brand img { width: min(80vw, 420px); }
+#bar { width: min(220px, 52vw); height: 3px; border-radius: 2px; background: rgba(232, 180, 76, .16); overflow: hidden; margin-top: 6px; opacity: 0; animation: rise2 .6s ease-out 1.6s forwards; }
+#bar i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--gold-deep), var(--gold) 70%, #fff3c4); box-shadow: 0 0 8px rgba(255, 200, 100, .8); transition: width .2s; }
+#loadLine { font-size: 11px; color: rgba(243, 233, 216, .62); opacity: 0; animation: rise2 .6s ease-out 1.6s forwards; }
+@media (prefers-reduced-motion: reduce) {
+  #loading .sigil > *, #loading .brand, #bar, #loadLine { animation: none !important; opacity: 1 !important; transform: none !important; }
+  .sigil .halo circle { stroke-dashoffset: 0 !important; } .sigil .shine, .sigil .ember { display: none !important; }
+}
 .caps { margin: 0; font: 700 14px/1 var(--head); letter-spacing: .32em; text-transform: uppercase; color: var(--gold); padding-left: .32em; }
 
 .logo { margin: 0; font: 900 clamp(40px, 11.5vw, 76px)/.98 var(--head); letter-spacing: .04em; text-transform: uppercase; color: var(--gold);
@@ -143,7 +179,7 @@ button { font: inherit; color: inherit; border: 0; background: none; padding: 0;
   #menu { padding-top: calc(12px + var(--top)); } .group { gap: 4px; } #menu .group:last-child { flex-direction: row; gap: 16px; } .logo { font-size: 34px; }
   .power { width: 56px; height: 56px; bottom: calc(20px + var(--bottom)); }
   .tablet { padding: 16px 24px; gap: 4px; width: min(560px, 100%); } .tablet h2 { font-size: 20px; margin: 4px 0 0; } .row { min-height: 40px; } .row img { width: 32px; height: 32px; }
-  .row.help { display: none; } .emblem { width: 88px; height: 88px; } #loading { gap: 16px; }
+  .row.help { display: none; } .sigil { --s: min(42vh, 190px); } #loading { gap: 6px; } #loading .brand img { width: min(44vw, 260px); } #menu .brand img { width: min(44vw, 330px); }
   .stats { flex-direction: row; width: min(560px, 100%); padding: 16px 24px; } .stat { flex: 1; flex-direction: column; align-items: center; gap: 8px; border-top: 0; padding: 4px; } .stat b { font-size: 24px; }
   #result { gap: 8px; }
 }

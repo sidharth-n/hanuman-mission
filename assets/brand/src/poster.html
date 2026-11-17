@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<!-- The poster composer: key art, a cinematic grade, the title set inside the safe area of the format.
+     Address settings (all in pixels of the poster):
+       bg      the art               ay  its top when it is laid across the full width (fit=width), or
+       pos     background-position when it covers the frame (fit=cover, the default)
+       logo    the title picture (cropped tight; its letters fill it to within ~2%)
+       tx      centre of the title    tb  bottom of the title    tw  width of the title
+       band    darken the frame from this y downward, so the title reads over busy art
+       side    darken the left (or right) part of the frame, up to this many pixels in
+       guide   draw the safe area: story | feed | wide | card -->
+<style>
+html, body { margin: 0; width: 100vw; height: 100vh; overflow: hidden; background: #05060c; }
+#art { position: absolute; left: 0; width: 100%; }
+#cover { position: absolute; inset: 0; background-size: cover; }
+#band, #side, #grade, #grain { position: absolute; inset: 0; pointer-events: none; }
+#grade { background: radial-gradient(ellipse 80% 85% at 50% 45%, transparent 55%, rgba(3, 4, 10, .5) 100%); }
+#grain { opacity: .06; mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+#logo { position: absolute; filter: drop-shadow(0 6px 18px rgba(0, 0, 0, .75)); }
+#guide { position: absolute; border: 3px dashed #35f0ff; box-shadow: 0 0 0 9999px rgba(255, 0, 80, .28); }
+</style></head>
+<body>
+<img id="art" alt=""><div id="cover"></div><div id="side"></div><div id="band"></div><div id="grade"></div><div id="grain"></div>
+<img id="logo" alt="">
+<script>
+const q = new URLSearchParams(location.search), $ = id => document.getElementById(id), n = k => +q.get(k);
+const W = innerWidth, H = innerHeight;
+if (q.get('fit') === 'width') { $('art').src = q.get('bg'); $('art').style.top = (n('ay') || 0) + 'px'; $('cover').remove(); }
+else { $('cover').style.backgroundImage = `url(${q.get('bg')})`; $('cover').style.backgroundPosition = q.get('pos') || '50% 50%'; $('art').remove(); }
+if (q.has('band')) { const y = n('band'); $('band').style.background =
+  `linear-gradient(180deg, transparent ${y}px, rgba(4,5,12,.55) ${y + (H - y) * .3}px, rgba(4,5,12,.9) ${y + (H - y) * .62}px, #04050c ${H}px)`; }
+if (q.has('side')) { const x = n('side'), r = q.get('dir') === 'right';
+  $('side').style.background = `linear-gradient(${r ? 270 : 90}deg, rgba(4,5,12,.85) 0px, rgba(4,5,12,.55) ${x * .6}px, transparent ${x}px)`; }
+const L = $('logo'); L.src = q.get('logo') || '../out/title-t1.png';
+L.onload = () => { const w = n('tw'), h = w * L.naturalHeight / L.naturalWidth;
+  Object.assign(L.style, { width: w + 'px', left: (n('tx') - w / 2) + 'px', top: (n('tb') - h) + 'px' }); };
+const zones = { story: [60, 250, 940, 1440], feed: [60, 60, W - 60, H - 60], wide: [W * .05, H * .05, W * .95, H * .95], card: [W * .05, H * .05, W * .95, H * .95] };
+const g = zones[q.get('guide')];
+if (g) { const d = document.createElement('div'); d.id = 'guide';
+  Object.assign(d.style, { left: g[0] + 'px', top: g[1] + 'px', width: (g[2] - g[0]) + 'px', height: (g[3] - g[1]) + 'px' }); document.body.appendChild(d); }
+</script>
+</body></html>

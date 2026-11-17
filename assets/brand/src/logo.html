@@ -1,0 +1,118 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>
+@font-face { font-family: 'HM Display'; src: url(../../../game/public/fonts/cinzel.woff2) format('woff2'); font-weight: 400 900; }
+html, body { margin: 0; background: transparent; }
+body.dark { background: radial-gradient(ellipse at 50% 45%, #2a1a10 0%, #0b0806 70%); }
+svg { display: block; width: 100vw; height: 100vh; }
+.i.gone { fill-opacity: 0; stroke-opacity: 0; }
+text { font-family: 'HM Display'; text-anchor: middle; }
+</style></head>
+<body>
+<svg id="art" viewBox="0 0 1600 640" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- polished gold: a bright sky band, a dark horizon line just below the middle, warm reflected light under it -->
+    <linearGradient id="gold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff6d6"/>
+      <stop offset=".18" stop-color="#ffe08f"/>
+      <stop offset=".44" stop-color="#e2a53e"/>
+      <stop offset=".52" stop-color="#8a5414"/>
+      <stop offset=".58" stop-color="#b9792a"/>
+      <stop offset=".8" stop-color="#f3c565"/>
+      <stop offset="1" stop-color="#fff0be"/>
+    </linearGradient>
+    <linearGradient id="goldSoft" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff3cf"/>
+      <stop offset=".5" stop-color="#e9b85a"/>
+      <stop offset=".56" stop-color="#a86a20"/>
+      <stop offset="1" stop-color="#f6d58a"/>
+    </linearGradient>
+    <linearGradient id="rule" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#e8b44c" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#ffe7a6"/>
+      <stop offset="1" stop-color="#e8b44c" stop-opacity="0"/>
+    </linearGradient>
+    <filter id="bevel" x="-5%" y="-20%" width="110%" height="140%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="2.4" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="4" specularConstant="1" specularExponent="24" lighting-color="#fff8e0" result="s">
+        <feDistantLight azimuth="240" elevation="52"/>
+      </feSpecularLighting>
+      <feComposite in="s" in2="SourceAlpha" operator="in" result="si"/>
+      <feComposite in="SourceGraphic" in2="si" operator="arithmetic" k2="1" k3=".75"/>
+    </filter>
+    <filter id="shadow" x="-10%" y="-30%" width="120%" height="170%">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="14"/>
+      <feOffset dy="14"/>
+      <feComponentTransfer><feFuncA type="linear" slope=".85"/></feComponentTransfer>
+    </filter>
+    <filter id="glow" x="-20%" y="-60%" width="140%" height="220%">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+    <!-- the mace: a ribbed round head on a shaft, as the mark between the words -->
+    <g id="gada">
+      <rect x="-5" y="-6" width="10" height="92" rx="4" fill="url(#goldSoft)" stroke="#3a2208" stroke-width="2"/>
+      <circle cx="0" cy="-34" r="30" fill="url(#gold)" stroke="#3a2208" stroke-width="3"/>
+      <path d="M-30 -34 H30 M0 -64 V-4 M-21 -55 L21 -13 M21 -55 L-21 -13" stroke="#6b4210" stroke-width="2.5" opacity=".7"/>
+      <path d="M0 -76 L7 -64 H-7 Z" fill="url(#goldSoft)" stroke="#3a2208" stroke-width="2"/>
+      <rect x="-12" y="-6" width="24" height="9" rx="3" fill="url(#goldSoft)" stroke="#3a2208" stroke-width="2"/>
+      <rect x="-9" y="84" width="18" height="10" rx="4" fill="url(#goldSoft)" stroke="#3a2208" stroke-width="2"/>
+    </g>
+  </defs>
+
+  <!-- warm fire glow behind the title -->
+  <ellipse id="glow" cx="800" cy="300" rx="640" ry="120" fill="#ff7a1a" opacity=".22" filter="url(#glow)"/>
+
+  <!-- HANUMAN: shadow, a deep bronze extrusion, then the polished face -->
+  <g font-weight="900" font-size="236" letter-spacing="14">
+    <text x="807" y="330" fill="#000" filter="url(#shadow)">HANUMAN</text>
+    <text x="807" y="342" fill="#2b1704">HANUMAN</text>
+    <text x="807" y="338" fill="#4a2c0c">HANUMAN</text>
+    <text x="807" y="334" fill="#6e4414">HANUMAN</text>
+    <text x="807" y="330" fill="url(#gold)" stroke="#3a2208" stroke-width="3" paint-order="stroke" filter="url(#bevel)">HANUMAN</text>
+  </g>
+
+  <!-- the rule, broken by the mace -->
+  <rect x="250" y="400" width="1100" height="3" fill="url(#rule)"/>
+  <rect x="330" y="410" width="940" height="1.5" fill="url(#rule)" opacity=".7"/>
+  <path d="M800 392 L809 401.5 L800 411 L791 401.5 Z" fill="url(#goldSoft)" stroke="#3a2208" stroke-width="1.5"/>
+
+  <!-- MISSION -->
+  <g font-weight="700" font-size="88" letter-spacing="52">
+    <text x="826" y="530" fill="#000" filter="url(#shadow)" opacity=".8">M<tspan class="i">I</tspan>SS<tspan class="i">I</tspan>ON</text>
+    <text x="826" y="534" fill="#4a2c0c">M<tspan class="i">I</tspan>SS<tspan class="i">I</tspan>ON</text>
+    <text x="826" y="530" fill="url(#goldSoft)" stroke="#3a2208" stroke-width="2" paint-order="stroke" filter="url(#bevel)" id="mission">M<tspan class="i">I</tspan>SS<tspan class="i">I</tspan>ON</text>
+  </g>
+
+  <!-- the I of MISSION is his gada -->
+  <g id="maces"></g>
+
+  <!-- the line that says what it is -->
+  <g id="subline" font-weight="600" font-size="34" letter-spacing="13">
+    <rect x="420" y="586" width="160" height="2" fill="url(#rule)"/><rect x="1020" y="586" width="160" height="2" fill="url(#rule)"/>
+    <text id="sub" x="806" y="598" fill="#f6dfa2"></text>
+  </g>
+</svg>
+<script>
+const q = new URLSearchParams(location.search);
+if (q.has('dark')) document.body.className = 'dark';
+if (q.has('noglow')) document.getElementById('glow').remove();
+// each I that is a gada: the letter is kept for its space, made invisible, and the mace stands in its place
+const which = (q.get('gadas') || '1,4').split(',').map(Number), NS = 'http://www.w3.org/2000/svg';
+const face = document.getElementById('mission'), tsp = [...document.querySelectorAll('.i')];
+for (const [k, ci] of [[0, 1], [1, 4]]) {
+  if (!which.includes(ci)) continue;
+  for (const t of document.querySelectorAll('text')) { const sp = t.querySelectorAll('.i')[k]; if (sp) sp.classList.add('gone'); }
+  const e = face.getExtentOfChar(ci), cx = e.x + e.width / 2 - 26;   // letter-spacing sits to the right of each letter
+  const W = 136, img = document.createElementNS(NS, 'image');
+  img.setAttribute('href', 'gada.png'); img.setAttribute('width', W); img.setAttribute('height', W);
+  img.setAttribute('x', cx - W / 2); img.setAttribute('y', 538 - .992 * W);
+  document.getElementById('maces').appendChild(img);
+}
+const sub = q.get('sub');
+if (sub) { document.getElementById('sub').textContent = sub.toUpperCase(); document.getElementById('art').setAttribute('viewBox', '0 0 1600 660');
+  // the rules sit just outside the words, whatever their length
+  const b = document.getElementById('sub').getBBox(), r = document.querySelectorAll('#subline rect');
+  r[0].setAttribute('x', b.x - 190); r[1].setAttribute('x', b.x + b.width + 18); }
+else document.getElementById('subline').remove();
+</script>
+</body></html>
