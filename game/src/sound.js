@@ -32,6 +32,7 @@ export function createSound(store) {
     if (!level) { track.volume = v; return; }
     const t = ctx.currentTime; level.gain.cancelScheduledValues(t); level.gain.setValueAtTime(level.gain.value, t); level.gain.linearRampToValueAtTime(v, t + Math.max(0.03, secs));
   };
+  const ours = () => (cues && cues.journey ? 'journey' : 'run');      // the run's music in a build without the song: a song of our own if there is one, or the drums of the way in
   const track = new Audio();
   track.preload = 'auto'; track.muted = !on;
   track.addEventListener('error', () => { trackError = 'e' + (track.error ? track.error.code : '?'); noSong = true; });
@@ -166,7 +167,7 @@ export function createSound(store) {
     start(wait = false) {
       held = false; wake(); hush(); quiet(); score(null, { fade: 0.3 }); blaze(false); resting = wait; clearInterval(fading); fading = null;
       track.muted = wait || !on; loud(wait ? 0 : 1); try { track.currentTime = 0; } catch { /* not loaded yet */ }
-      if (noSong && !wait) score('run', { rise: 1.2 });      // without the song the run still has music: the drums of the way in
+      if (noSong && !wait) score(ours(), { rise: 1.2 });      // without the song the run still has music
       const p = track.play();
       if (p) p.then(() => { if (resting && wait) { track.pause(); try { track.currentTime = 0; } catch { /* not loaded yet */ } } }).catch(e => { trackError = trackError || e.name; });
     },
@@ -180,7 +181,7 @@ export function createSound(store) {
       fading = setInterval(() => { const u = Math.min(1, (performance.now() - t0) / 1500); track.volume = from * (1 - u) * (1 - u); if (u >= 1) { clearInterval(fading); fading = null; track.pause(); track.volume = 1; } }, 40);
     },
     // and he runs again: the song is simply there, from where it left off
-    run() { if (noSong) { quiet(); resting = false; score('run', { rise: 0.6 }); return; } score(null); quiet(); if (!resting) return; resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; loud(1, 0.4); wake(); track.play().catch(() => {}); },
+    run() { if (noSong) { quiet(); resting = false; score(ours(), { rise: 0.6 }); return; } score(null); quiet(); if (!resting) return; resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; loud(1, 0.4); wake(); track.play().catch(() => {}); },
     stop() { held = false; if (ctx && ctx.state === 'suspended') ctx.resume(); blaze(false); quiet(); score(null, { fade: 1.5 }); clearInterval(fading); fading = null; if (level && !track.paused) { loud(0, 1.2); fading = setTimeout(() => { fading = null; track.pause(); }, 1260); } else track.pause(); },                                       // the run is over
     // the chant over a big moment: once per moment, and not on top of the opening chant
     chant() {
