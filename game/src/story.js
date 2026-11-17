@@ -40,7 +40,13 @@ export function createStory(g) {
   const span = (o, tall) => [[o.x, o.y, o.z], [o.x, o.y + tall, o.z]];
   const him = () => span(hero.root.position, 1.95 * hero.root.scale.x);
   const both = () => [...him(), ...span(lankini.root.position, 3.85)];
-  const beats = (key, shots = []) => S[key].map((l, i) => ({ who: l.who, line: l.line, voice: key + '-' + i, ...(shots[i] || {}) }));
+  // The score (Hans's audio screenplay): where the music changes or stops dead (null), the hits that land on a line, and
+  // the lines that wait a moment for a great sound to pass before they are spoken.
+  const CUES = { 'court_arrival-0': 'court', 'throne-8': null, 'grove_ravana-8': null };
+  const HITS = { 'lankini_yields-1': 'toll', 'grove_sita-5': 'gift', 'grove_bound-1': 'bind', 'ignite-0': 'alight', 'ignite-1': 'burst' };
+  const LEAD = { 'ignite-0': 1.0, 'ignite-1': 1.2 };
+  const beats = (key, shots = []) => S[key].map((l, i) => { const id = key + '-' + i, b = { who: l.who, line: l.line, voice: id, ...(shots[i] || {}) };
+    if (id in CUES) b.cue = CUES[id]; if (HITS[id]) b.hit = HITS[id]; if (LEAD[id]) b.lead = LEAD[id]; return b; });
   function putHero(x, z, yaw, clip = 'breathing_idle', up = 0) {
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.flying = false; hero.fly = 0;
     hero.root.position.set(x, g.groundAt(z), z); hero.root.rotation.y = yaw; hero.floor = up; hero.y = up; hero.vy = 0; hero.lane = 1;
@@ -57,7 +63,7 @@ export function createStory(g) {
   // She stands in the road, sword in hand: seen from far off as he runs toward her.
   function bars() { lankini.kind('lankini'); lankini.reset(); lankini.place(0, g.groundAt(lz), lz, 0); lankini.st = 'idle'; lankini.bar.visible = false; lankini.play('sword_idle', { fade: 0 }); }
   function gate() {
-    g.hold(); G = g.groundAt(hz); retreat = 0;
+    g.hold(); g.sound.score('gate'); g.sound.hit('reveal', { delay: 0.25 }); G = g.groundAt(hz); retreat = 0;
     putHero(0, hz, 0);
     bars();
     if (done.challenged) return transform(true);      // she threw him back before: the words are said, he grows at once
@@ -112,7 +118,7 @@ export function createStory(g) {
       () => { g.grow(0, 0.05); aura.end(); yields(); });
   }
   function yields() {
-    done.lankini = true; g.hold();
+    done.lankini = true; g.hold(); g.sound.score('yield');
     const p = hero.root.position, l = lankini.root.position, dx = l.x - p.x, dz = l.z - p.z, d = Math.hypot(dx, dz) || 1;
     hero.root.rotation.y = heroYaw(dx / d, dz / d); hero.play('breathing_idle', { fade: 0.3 }); lankini.bar.visible = false;
     director.play(beats('lankini_yields', [
@@ -137,7 +143,7 @@ export function createStory(g) {
   // The grove, in one unbroken move: the run slows, he slips behind an old tree at the side of the path, and from there,
   // over his shoulder, Ravana and Sita are watched. Ravana leaves to the left; then he leaps out to her.
   function grove() {
-    done.grove = true; g.hold(); G = g.groundAt(sitaAt.z); if (!done.present) present();
+    done.grove = true; g.hold(); g.sound.score('night'); G = g.groundAt(sitaAt.z); if (!done.present) present();
     const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, U = SITA.up, T = hideAt, p = hero.root.position;
     // d: the way he looks from the tree, toward the two of them; side: across it, toward the path
     const dl = Math.hypot(sx - 1.2 - T.x, sz + 1 - T.z), d = [(sx - 1.2 - T.x) / dl, (sz + 1 - T.z) / dl], side = [-d[1], d[0]];
@@ -165,6 +171,7 @@ export function createStory(g) {
     ]), meets);
   }
   function meets() {
+    g.sound.score('sita');
     g.hold(); const sx = sitaAt.x, sz = sitaAt.z, hx = sx - 2.0, hz = sz + 2.1, U = SITA.up, T = hideAt;
     ravana.hide(); escort.forEach(e => { e.reset(); e.leave = 0; });
     const yaw = yawTo(hx - sx, hz - sz);
@@ -195,7 +202,7 @@ export function createStory(g) {
     ]), wreck);
   }
   function wreck() {
-    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
+    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score(null); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
     putHero(0, z, heroYaw(0, 1), 'great_sword_idle');
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),
@@ -205,6 +212,7 @@ export function createStory(g) {
   // He has beaten the three; then ten more come running out from among the trees on both sides and along the path,
   // and close a ring round him: there is no fighting his way out of that. Taken either way, he is bound where he stands.
   function bound(taken) {
+    g.sound.score('bound');
     g.hold(); const p = hero.root.position, base = -(GROVE_AT + CHUNK);
     for (const e of fight.all) { e.reset(); e.trail.clear(); }
     putHero(Math.max(-2, Math.min(2, p.x)), p.z, heroYaw(0, -1), 'great_sword_idle'); G = g.groundAt(p.z);
@@ -235,7 +243,7 @@ export function createStory(g) {
 
   // ── Ravana's court ──
   function court() {
-    g.hold(); sita.hide(); gift.visible = false;
+    g.hold(); g.sound.score('hall', { rise: 0.05 }); sita.hide(); gift.visible = false;
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind
@@ -290,7 +298,7 @@ export function createStory(g) {
   const VAST = 13;      // how many times his own height he stands at the last: head and shoulders over the towers of Lanka
   const swell = { t: 0, secs: 0, from: 1, to: 1 }, leap = { on: false, t: 0 };
   function ending() {
-    done.end = true; g.hold(); const p = hero.root.position, z = p.z; G = g.groundAt(z);
+    done.end = true; g.hold(); g.sound.score('end'); const p = hero.root.position, z = p.z; G = g.groundAt(z);
     putHero(0, z, heroYaw(0, 1), 'mutant_roaring'); hero.play('mutant_roaring', { once: true, fade: 0.2 });
     swell.from = hero.root.scale.x; swell.to = VAST; swell.t = 0; swell.secs = 3.2; leap.on = false;
     g.sound.fx('power'); g.sound.chant(); g.buzz([80, 60, 80, 60, 200]);

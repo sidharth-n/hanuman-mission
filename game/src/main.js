@@ -273,13 +273,14 @@ function fell() {
 // The palace court: the guards make their stand. The run stops, the fight's controls come up, and he must put all three
 // down to go on. If they take all his lives he is captured, and the next run takes up from the gate of the court.
 function startFight(mid = FIGHT_MID, plan = PLANS.court, scale = 1) {
-  state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; sound.rest();
+  state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; sound.rest(); sound.score('fight', { rise: 0.3, fade: 0.5 });
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
   fight.begin(mid, plan, scale); painted.lives = null;
   if (scale === 1) say(STORY.alerts.guards, 2.6);
   sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
 }
 function endFight(how) {
+  sound.score(null, { fade: 0.3 });      // the drums stop dead
   fight.result = null; if (stick) stick.release();
   const then = state.fightDone; state.fightDone = null;
   if (how === 'lost') {

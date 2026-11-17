@@ -6,7 +6,7 @@ const TRACKS = import.meta.env.DEV ? '/local-audio/' : 'assets/audio/';      // 
 const EFFECTS = 'assets/sfx/';
 const VOICES = 'assets/audio/voice/';      // one file a spoken line, named <scene>-<n>.mp3, listed in index.json
 const SCORE = 'assets/audio/score/';       // the music of the scenes and fights, listed in index.json: { name: { loop, under, open, gain } }
-const PAD = 0.25;      // a looping cue carries this much of its own end before its start and of its start after its end, so the loop closes exactly whatever the decoder adds
+const PAD = 0.5;      // a looping cue carries this much of its own end before its start and of its start after its end, so the loop closes exactly whatever the decoder adds
 const db = v => Math.pow(10, v / 20);
 const INTRO = 5.6;      // seconds of chant at the head of run.mp3: the loop comes back to here, not to the chant
 // how loud each effect sits against the track
@@ -96,7 +96,7 @@ export function createSound(store) {
   }
   function quiet() { token++; if (speaking) { speaking.onended = null; try { speaking.stop(); } catch { /* already over */ } speaking = null; duck(false); } }
   // A line is spoken. Returns how long it lasts in seconds (0: there is no voice for it, or the sound is off).
-  function speak(id) {
+  function speak(id, lead = 0) {
     quiet();
     if (!on || !ctx || !lines || !(id in lines)) return 0;
     if (!(id in said)) said[id] = decode(VOICES + id + '.mp3').then(b => (said[id] = b));
@@ -104,10 +104,10 @@ export function createSound(store) {
     Promise.resolve(said[id]).then(buf => {
       if (!buf || mine !== token) return;      // the scene has gone on
       if (ctx.state !== 'running' && !held) ctx.resume();
-      const src = ctx.createBufferSource(); src.buffer = buf; src.connect(speech); src.start(); speaking = src; duck(true);
+      const src = ctx.createBufferSource(); src.buffer = buf; src.connect(speech); src.start(ctx.currentTime + lead); speaking = src; duck(true);      // lead: a moment for a great sound to pass before the words
       src.onended = () => { if (speaking === src) { speaking = null; duck(false); } };
     });
-    return lines[id];
+    return lines[id] + lead;
   }
   // The music of a scene or a fight: the cue named is brought in and whatever sounded before is taken out; no name, silence.
   function score(name, { fade = 1.6, rise = 0.9 } = {}) {
@@ -118,7 +118,8 @@ export function createSound(store) {
     const want = wanted;
     cue(want).then(buf => {
       if (!buf || wanted !== want || (now && now.name === want)) return;
-      const c = cues[want], loop = c.loop !== false, src = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime;
+      const c = cues[want], loop = c.loop !== false; if (!loop) { const mine = want; setTimeout(() => { if (now && now.name === mine) { now = null; if (wanted === mine) wanted = null; } }, buf.duration * 1000); }      // a cue played once is over when it ends
+      const src = ctx.createBufferSource(), g = ctx.createGain(), t = ctx.currentTime;
       src.buffer = buf; if (loop) { src.loop = true; src.loopStart = PAD; src.loopEnd = buf.duration - PAD; }
       g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(db(c.gain || 0), t + rise);
       src.connect(g); g.connect(music); src.start(t, loop ? PAD : 0); now = { name: want, src, gain: g };

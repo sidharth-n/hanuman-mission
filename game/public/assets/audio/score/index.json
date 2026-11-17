@@ -1,0 +1,97 @@
+{
+ "cues": {
+  "gate": {
+   "loop": true,
+   "pick": "C",
+   "under": 15,
+   "open": 5,
+   "gain": -3
+  },
+  "reveal": {
+   "loop": false,
+   "pick": "C",
+   "gain": 0
+  },
+  "fight": {
+   "loop": true,
+   "pick": "A",
+   "under": 2,
+   "open": 2,
+   "gain": 0
+  },
+  "yield": {
+   "loop": true,
+   "pick": "A",
+   "under": 15,
+   "open": 6,
+   "gain": -4
+  },
+  "toll": {
+   "loop": false,
+   "pick": "B",
+   "gain": 0
+  },
+  "night": {
+   "loop": true,
+   "pick": "A",
+   "under": 15,
+   "open": 6,
+   "gain": -4
+  },
+  "sita": {
+   "loop": true,
+   "pick": "A",
+   "under": 14,
+   "open": 3,
+   "gain": -1
+  },
+  "gift": {
+   "loop": false,
+   "pick": "B",
+   "gain": 0
+  },
+  "bound": {
+   "loop": true,
+   "pick": "A",
+   "under": 15,
+   "open": 5,
+   "gain": -3
+  },
+  "bind": {
+   "loop": false,
+   "pick": "B",
+   "gain": 0
+  },
+  "hall": {
+   "loop": false,
+   "pick": "A",
+   "under": 14,
+   "open": 2,
+   "gain": 0
+  },
+  "court": {
+   "loop": true,
+   "pick": "A",
+   "under": 16,
+   "open": 6,
+   "gain": -4
+  },
+  "alight": {
+   "loop": false,
+   "pick": "A",
+   "gain": 0
+  },
+  "burst": {
+   "loop": false,
+   "pick": "A",
+   "gain": 0
+  },
+  "end": {
+   "loop": true,
+   "pick": "A",
+   "under": 12,
+   "open": 2,
+   "gain": 0
+  }
+ }
+}
