@@ -231,7 +231,11 @@ export class Fight {
     if (!this.active || this.over || this.blast) return false;
     const p = this.hero.root.position, R = 5.5 * this.s;
     if (!this.all.some(g => g.st !== 'dead' && g.root.visible && Math.hypot(g.root.position.x - p.x, g.root.position.z - p.z) < R)) return false;
-    this.blast = { t: 0, x: p.x, z: p.z, R, speed: 17 * this.s, done: new Set() };
+    // he whirls the mace round him in one great sweep (a move of his that the fights had not used), and the ring
+    // leaves him as the sweep begins; nothing can touch him while it lasts
+    const h = this.h; if (h.act !== 'hurt' && !this.hero.airborne) { h.act = 'power'; h.t = 0; h.len = 0.78; h.vx = h.vz = 0; h.queued = false; h.safe = Math.max(h.safe, 0.85);
+      this.hero.play('great_sword_high_spin_attack', { once: true, from: 0.36, speed: 1.7, fade: 0.06 }); }
+    this.blast = { t: -0.12, x: p.x, z: p.z, R, speed: 17 * this.s, done: new Set() };
     this.ring.position.set(p.x, this.groundAt(p.z) + 0.09, p.z); this.ring.scale.setScalar(0.1); this.ring.material.opacity = 1; this.ring.visible = true;
     _a.set(p.x, p.y + 0.4 * this.s, p.z); this.sparks.burst(_a, 60, GOLD, 11 * this.s); this.flash(_a, GOLD, 4, 0.22);
     this.freeze = 0.1; this.shake(0.6);
@@ -351,7 +355,7 @@ export class Fight {
     const hero = this.hero, h = this.h, p = hero.root.position, s = this.stick, m = Math.hypot(s.x, s.y);
     h.comboT -= dt; h.safe -= dt; h.dodgeCd -= dt;
     if (this.blast) {      // the ring runs out, and throws back each of them as it reaches him
-      const b = this.blast; b.t += dt; const r = Math.min(b.R, b.t * b.speed);
+      const b = this.blast; b.t += dt; const r = Math.min(b.R, Math.max(0, b.t) * b.speed);
       for (const g of this.all) {
         if (b.done.has(g) || g.st === 'dead' || !g.root.visible) continue;
         const dx = g.root.position.x - b.x, dz = g.root.position.z - b.z, d = Math.max(0.01, Math.hypot(dx, dz));
