@@ -292,7 +292,7 @@ export function createStory(g) {
       e.kind(['guard', 'rusher', 'guard', 'brute', 'guard', 'captain'][i % 6]); e.reset(); e.place(at[0], G, at[1], yawTo(to[0] - at[0], to[1] - at[1])); e.st = 'idle'; e.bar.visible = false;
       e.play('great_sword_run', { fade: 0 }); e.march = { x0: at[0], z0: at[1], x: to[0], z: to[1], t: -0.15 * (i % 4), secs: 2.3 };
     });
-    g.sound.fx('bell', { rate: 0.8, gap: 1 }); g.buzz([40, 60, 40]);
+    g.sound.fx('bell', { rate: 0.8, gap: 1 }); g.buzz([40, 60, 40]); g.sound.warm('hall');      // the court's opening is made ready now: it must sound on the hall's first frame
     director.play([
       { secs: 2.9, ...shot(v(p.x + 0.6, 5.4, p.z + 9), v(p.x, 1.0, p.z - 1), { to: v(p.x + 0.4, 4.6, p.z + 7.6), fov: 60 }), do: () => hero.play('great_sword_idle', { fade: 0.2 }) },      // from above and behind: they pour in from both sides
       { secs: 3.0, cam: { round: { c: [p.x, G + 1.25, p.z], from: -0.52, to: 0.52, r: [6.8, 5.6], y: [0.3, 1.1] }, at: v(p.x, 1, p.z + 6), look: v(p.x, 1.3, p.z), fov: 52 }, do: () => g.say(STORY.alerts.bound, 2.6) },      // carried across the road behind the ring as it closes (never out among the lanterns): swords levelled at him on every side
@@ -302,7 +302,8 @@ export function createStory(g) {
 
   // ── Ravana's court ──
   function court() {
-    g.hold(); g.sound.score(g.sound.has('ravana') ? 'ravana' : 'hall', { rise: 0.05 }); sita.hide(); offer(null);
+    g.hold(); g.sound.score('hall', { rise: 0.05 });      // the court's own opening music, an original: its great stroke falls as Ravana is first seen
+    sita.hide(); offer(null);
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind

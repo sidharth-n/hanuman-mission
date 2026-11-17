@@ -156,6 +156,8 @@ export function createSound(store) {
     },
     toggle() { on = !on; store.set('sound', on ? 'on' : 'off'); track.muted = !on; if (out) out.gain.value = on ? 1 : 0; if (!on) { hush(); quiet(); } return on; },
     learn, speak, quiet, score, hit, has: name => !!(cues && cues[name]),
+    warm: name => { if (ctx && cues && cues[name]) cue(name); },      // a cue fetched and decoded ahead of the scene whose first frame it must sound on
+
     // a run begins: the chant, then the song (one track, begun by the player's own tap)
     blaze,
     // wait: the song is held back (the run from the sea gate to Lankini is without it): the player's tap only makes it ready, and it begins when he runs on after her

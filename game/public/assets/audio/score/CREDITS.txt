@@ -1,0 +1,27 @@
+The music of the scenes in this folder. Every cue was arranged and mixed for this game from the recordings below
+(Freesound) and from choir takes of our own. Recordings marked CC0 1.0 are public domain; those under CC BY are
+credited here as their licences ask, and were adapted (cut, retuned, mixed).
+
+hall.mp3, the opening of Ravana's court:
+  "BPM 111 - LOW KHOL 1 - Khols by AP Krishna" by ap_krishna is licensed under CC BY 4.0
+    (https://creativecommons.org/licenses/by/4.0/). Source: https://freesound.org/people/ap_krishna/sounds/718508
+  "Damaru & Conch.mp3" by baba108 is licensed under CC BY 3.0
+    (https://creativecommons.org/licenses/by/3.0/). Source: https://freesound.org/people/baba108/sounds/550446
+  "OM AUM MANTRA MALE CHANT Bb" by CarlosCarty is licensed under CC BY 4.0
+    (https://creativecommons.org/licenses/by/4.0/). Source: https://freesound.org/people/CarlosCarty/sounds/522687
+  CC0 1.0:
+  "Aum in concrete pipe.wav" by itinerantmonk108, https://freesound.org/people/itinerantmonk108/sounds/696440
+  "OM MANTRA 2.wav" by Ashishprajapati, https://freesound.org/people/Ashishprajapati/sounds/511613
+  "Indian Temple Bell.WAV" by ganiket, https://freesound.org/people/ganiket/sounds/466652
+  "Shiva Bells.wav" by grololo, https://freesound.org/people/grololo/sounds/34870
+  "Conch.wav" by RoofDog, https://freesound.org/people/RoofDog/sounds/78974
+  "scary conch shell.wav" by DreStortion, https://freesound.org/people/DreStortion/sounds/528598
+  "Massive Timpani 4.wav" by Sorinious_Genious, https://freesound.org/people/Sorinious_Genious/sounds/573251
+  "Timpani Crescendo" by nomiqbomi, https://freesound.org/people/nomiqbomi/sounds/578574
+  "Taiko Drums - Mastered WITH Stereo Imaging.wav" by WelvynZPorterSamples, https://freesound.org/people/WelvynZPorterSamples/sounds/621290
+  "low gong bash" by hiddenpersuader, https://freesound.org/people/hiddenpersuader/sounds/155460
+  "Low impact.wav" by AudioPapkin, https://freesound.org/people/AudioPapkin/sounds/430978
+  "Haaaa Epiphany Choir" by daalvinz, https://freesound.org/people/daalvinz/sounds/394226
+  "Tanpura Pa-sa-sa-Sa E flat.wav" by luckylittleraven, https://freesound.org/people/luckylittleraven/sounds/416747
+
+The other cues are made from CC0 1.0 recordings and our own takes only.

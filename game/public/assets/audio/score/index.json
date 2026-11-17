@@ -69,13 +69,6 @@
    "open": 2,
    "gain": 0
   },
-  "hall": {
-   "loop": false,
-   "pick": "A",
-   "under": 14,
-   "open": 2,
-   "gain": 0
-  },
   "court": {
    "loop": true,
    "pick": "A",
@@ -98,6 +91,13 @@
    "pick": "A",
    "under": 12,
    "open": 2,
+   "gain": 0
+  },
+  "hall": {
+   "loop": false,
+   "pick": "A",
+   "under": 13,
+   "open": 6,
    "gain": 0
   },
   "vow": {
