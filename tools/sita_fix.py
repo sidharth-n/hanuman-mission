@@ -30,6 +30,40 @@ def ease(o, rounds_face=6, rounds_hand=3):
     return f'face and hands eased ({rounds_face} and {rounds_hand} passes)'
 
 
+# Her sari is one cloth round both legs, but the rig tied each point of it to one leg or the other almost at random,
+# so it crumpled between her knees when she sat. Each point's hold is shared between the two legs by where it lies
+# across her, then evened out with its neighbours, so the cloth spans from knee to knee as cloth does.
+def drape(o, arm, rounds=10):
+    from collections import defaultdict
+    bm = R.edit(o); mw = o.matrix_world; dl = bm.verts.layers.deform.verify()
+    idx = {g.name.split(':')[-1]: g.index for g in o.vertex_groups}
+    pairs = [(idx['Left' + n], idx['Right' + n]) for n in ('UpLeg', 'Leg', 'Foot', 'ToeBase') if 'Left' + n in idx and 'Right' + n in idx]
+    legs = {g for pr in pairs for g in pr}
+    hip = arm.matrix_world @ next(b for b in arm.data.bones if b.name.endswith('LeftUpLeg')).head_local
+    a = abs(hip.x) * 1.05
+    skirt = [v for v in bm.verts if (mw @ v.co).z < hip.z + 0.03 and any(g in legs for g in v[dl].keys())]
+    for v in skirt:
+        t = max(0.0, min(1.0, ((mw @ v.co).x + a) / (2 * a))); s = t * t * (3 - 2 * t); d = v[dl]
+        for L, Rt in pairs:
+            tot = d.get(L, 0.0) + d.get(Rt, 0.0)
+            if tot > 0: d[L] = tot * s; d[Rt] = tot * (1 - s)
+    for _ in range(rounds):
+        new = {}
+        for v in skirt:
+            acc = defaultdict(float); n = 0
+            for e in v.link_edges:
+                n += 1
+                for g, x in e.other_vert(v)[dl].items(): acc[g] += x
+            for g, x in v[dl].items(): acc[g] += x * n
+            tot = sum(acc.values()) or 1.0
+            new[v] = {g: x / tot for g, x in acc.items() if x / tot > 0.004}
+        for v, d in new.items():
+            v[dl].clear()
+            for g, x in d.items(): v[dl][g] = x
+    n = len(skirt); R.keep(o, bm)
+    return f'sari draped: {n} points shared between the legs and evened over {rounds} passes'
+
+
 def repaint(o, pictures, parts=('face', 'hand_l', 'hand_r')):
     said = []
     for name in parts:
@@ -45,4 +79,4 @@ if __name__ == '__main__' and '--' in sys.argv:
     src, pictures, out, tris, tex = sys.argv[sys.argv.index('--') + 1:][:5]
     arm, o = R.load(src); T.rest(arm)
     print('STEP', weld(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
-    print('STEP', R.slim(o, int(tris), 0.42, fine)); print('STEP', R.export(arm, out, int(tex), NAMES))
+    print('STEP', R.slim(o, int(tris), 0.42, fine)); print('STEP', drape(o, arm)); print('STEP', R.export(arm, out, int(tex), NAMES))
