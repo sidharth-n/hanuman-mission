@@ -105,7 +105,7 @@ async function load() {
   story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, credits,
     // the picture held for a character's entrance: the air thick and dark so that all but what is close to the lens falls away, and her name under her
-    hush: on => { state.thin = on ? 0.075 : null; state.dusk = on ? 1 : 0; },
+    hush: on => { state.held = on ? fight.boss.root : null; },
     name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
     // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
     sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
@@ -154,10 +154,52 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  unrout(); world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  unrout(); world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; state.held = null; hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
+}
+
+// A held picture in which one figure alone is sharp: the world is drawn small and soft behind her (its light kept, only
+// a little lowered), and she is drawn over it as she is. No black screen: the place stays, out of focus.
+let soft = null;
+function renderHeld(sharp) {
+  if (!soft) {
+    const rt = new THREE.WebGLRenderTarget(64, 64, { type: THREE.HalfFloatType });
+    const mat = new THREE.ShaderMaterial({ uniforms: { map: { value: rt.texture }, px: { value: new THREE.Vector2() } }, depthTest: false, depthWrite: false,
+      vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }',
+      fragmentShader: `uniform sampler2D map; uniform vec2 px; varying vec2 vUv;
+        void main() {
+          vec3 c = vec3(0.0); float n = 0.0;
+          for (int x = -3; x <= 3; x++) for (int y = -3; y <= 3; y++) { float w = max(0.0, 1.0 - length(vec2(float(x), float(y))) / 4.6); c += texture2D(map, vUv + vec2(float(x), float(y)) * px).rgb * w; n += w; }
+          gl_FragColor = vec4(c / n * 0.66, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }` });
+    const quad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat); quad.frustumCulled = false;
+    // softened once more at the small size and only then laid over the screen: enlarged straight from the first pass, bright lamps showed as a grid of dots
+    const rt2 = new THREE.WebGLRenderTarget(64, 64, { type: THREE.HalfFloatType, depthBuffer: false });
+    const lay = new THREE.Mesh(quad.geometry, new THREE.ShaderMaterial({ uniforms: { map: { value: rt2.texture } }, depthTest: false, depthWrite: false, vertexShader: mat.vertexShader,
+      fragmentShader: `uniform sampler2D map; varying vec2 vUv;
+        void main() {
+          gl_FragColor = vec4(texture2D(map, vUv).rgb, 1.0);
+          #include <tonemapping_fragment>
+          #include <colorspace_fragment>
+        }` })); lay.frustumCulled = false;
+    soft = { rt, rt2, mat, stage: new THREE.Scene(), over: new THREE.Scene(), eye: new THREE.Camera() }; soft.stage.add(quad); soft.over.add(lay);
+  }
+  const w = Math.max(64, Math.round(renderer.domElement.width / 5)), h = Math.max(64, Math.round(renderer.domElement.height / 5));
+  if (soft.rt.width !== w || soft.rt.height !== h) { soft.rt.setSize(w, h); soft.rt2.setSize(w, h); }
+  soft.mat.uniforms.px.value.set(1.4 / w, 1.4 / h);
+  const was = sharp.visible; sharp.visible = false;
+  renderer.setRenderTarget(soft.rt); renderer.render(scene, camera); renderer.setRenderTarget(null);
+  sharp.visible = was;
+  renderer.setRenderTarget(soft.rt2); renderer.render(soft.stage, soft.eye); renderer.setRenderTarget(null);
+  renderer.render(soft.over, soft.eye);
+  const hidden = []; for (const o of scene.children) if (o !== sharp && o.visible && !o.isLight) { o.visible = false; hidden.push(o); }      // her alone, in the same light, over it
+  const sky = scene.background; scene.background = null; renderer.autoClear = false; renderer.clearDepth();
+  renderer.render(scene, camera);
+  renderer.autoClear = true; scene.background = sky; for (const o of hidden) o.visible = true;
 }
 
 // The end credits: card n of them is shown (-1: none).
@@ -184,7 +226,7 @@ function result(title, thirdLabel, third) {
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0, fresh = false) {
   if (typeof from !== 'number') from = 0;
-  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; ui.fade.classList.remove('on'); ui.card.hidden = true;
+  story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; state.held = null; ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
   unrout(); world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
@@ -618,7 +660,7 @@ function frame(now) {
   }
   tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); if (state.dusk) tint.multiplyScalar(0.22); world.skyMat.color.copy(tint);
   placeCamera(real, false);
-  renderer.render(scene, camera);
+  if (state.held) renderHeld(state.held); else renderer.render(scene, camera);
   if (debug) audit();
 
   if (running || fighting) {

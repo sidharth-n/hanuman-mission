@@ -69,9 +69,11 @@ export function createStory(g) {
     // Her entrance, as a film names a character: the picture holds (he is caught in mid stride, the street falls away
     // into the dark), the camera is carried round her close, and her name stands under her. Then the scene begins.
     const held = hero.current; if (held) held.timeScale = 0;
-    const enter = { ...shot(v(0, 3, lz + 4), v(0, either(2.75, 3.25), lz), { lookTo: v(0, either(2.9, 3.4), lz), fov: either(34, 30),      // on a wide screen her face is set high, clear of her name
-       round: { c: v(0, 0, lz), from: -0.85, to: 0.55, r: [5.4, 4.3], y: [2.5, 3.3] } }), secs: 4.6,
-      do: () => { g.hush(true); g.name('Lankini', 'Guardian of Lanka'); g.sound.hit('reveal', { delay: 0.15 }); lankini.play('sword_idle', { speed: 0.14 }); g.buzz([30, 40, 90]); } };
+    // (Sid: "in that posture itself camera pan over her like a character intro and show this title, freeze. instead of
+    // blacking the screen just background blur... camera movement from her chest to her face".) She stands as she
+    // stood, held; the street behind her goes soft; the camera rises from her chest to her face.
+    const enter = { ...shot(v(1.5, 2.0, lz + 3.9), v(0, 2.25, lz), { to: v(1.05, either(3.0, 3.15), lz + 3.1), lookTo: v(0, either(3.05, 2.95), lz), fov: either(34, 30), secs: 3.4 }), secs: 4.8,
+      do: () => { g.hush(true); g.name('Lankini', 'Guardian of Lanka'); g.sound.hit('reveal', { delay: 0.15 }); lankini.play('sword_idle', { speed: 0 }); g.buzz([30, 40, 90]); } };
     thaw = () => { thaw = null; g.hush(false); g.name(null); if (held) held.timeScale = 1; putHero(0, hz, 0); };
     director.play([
       enter,
