@@ -37,6 +37,8 @@ export function createSound(store) {
   track.addEventListener('error', () => { trackError = 'e' + (track.error ? track.error.code : '?'); noSong = true; });
   track.addEventListener('ended', () => { track.currentTime = INTRO; track.play().catch(() => {}); });      // round again, without the opening chant
   track.src = TRACKS + 'run.mp3';
+  // is the song in this build at all? A host that answers a missing file with its front page raises no error on a phone, so the answer itself is looked at
+  fetch(TRACKS + 'run.mp3', { method: 'HEAD' }).then(r => { if (!r.ok || !/audio|octet-stream/.test(r.headers.get('content-type') || '')) noSong = true; }).catch(() => { noSong = true; });
 
   const music = ctx ? ctx.createGain() : null, under = ctx ? ctx.createGain() : null, speech = ctx ? ctx.createGain() : null;
   // a file fetched and decoded, or null: a missing file must not raise an error of its own
