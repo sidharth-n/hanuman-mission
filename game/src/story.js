@@ -7,6 +7,7 @@ import { Actor } from './scene.js';
 import { Aura } from './aura.js';
 import { PLANS } from './fight.js';
 import { SITA, TREE, HIDE, THRONE, STAND } from './places.js';
+import { HALL } from './court.js';
 import { GROVE_AT, THRONE_AT, FIRE_AT, LANKINI_AT, LANKINI_MID, CHUNK } from './world.js';
 
 const S = STORY.scenes;
@@ -244,11 +245,27 @@ export function createStory(g) {
     g.card('throne');
     const wide = shot(v(0, 2.3, -THRONE_AT - 3), v(0, 3.2, tz), { to: v(0, 2.0, -THRONE_AT - 15), fov: 56 });
     const crane = shot(v(-5.2, 7, hz + 9), v(0, 2.6, tz), { to: v(-3.4, 5.2, hz + 3), fov: 52 });
-    const onRavana = shot(v(1.7, T + 2.5, tz + 4.6), v(0, T + 2.35, tz), { to: v(1.3, T + 2.4, tz + 4.0), fov: 40 });
-    const onHero = shot(v(-1.2, 1.55, hz - 2.6), v(0, 1.45, hz), { to: v(-0.9, 1.55, hz - 2.2), fov: 38 });
+    const onRavana = shot(v(1.5, T + 2.0, tz + 4.4), v(0, T + either(2.2, 1.7), tz + 0.4), { to: v(1.1, T + 2.05, tz + 3.7), fov: either(32, 27) });      // close on him: his face and shoulders, the dark red of the throne behind
+    const onHero = shot(v(-1.2, 1.55, hz - 2.6), v(0, 1.45, hz), { to: v(-0.9, 1.55, hz - 2.2), fov: either(38, 30) });
     const over = shot(v(1.5, 2.3, hz + 3.0), v(0, T + 2.2, tz), { to: v(1.1, 2.2, hz + 2.4), fov: 46 });
     const down = shot(v(1.0, T + 3.7, tz + 1.3), v(0, 1.2, hz), { to: v(0.7, T + 3.5, tz + 1.6), fov: 50 });
+    // first the hall itself, in four looks without a word: Shiva's face and the length of him, a Nandi by the steps, the fires along the aisle, and the whole of it from the door
+    const sy = HALL.seat, szv = base + HALL.shivaZ, see = (at, look, o, secs) => ({ ...shot(at, look, o), secs });
+    const hall = [
+      see(v(2.8, sy + 10.2, base - 11.5), v(0, sy + 11.6, szv), { to: v(2.2, sy + 6.4, base - 11), lookTo: v(0, sy + 6.8, szv), fov: 40 }, 3.4),
+      see(v(4.4, 1.5, tz + 9.6), v(8.1, 2.1, tz + 6.3), { to: v(5.0, 1.9, tz + 9.0), fov: 42 }, 2.4),
+      see(v(-2.6, 0.7, base + 19), v(-5.6, 2.3, base + 8), { to: v(-2.9, 1.2, base + 15.5), lookTo: v(-4.6, 3.4, base - 4), fov: 50 }, 2.8),
+      see(v(0, 9.5, base + 21.5), v(0, 7.5, szv), { to: v(0, 3.4, base + 18), lookTo: v(0, 5.5, szv), fov: 62 }, 3.4),
+    ];
+    // his tail is alight: he grows, the ropes burst, and the two who hold him are thrown back
+    const hurl = (e, dx, dz) => { if (!e.root.visible) return; const q = e.root.position; e.play('two_handed_sword_death', { once: true, fade: 0.08 }); e.march = { x0: q.x, z0: q.z, x: q.x + dx, z: q.z + dz, t: 0, secs: 0.6, stay: true }; };
+    const burst = () => {
+      hero.bind(false); aura.begin(0, G, hz); aura.storm = true; g.grow(1, 2.2); hero.play('mutant_roaring', { once: true, fade: 0.15 });
+      escort.forEach((e, i) => hurl(e, (i ? 1 : -1) * 2.6, 1.6)); wardens.forEach(e => e.play('great_sword_impact', { once: true, fade: 0.1 }));
+      g.sound.fx('power'); g.sound.fx('fire'); g.sound.chant(); g.shake(0.5); g.buzz([60, 40, 160]);
+    };
     director.play([
+      ...hall,
       ...beats('court_arrival', [wide, crane]),
       ...beats('throne', [
         { ...onRavana, do: () => ravana.play('sit_talk') },
@@ -263,10 +280,10 @@ export function createStory(g) {
         { ...over, do: () => ravana.play('command', { once: true, fade: 0.2 }) },
       ]),
       ...beats('ignite', [
-        { ...shot(v(2.2, 0.9, hz + 3.2), v(0, 1.3, hz), { to: v(1.6, 1.1, hz + 2.6), fov: 48 }), do: () => { g.light(true); escort.forEach(e => e.reset()); } },
-        { ...shot(v(-1.8, 0.6, hz - 3.4), v(0, 1.9, hz), { to: v(-1.4, 0.7, hz - 2.8), fov: 54 }), do: () => { hero.bind(false); hero.play('mutant_roaring', { once: true, fade: 0.2 }); g.sound.fx('power'); g.buzz([60, 40, 160]); } },
+        { ...shot(v(2.2, 0.9, hz + 3.2), v(0, 1.3, hz), { to: v(1.6, 1.1, hz + 2.6), fov: 48 }), do: () => g.light(true) },
+        { ...shot(v(0, 1, hz), v(0, 1.3, hz), { lookTo: v(0, 2.3, hz), fov: 60, round: { c: v(0, 0, hz), from: Math.PI * 1.2, to: Math.PI * 0.78, r: [3.0, 3.9], y: [0.8, 2.0] } }), secs: 3.6, do: burst },      // carried round him inside the ranks as he grows
       ]),
-    ], () => g.fade(() => { hero.bind(false); ravana.hide(); [...escort, ...wardens].forEach(e => e.reset()); g.ablaze(); }));
+    ], () => g.fade(() => { hero.bind(false); aura.end(); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); }));
   }
 
   // ── the end: grown vast, he roars in the middle of the burning city, then leaps for the sea ──
@@ -323,7 +340,7 @@ export function createStory(g) {
       for (const e of fight.guards) if (e.march) {      // the ten who close the ring in the grove
         const m = e.march; m.t += dt; const u = Math.min(1, Math.max(0, m.t / m.secs));
         e.root.position.x = m.x0 + (m.x - m.x0) * u; e.root.position.z = m.z0 + (m.z - m.z0) * u;
-        if (u >= 1) { e.march = null; const hp = hero.root.position; e.root.rotation.y = e.yaw = yawTo(hp.x - m.x, hp.z - m.z); e.play('great_sword_idle', { fade: 0.25 }); }
+        if (u >= 1) { e.march = null; if (!m.stay) { const hp = hero.root.position; e.root.rotation.y = e.yaw = yawTo(hp.x - m.x, hp.z - m.z); e.play('great_sword_idle', { fade: 0.25 }); } }      // stay: thrown down, he lies where he fell
       }
       if (trek) {      // Hanuman on his way from mark to mark
         const m = trek.marks[trek.i], p = hero.root.position; trek.t += dt; const u = Math.min(1, trek.t / m[2]);

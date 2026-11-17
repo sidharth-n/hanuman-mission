@@ -170,6 +170,8 @@ body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + va
 #drama { position: fixed; inset: 0; pointer-events: none; }
 #drama .bar { position: absolute; left: 0; right: 0; top: 0; height: calc(8vh + var(--top)); background: #000; }
 #drama .bar.low { top: auto; bottom: 0; height: calc(8vh + var(--bottom)); }
+/* in a scene the edges of the picture fall away into shadow: the eye stays on the one who speaks */
+#drama::before { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 78% 62% at 50% 44%, rgba(0,0,0,0) 52%, rgba(0,0,0,.34) 78%, rgba(0,0,0,.62) 100%); }
 #drama .say { position: absolute; left: 50%; bottom: calc(8vh + 16px + var(--bottom)); transform: translateX(-50%); width: min(92vw, 880px); text-align: center; padding: 18px 14px 10px;
   background: radial-gradient(ellipse at 50% 60%, rgba(8, 6, 4, .78), rgba(8, 6, 4, 0) 72%); animation: line .35s ease-out; }
 #who { display: block; font: 700 clamp(14px, .5vw + 12px, 20px)/1.2 var(--head); letter-spacing: .22em; text-transform: uppercase; color: var(--gold); padding-left: .22em; margin-bottom: 4px; text-shadow: 0 1px 3px #000; }

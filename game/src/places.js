@@ -190,7 +190,7 @@ function court(world) {
     const h = g.createLinearGradient(0, 0, s, 0); h.addColorStop(0, 'rgba(0,0,0,0)'); h.addColorStop(0.5, 'rgba(0,0,0,1)'); h.addColorStop(1, 'rgba(0,0,0,0)'); g.fillStyle = h; g.fillRect(0, 0, s, s);
   });
   world.courtKit = {
-    throneGeo: palace.throneModule(THRONE.z, THRONE.top, THRONE.seat, 2.9, [0.5, 0.45, 0.42]),      // a low back: over it, Shiva is seen
+    throneGeo: palace.throneModule(THRONE.z, THRONE.top, THRONE.seat, 2.9, [0.42, 0.36, 0.34], true),      // a low back: over it, Shiva is seen
     hallGeo: [greatHall({ first: true }), greatHall({ throne: THRONE.z })], plinthGeo: plinth(),
     bannerMat: new THREE.MeshBasicMaterial({ map: banner, side: THREE.DoubleSide, color: 0xb9b0a6 }), bannerGeo: new THREE.PlaneGeometry(2.0, 6.6),
     shaftMat: new THREE.MeshBasicMaterial({ map: shaft, blending: THREE.AdditiveBlending, opacity: 0.13, side: THREE.DoubleSide, transparent: true, depthWrite: false, fog: false }), shaftGeo: new THREE.PlaneGeometry(4.2, 21),
@@ -238,6 +238,7 @@ export function throne(world, chunk, c, r) {
     const base = world.part(k.plinthGeo); base.position.set(s * 8.1, 0, Z + 6.3); base.rotation.y = -s * 0.93; g.add(base);
     if (world.prefabs.nandi) { const f = world.spawn('nandi'); f.position.set(s * 8.1, 0.7, Z + 6.3); f.rotation.y = -s * 0.93; g.add(f); }
   }
+  const key = new THREE.PointLight(0xffe6c4, 34, 9, 1.8); key.position.set(0.8, T + 3.0, Z + 3.4); g.add(key);      // the light Ravana sits in: on him, and spent before it reaches the wall
   const halo = new THREE.Sprite(k.glowMat); halo.position.set(0, 7.5, Z - 5); halo.scale.setScalar(26); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 26 });
   const lamp = new THREE.PointLight(0xffb060, 120, 30, 1.6); lamp.position.set(0, 4.6, Z - 3.0); g.add(lamp);      // the one real light of the hall: the fires at his knees, on the statue
 }

@@ -350,7 +350,7 @@ const ball = (r, n = 6) => Array.from({ length: n + 1 }, (_, i) => [Math.sin(i /
 // Ravana's throne on its dais: three broad steps of marble with a runner up the middle, the seat between two
 // carved arms, and behind it a high back of beaten gold between two columns. z: where the seat stands in its
 // stretch; top: the height of the dais; seat: the height of the seat above it.
-export function throneModule(z, top, seat, back = 6.3, tint = null) {      // back: how high the back of the throne stands above the dais; tint: a darker gold, where real fires stand close
+export function throneModule(z, top, seat, back = 6.3, tint = null, plain = false) {      // plain: a quiet throne, for a king who must be seen against it: a back of dark red cloth in a narrow gold frame, no spires      // back: how high the back of the throne stands above the dais; tint: a darker gold, where real fires stand close
   const b = new Builder(), o = { ground: false }, lights = [], T = top, rise = top / 3;
   if (tint) b.tint = tint;
   [[12, 7.6], [10, 6.2], [8, 4.9]].forEach(([w, d], i) => {
@@ -374,15 +374,15 @@ export function throneModule(z, top, seat, back = 6.3, tint = null) {      // ba
     b.lathe(s * 1.46, z + 0.72, y1, ball(0.21), 'gold', 12, 1.15);
     // a column on each side of the back, crowned with a finial
     column(b, s * 2.42, z - 0.92, T, T + back + 0.2, 0.62);
-    b.finial(s * 2.42, z - 0.92, T + back + 0.2, 1.5);
+    if (!plain) b.finial(s * 2.42, z - 0.92, T + back + 0.2, 1.5);
   }
   // the high back: an arch of beaten gold, and over it a crown
   b.box(-2.05, 2.05, T, T + back, z - 1.16, z - 0.8, 'ppillar', { ...o, faces: 'lrb', tile: [0.9, 1.8], shade: 1.1 });
-  b.panel(-2.05, 2.05, T, T + back, z - 0.8, 'pdoor', { shade: 1.05 });
+  if (plain) { b.panel(-2.05, 2.05, T, T + back, z - 0.8, 'crimson', { shade: 0.5 }); for (const s of [-1, 1]) b.box(Math.min(s * 1.9, s * 2.05), Math.max(s * 1.9, s * 2.05), T, T + back, z - 0.8, z - 0.77, 'gold', { ...o, faces: 'f', shade: 1.6 }); }
+  else b.panel(-2.05, 2.05, T, T + back, z - 0.8, 'pdoor', { shade: 1.05 });
   b.box(-2.3, 2.3, T + back, T + back + 0.42, z - 1.2, z - 0.72, 'frieze', { ...o, faces: 'flrtd', tile: [2.3, 0.42], top: 'gold', shade: 1.1 });
   b.box(-1.5, 1.5, T + back + 0.42, T + back + 0.7, z - 1.14, z - 0.78, 'lotus', { ...o, faces: 'flrt', tile: [1.5, 0.28], top: 'gold', shade: 1.15 });
-  b.finial(0, z - 0.96, T + back + 0.7, 1.9);
-  for (const s of [-1, 1]) b.finial(s * 1.2, z - 0.96, T + back + 0.7, 1.1);
+  if (!plain) { b.finial(0, z - 0.96, T + back + 0.7, 1.9); for (const s of [-1, 1]) b.finial(s * 1.2, z - 0.96, T + back + 0.7, 1.1); }
   // the flames before the throne are painted into the gold
   lit(lights, 0, T + 3.2, z + 2.6, 5.5, 0.6);
   for (const s of [-1, 1]) { lit(lights, s * 5, 1.9, z + 5.6, 5, 0.8); lit(lights, s * 3, T + 1.6, z + 1.6, 3, 0.3); }
