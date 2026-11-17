@@ -39,6 +39,7 @@ export function createStory(g) {
     const drop = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), stone(0xe9dcc0, 0x1c1912)); drop.scale.y = 1.5; drop.position.set(0, -0.058, 0.002); jewel.add(drop); }
   for (const o of [ring, jewel]) { o.visible = false; o.traverse(m => { m.userData.soft = true; }); g.scene.add(o); }      // soft: a thing in his hand is not something standing in front of him
   let held = null;      // { thing: the ring or the jewel, who: whose open hand it lies in }
+  let clear = null;      // { beats, i, on }: the beat that is shown without the veils of the place
   const palmUp = new THREE.Vector3(), flat = new THREE.Vector3(0, 0, 1);
   // who holds out a hand to a point with the thing in it; who: null puts everything away
   const offer = (who, thing, to) => {
@@ -197,7 +198,7 @@ export function createStory(g) {
       { ...onRavana, do: () => ravana.play('talk') },
       { ...onSita, do: () => { ravana.play('idle'); sita.play('sit_talk'); } },
       { ...shot(v(sx - 1.5, 1.1 + U, sz + 1.0), v(sx, 1.05 + U, sz + 0.2), { to: v(sx - 1.2, 1.08 + U, sz + 0.8), fov: 36 }), do: () => sita.play('sit_talk') },
-      shot(v(sx + 1.5, 2.25, sz - 1.5), v(rx, 2.0, rz), { to: v(sx + 1.2, 2.2, sz - 1.2), fov: 48 }),      // over her head and the back of her seat
+      { ...shot(v(sx + 1.5, 2.25, sz - 1.5), v(rx, 2.0, rz), { to: v(sx + 1.2, 2.2, sz - 1.2), fov: 48 }), do: () => { clear = { beats: director.beats, i: director.i, on: false }; } },      // over her head and the back of her seat. From here the lens looks through the shaft of moonlight that falls on her and across the mist on the grass, toward the moon: a white wash lay over him. For this one shot the veils are put out and the moon stands behind the camera
       { ...onRavana, do: () => { sita.play('sit'); ravana.play('command', { once: true }); ravana.rise = 1.3; } },
       { ...watch({ fov: 34 }), do: () => { hid(); ravana.walk(out[0], out[1], 6.2); escort.forEach((e, i) => { e.root.rotation.y = yawTo(out[0] - rx, out[1] - rz); e.play('great_sword_walk'); e.leave = 1; e.go = [(out[0] - rx) / Math.hypot(out[0] - rx, out[1] - rz), (out[1] - rz) / Math.hypot(out[0] - rx, out[1] - rz)]; }); } },
       { ...onHim, do: hid },
@@ -443,6 +444,7 @@ export function createStory(g) {
         p.x = l.x0 + (l.x - l.x0) * u; p.z = l.z0 + (l.z - l.z0) * u; hero.y = 4 * l.up * u * (1 - u); hero.vy = 0;
         if (u >= 1) { leapTo = null; hero.y = 0; l.then(); }
       }
+      if (clear) { const on = director.active && director.beats === clear.beats && director.i === clear.i; if (on !== clear.on) { clear.on = on; g.veil(!on); g.moonAt(on ? [16, 40, -36] : null); } if (!on) clear = null; }
       if (held) {      // the ring or the jewel lies in the open hand that holds it, a small light on it
         held.who.offer.hold(held.thing.position, palmUp); held.thing.quaternion.setFromUnitVectors(flat, palmUp);
         gift.visible = true; gift.position.copy(held.thing.position).addScaledVector(palmUp, 0.02); gift.material.color.set(held.thing === ring ? 0xffd36a : 0xbfe6ff); gift.scale.setScalar((held.thing === ring ? 0.11 : 0.06) + Math.sin(performance.now() * 0.006) * 0.012);

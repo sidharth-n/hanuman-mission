@@ -96,7 +96,7 @@ export function grove(world, chunk, c, r) {
   }
   // shafts of moonlight between the trees
   for (let j = 0; j < 2; j++) {
-    const s = j ? 1 : -1, b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(s * (2.5 + r() * 6), 8.4, -5 - r() * 14); b.rotation.z = -s * 0.32; g.add(b);
+    const s = j ? 1 : -1, b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(s * (2.5 + r() * 6), 8.4, -5 - r() * 14); b.rotation.z = -s * 0.32; b.userData.veil = true; g.add(b);
   }
   // fireflies that drift and wink, and petals coming down all the time
   const pts = (n, w, h, mat) => {
@@ -107,7 +107,7 @@ export function grove(world, chunk, c, r) {
   chunk.fx.push({ type: 'fly', obj: pts(world.lite ? 40 : 70, 12, 3.6, k.flyMat), seed: r() * 10, y: 0.5 });
   chunk.fx.push({ type: 'fall', obj: pts(world.lite ? 70 : 130, 10, 18, k.petalMat), seed: r() * 9 });
   // a low mist lying on the grass, catching the moon
-  for (let j = 0; j < (world.lite ? 4 : 7); j++) { const m = new THREE.Sprite(k.mistMat); m.position.set((r() < 0.5 ? -1 : 1) * (4.5 + r() * 9), 0.7 + r() * 0.5, -r() * L); m.scale.set(9 + r() * 6, 2.2 + r() * 1.2, 1); g.add(m); }
+  for (let j = 0; j < (world.lite ? 4 : 7); j++) { const m = new THREE.Sprite(k.mistMat); m.position.set((r() < 0.5 ? -1 : 1) * (4.5 + r() * 9), 0.7 + r() * 0.5, -r() * L); m.scale.set(9 + r() * 6, 2.2 + r() * 1.2, 1); m.userData.veil = true; g.add(m); }
   // low stone lanterns beside the path
   for (const s of [-1, 1]) for (const z of [-6, -18]) {
     if (c.n === HIDE.n && s < 0 && z === -18) continue;      // none by the tree he hides behind: it would stand in front of what he sees
@@ -126,7 +126,7 @@ export function grove(world, chunk, c, r) {
     const chair = world.part(k.seatGeo); chair.position.set(SITA.x, U, SITA.z); chair.rotation.y = SITA.yaw; g.add(chair);
     const halo = new THREE.Sprite(k.haloMat); halo.position.set(SITA.x, 1.7 + U, SITA.z); halo.scale.setScalar(8.5); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 8.5 });
     const warm = new THREE.Sprite(k.warmMat); warm.position.set(SITA.x, 0.5, SITA.z); warm.scale.set(8, 2.6, 1); g.add(warm);
-    const b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(SITA.x - 1.6, 8.6, SITA.z + 1.2); b.rotation.z = 0.2; g.add(b);
+    const b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(SITA.x - 1.6, 8.6, SITA.z + 1.2); b.rotation.z = 0.2; b.userData.veil = true; g.add(b);
     // small clay lamps all round the rim, and lotuses between them
     const N = 18, a = new Float32Array(N * 3); for (let i = 0; i < N; i++) { const t = i / N * 6.283; a[i * 3] = SITA.x + Math.cos(t) * 2.2; a[i * 3 + 1] = 0.25; a[i * 3 + 2] = SITA.z + Math.sin(t) * 2.2; }
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); const lamps = new THREE.Points(geo, k.lampMat); lamps.frustumCulled = false; g.add(lamps); chunk.fx.push({ type: 'flicker', obj: lamps });

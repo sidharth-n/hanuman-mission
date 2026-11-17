@@ -104,6 +104,9 @@ async function load() {
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
   story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, credits, unask, fireMat: world.flameMat,
+    // the veils of a place (shafts of moonlight, the mist on the grass) put out for a shot that would be taken through them, and lit again after
+    veil: show => { for (const c of world.chunks.values()) c.group.traverse(o => { if (o.userData.veil) o.visible = show; }); },
+    moonAt: p => { moon.position.set(...(p || [-18, 40, 36])); },      // and the moon put behind a camera that looks back along the road (null: where it hangs)
     // the picture held for a character's entrance: the air thick and dark so that all but what is close to the lens falls away, and her name under her
     hush: on => { state.held = on ? fight.boss.root : null; },
     name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
