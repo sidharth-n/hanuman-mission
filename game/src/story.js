@@ -128,7 +128,7 @@ export function createStory(g) {
     const yaw = yawTo(rx - sx, rz - sz);
     sita.place(sx + Math.sin(yaw) * SITA.edge, G, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0 });
     ravana.place(sx - 5.5, G, sz + 10, 0); ravana.play('idle', { fade: 0 });
-    standGuards([[rx - 2.2, rz + 2.6, yawTo(1, -0.9)], [rx + 0.6, rz + 3.6, yawTo(0.3, -1)]]);
+    standGuards([[rx - 4.2, rz + 2.0, yawTo(1, -0.6)], [rx + 1.9, rz + 3.4, yawTo(-0.2, -1)]]);      // well to either side of the way he comes and goes by: he is broad, and walked through the nearer one
     putHero(perch[0], perch[1], heroYaw(sx - perch[0], sz - perch[1]), 'crouched_walking', perch[2]); hero.current.timeScale = 0.02;      // crouched on a branch, still
     const onHanuman = shot(v(perch[0] - 2.2, perch[2] + 1.2, perch[1] + 2.3), v(perch[0], perch[2] + 0.9, perch[1]), { to: v(perch[0] - 1.7, perch[2] + 1.1, perch[1] + 1.9), fov: 40 });
     const fromTree = shot(v(sx - 4.4, 5.4, sz + 5.0), v(sx - 0.8, 0.9, sz + 0.9), { to: v(sx - 3.8, 4.8, sz + 4.2), fov: 50 });      // looking down on them, as he does

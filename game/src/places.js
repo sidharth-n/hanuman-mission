@@ -6,7 +6,7 @@ import * as palace from './palace.js';
 
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
-export const SITA = { n: 2, x: 3.4, z: -11, seat: 0.5, edge: 0.46 };      // her stone seat under the great tree, and how far forward of its middle she sits
+export const SITA = { n: 2, x: 3.4, z: -11, seat: 0.43, edge: 0.66 };      // her stone seat under the great tree, and how far forward of its middle she sits
 export const TREE = { n: 2, x: 7.2, z: -14.6 };                      // the great tree Hanuman hides in
 export const THRONE = { n: 1, z: -17, top: 1.05, seat: 0.92 };       // the dais and the seat of the throne
 export const STAND = { n: 1, z: -6 };                                // where Hanuman is made to stand before it
