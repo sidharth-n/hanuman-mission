@@ -104,7 +104,7 @@ export class Hero {
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0; this.root.rotation.y = 0; this.free = false; this.pace = 0;
     if (this.offer) { this.offer.on = false; this.offer.w = 0; }
-    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.flying = false; this.fly = 0;
+    this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.sink = 0; this.flying = false; this.fly = 0;
     this.model.rotation.x = 0; this.model.position.z = 0;
     this.root.scale.setScalar(1);
     this.play('breathing_idle', { fade: 0 });
@@ -184,7 +184,7 @@ export class Hero {
     if (this.y <= this.floor) { this.y = this.floor; this.vy = 0; }      // on the ground, or on top of something he came down on
     // tipped forward to fly level; the body is kept over the spot he is flying above
     this.model.rotation.x = -this.fly * 1.3;
-    this.model.position.set(0, this.y + this.fly * 0.25, this.fly * 0.85);
+    this.model.position.set(0, this.y + this.fly * 0.25 - (this.sink || 0), this.fly * 0.85);      // sink: a held pose whose clip stands him off the ground is set down by that much
     this.blob.position.y = this.floor + 0.05; this.blob.scale.setScalar(1 - Math.min(0.5, (this.y - this.floor) * 0.25)); this.blob.visible = this.floor > -1;
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;

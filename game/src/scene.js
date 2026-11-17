@@ -104,7 +104,7 @@ export class Director {
   // el: { root, who, line, skip }: the bars and the words on screen
   constructor(camera, el) {
     this.camera = camera; this.el = el; this.active = false; this.beats = []; this.i = -1; this.t = 0; this.len = 0;
-    this.cam = null; this.camT = 0; this.camLen = 1; this.look = new THREE.Vector3(); this.done = null;
+    this.cam = null; this.camT = 0; this.camLen = 1; this.look = new THREE.Vector3(); this.gaze = new THREE.Vector3(); this.faced = null; this.done = null;
     this.sound = null;      // the game's sound, once it is there: a beat with a voice is spoken, and lasts as long as its voice
     el.skip.addEventListener('click', e => { e.stopPropagation(); this.skip(); });
   }
@@ -162,6 +162,10 @@ export class Director {
       this.camera.position.set(o.c[0] + Math.sin(a) * r, o.c[1] + o.y[0] + (o.y[1] - o.y[0]) * u, o.c[2] + Math.cos(a) * r);
     } else this.camera.position.set(c.at[0] + (to[0] - c.at[0]) * u, c.at[1] + (to[1] - c.at[1]) * u, c.at[2] + (to[2] - c.at[2]) * u);
     this.look.set(c.look[0] + (lookTo[0] - c.look[0]) * u, c.look[1] + (lookTo[1] - c.look[1]) * u, c.look[2] + (lookTo[2] - c.look[2]) * u);
+    if (c.face) {      // a shot of one person looks at that person's face, wherever the pose has put it, and follows it gently: never every nod
+      const f = c.face(); if (this.faced !== c) { this.faced = c; this.gaze.copy(f); } else this.gaze.lerp(f, 0.05);
+      this.look.copy(this.gaze);
+    } else this.faced = null;
     const lens = (c.fov || 48) + ((c.fovTo ?? c.fov ?? 48) - (c.fov || 48)) * u;      // fovTo: the lens the shot ends on, when it changes as the camera travels
     const fov = tall ? Math.min(80, lens * 1.6) : lens;
     if (c.keep) fit(this.camera, this.look, fov, aspect, c.keep());

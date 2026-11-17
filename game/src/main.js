@@ -109,6 +109,7 @@ async function load() {
     fade, light: on => { tailFire.visible = on; }, ablaze, credits, unask, fireMat: world.flameMat,
     // the veils of a place (shafts of moonlight, the mist on the grass) put out for a shot that would be taken through them, and lit again after
     veil: show => { for (const c of world.chunks.values()) c.group.traverse(o => { if (o.userData.veil) o.visible = show; }); },
+    mist: d => { state.thin = d; },      // the air of a place cleared for one shot that looks a long way through it (null: as the place has it)
     moonAt: p => { moon.position.set(...(p || [-18, 40, 36])); },      // and the moon put behind a camera that looks back along the road (null: where it hangs)
     // the picture held for a character's entrance: the air thick and dark so that all but what is close to the lens falls away, and her name under her
     hush: on => { state.held = on ? fight.boss.root : null; },
@@ -786,6 +787,7 @@ function blocked() {
     t.set(...pt); ndc.copy(t).project(camera); if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1 || ndc.z > 1) continue;
     const len = d.copy(t).sub(camera.position).length(); d.divideScalar(len);
     if (len > 32 * Math.max(1, k)) continue;      // so far off that he is a part of the place, not one the picture is of
+    if (hero.sink && name[0] === 'h' && len > 8) continue;      // squatting behind his tree he is meant to be hidden from where the others stand
 
     for (const back of [false, true]) {      // from the lens to him, and from him to the lens: the second finds a lens that is inside a wall
       ray.set(back ? t : camera.position, back ? d.clone().negate() : d); ray.near = 0.05; ray.far = len - 0.4 * k;
