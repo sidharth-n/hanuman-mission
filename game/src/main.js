@@ -94,7 +94,7 @@ async function load() {
   const one = name => loader.loadAsync(trial[name] ? `${trial[name]}.glb` : `assets/${CAST.includes(name) ? '' : 'world/'}${file(name)}.glb`).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
   const tl = new THREE.TextureLoader();
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
-    tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync('assets/tex/sky.jpg')]);
+    tl.loadAsync('assets/tex/city.jpg'), tl.loadAsync('assets/tex/city-glow.jpg'), tl.loadAsync('assets/tex/paving.jpg'), tl.loadAsync(debug && query.get('sky') ? query.get('sky') : 'assets/tex/sky.jpg')]);      // ?debug&sky=<picture>: another sky under trial (a whole panorama is laid once round)
   world = new World(scene, models, { city, glow, paving, sky }, { lite: settings.gfx !== 'rich', bare: explore });
   world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); sound.fx('bell', { gap: 4 }); };
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
@@ -703,7 +703,8 @@ function frame(now) {
     tailFire.children.forEach((f, n) => { const s = f.userData.s * k * (1.5 + Math.sin(now * 0.02 + n * 2) * 0.25); f.scale.set(s, s * 1.3, 1); f.position.set(tip.x, tip.y + n * 0.35 * k, tip.z + n * 0.25 * k); });
     tailLight.position.set(tip.x, tip.y + 1.2 * k, tip.z + 1.5 * k); tailLight.intensity = 26 * k * (1 + Math.sin(now * 0.03) * 0.15);
   }
-  tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); if (state.dusk) tint.multiplyScalar(0.22); world.skyMat.color.copy(tint);
+  tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); if (state.dusk) tint.multiplyScalar(0.22); if (world.pano) tint.multiplyScalar(world.panoDim);      // (a panorama made for a bright screen is taken down to the game's night)
+  world.skyMat.color.copy(tint);
   placeCamera(real, false);
   if (state.held) renderHeld(state.held); else renderer.render(scene, camera);
   if (debug) audit();

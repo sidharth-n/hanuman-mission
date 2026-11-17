@@ -165,7 +165,7 @@ function glowTexture(inner, outer) {
   });
 }
 
-const PANO_TURN = 0;      // how far the panorama is turned about the upright, so that what it shows ahead is ahead on the road
+const PANO_TURN = Math.PI / 2;      // how far the panorama is turned about the upright, so that what it shows ahead is ahead on the road
 export class World {
   // opt.lite: plain shading and one torch, for phones. opt.bare: nothing in his way, for looking round the world.
   constructor(scene, models, tex, opt = {}) {
@@ -316,12 +316,13 @@ export class World {
     picture.colorSpace = THREE.SRGBColorSpace; picture.wrapS = pano ? THREE.RepeatWrapping : THREE.MirroredRepeatWrapping; picture.wrapT = THREE.ClampToEdgeWrapping;
     if (!pano) { picture.repeat.set(2, 2.4); picture.offset.set(0, -1.133); }
     this.skyMat = new THREE.MeshBasicMaterial({ map: picture, side: THREE.BackSide, fog: false, depthWrite: false });
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(560, 48, 24), this.skyMat); dome.renderOrder = -2; dome.rotation.y = pano ? PANO_TURN : 0; this.dome = dome; this.pano = pano; far.add(dome);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(560, 48, 24), this.skyMat); dome.renderOrder = -2; dome.rotation.y = pano ? PANO_TURN : 0; this.dome = dome; this.pano = pano; this.panoDim = 0.32; far.add(dome);
     const lights = new THREE.Group(); this.heavens = lights; far.add(lights);      // moon and stars: put out while he is indoors
     const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,255,245,1)', 'rgba(190,205,255,0.35)'), fog: false, depthWrite: false }));
     moon.scale.setScalar(60); moon.position.set(46, 92, -260); lights.add(moon);
     const disc = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0xf6f3e4, fog: false, depthWrite: false, map: canvasTexture(64, (g, s) => { g.fillStyle = '#fff'; g.beginPath(); g.arc(s / 2, s / 2, s / 2 - 2, 0, 7); g.fill(); }) }));
     disc.scale.setScalar(15); disc.position.copy(moon.position); lights.add(disc);
+    if (pano) moon.visible = disc.visible = false;      // the panorama has its own moon, over its own sea
     if (this.prefabs.palace) {
       const hill = new THREE.Group(); this.hill = hill; far.add(hill);      // the palace on its hill, always ahead until he reaches it
       const p = this.spawn('palace');
@@ -631,7 +632,7 @@ export class World {
     this.torches.forEach((l, n) => { const b = near[n]; if (b) { l.position.copy(b); l.intensity = 42 * flick; } else l.intensity = 0; });
     this.far.position.z = heroZ;
     const here = planAt(at), end = planAt(at + AHEAD);
-    if (this.hill) this.hill.visible = !(here.fire || ['court', 'hall', 'grove', 'throne'].includes(here.kind));
+    if (this.hill) this.hill.visible = !this.pano && !(here.fire || ['court', 'hall', 'grove', 'throne'].includes(here.kind));      // (the panorama has its own palace on its hill)
     this.cap.visible = end.kind === 'hall' || end.kind === 'throne';
     if (this.cap.visible) this.cap.position.set(0, end.base + palace.HALL_TOP / 2, -(at + AHEAD + 1) * CHUNK + 0.2);
   }
