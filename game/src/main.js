@@ -418,7 +418,7 @@ function placeCamera(dt, snap) {
   if (director.active && director.cam) {      // a scene of the story: the director holds the camera
     fov = director.frame(camera.aspect, tall);      // an upright phone sees a narrow slice: there the director widens the lens, and draws back until those the shot must hold are in it
     look.copy(director.look); view.back = back; view.join = 1; view.fov = fov;
-  } else if (fight.active && fight.cine && state.mode !== 'ready') {
+  } else if (fight.active && fight.cine && fight.cine.ready && state.mode !== 'ready') {
     // struck down in the fight, and the moment is held: the fight itself says where the view stands
     const c = fight.cine;
     if (c.cut) { camera.position.copy(c.at); look.copy(c.look); c.cut = false; } else { camera.position.lerp(c.at, Math.min(1, dt * 9)); look.lerp(c.look, Math.min(1, dt * 9)); }
@@ -461,6 +461,7 @@ function placeCamera(dt, snap) {
     if (state.orbit) sweep(dt, p, G);
   }
   if (state.shake > 0) { camera.position.x += (Math.random() - 0.5) * state.shake * 0.5; camera.position.y += (Math.random() - 0.5) * state.shake * 0.35; }
+  camera.position.y = Math.max(camera.position.y, groundAt(camera.position.z) + 0.2);      // whatever placed it, the view is never under the road: from there the world is seen from below
   camera.lookAt(look); camera.rotateZ(-hero.lean * 0.3);
   const wantFov = state.shot ? view.fovWant : fov;
   view.fov = snap ? wantFov : view.fov + (wantFov - view.fov) * Math.min(1, dt * (state.shot ? 30 : 6));
@@ -517,6 +518,7 @@ function frame(now) {
   tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); world.skyMat.color.copy(tint);
   placeCamera(real, false);
   renderer.render(scene, camera);
+  if (debug) audit();
 
   if (running || fighting) {
     const giant = state.giant > 0 ? state.giant / GIANT_SECS : state.fire ? 1 : state.meter, fly = state.flight > 0 ? state.flight / FLIGHT_SECS : state.wind;
@@ -622,5 +624,20 @@ function feet() {
   hero.model.traverse(o => { if (o.isBone && /(Foot|ToeBase|Hips|Spine|Head)$/.test(o.name)) low = Math.min(low, o.getWorldPosition(v).y); });
   return +((low - groundAt(p.z)) / k - hero.y).toFixed(2);
 }
-if (debug || import.meta.env.DEV) window.__game = { blocked, feet, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+// Every frame of a test is judged, not a sample of them: a bad view can last two frames (one did, at the cut to a held
+// fall) and still spoil the moment. What is found is kept as spans: what, in which mode, from when to when, how many frames.
+const faults = []; let audited = 0;
+function audit() {
+  const add = what => { const t = +(performance.now() / 1000).toFixed(2), last = faults.findLast(f => f.what === what); if (last && t - last.to < 0.6) { last.to = t; last.frames++; } else faults.push({ what, mode: state.mode, from: t, to: t, frames: 1 }); };
+  const c = camera.position;
+  if (c.y < groundAt(c.z) + 0.1) add('lens under the road');
+  if (state.mode !== 'fight' && state.mode !== 'run' && state.mode !== 'scene') return;
+  if (state.mode !== 'scene') {      // in play he is always in the picture
+    const hips = hero.model.getObjectByName('mixamorigHips'), n = hips.getWorldPosition(new THREE.Vector3()).project(camera);
+    if (Math.abs(n.x) > 1.02 || Math.abs(n.y) > 1.02 || n.z > 1) add('Hanuman out of the picture');
+  }
+  if (!hero.flying && hero.y < 0.02 && !/fall_|rise_|jump|hang|slide|roll|falling/.test(hero.name || '') && feet() > 0.3) add('he is off the road in ' + hero.name);
+  if (++audited % 6 === 0) for (const line of blocked()) add(line.replace(/ [\d.]+ m .*$/, ''));
+}
+if (debug || import.meta.env.DEV) window.__game = { blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };

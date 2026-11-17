@@ -295,12 +295,33 @@ export class Fight {
     if (epic) {
       this.cineAt = this.falls + 3 + Math.floor(Math.random() * 4);
       this.cine = { cut: true, from: g, side: 0, at: new THREE.Vector3(), look: new THREE.Vector3(), keep: [[0, 0, 0], [0, 0, 0], [0, 0, 0], [0, 0, 0]] };
-      this.slowMotion(1.7, 0.24);
+      this.slowMotion(1.7, 0.24); this.cineView();
     }
     _a.set(p.x, p.y + 1.2 * this.s, p.z); this.sparks.burst(_a, 18 * g.k.wound, RED, 6 * this.s); this.flash(_a, RED, 2 * g.k.wound);
     this.freeze = 0.08; this.shake(0.4 + 0.2 * g.k.wound); this.buzz([60, 30, 60]); this.sound.fx('hit', { rate: 0.8, gap: 0.04 });
     if (this.lives <= 0) { this.lives = 0; this.over = 'lost'; this.overT = 1.5; }
     return true;
+  }
+
+  // Where the view of the held fall stands, worked out the instant the blow lands and on every frame after (also while
+  // the fight is frozen for the blow): a view that is not yet worked out when it is first used shows the world from
+  // its origin, under the road.
+  cineView() {
+    const c = this.cine; if (!c) return;
+    const hero = this.hero, h = this.h, p = hero.root.position, S = this.s;
+    // The held moment, in one shot that goes with him: close, low, from his front and a little to one side, so the
+    // fall itself fills the picture. It follows his body (hips, head and feet, wherever the fall has put them), never
+    // leaves the paved road (the braziers and stalls along its edge would stand in front of the lens) and is never far off.
+    const q = c.from.root.position, fx = q.x - p.x, fz = q.z - p.z, fd = Math.max(0.01, Math.hypot(fx, fz)), ux = fx / fd, uz = fz / fd;
+    const B = this.bones || (this.bones = ['Hips', 'Head', 'LeftFoot', 'RightFoot'].map(n => hero.model.getObjectByName('mixamorig' + n)));
+    B.forEach((bone, i) => { bone.getWorldPosition(_b); c.keep[i][0] = _b.x; c.keep[i][1] = _b.y + (i === 1 ? 0.3 * S : 0); c.keep[i][2] = _b.z; });      // all of him stays in the picture
+    const hx = c.keep[0][0], hy = c.keep[0][1], hz = c.keep[0][2], rise = h.up ? Math.min(1, (h.t - h.up) / 1.2) : 0;
+    if (!c.side) c.side = Math.abs(p.x - uz * 3) < Math.abs(p.x + uz * 3) ? 1 : -1;      // the side nearer the middle of the road
+    const D = (1.5 + 1.25 * S) * (1 - 0.15 * rise), across = 0.86 * c.side;
+    c.at.set(Math.max(-3.2, Math.min(3.2, hx + ux * D * 0.5 - uz * D * across)), p.y + (0.35 + 0.3 * rise) * S, hz + uz * D * 0.5 + ux * D * across);
+    c.look.set(hx, hy + 0.1 * S, hz);
+
+    c.ready = true;
   }
 
   // His sword goes up (or her fist goes back): a glint and a sound warn the player before the blow comes down.
@@ -314,7 +335,7 @@ export class Fight {
   update(dt, real) {
     if (!this.active) return;
     if (this.over) { this.overT -= real; if (this.overT <= 0) { this.active = false; this.result = this.over; return; } }
-    if (this.freeze > 0) { this.freeze -= real; return; }      // the instant a blow lands, everything holds
+    if (this.freeze > 0) { this.freeze -= real; this.cineView(); return; }      // the instant a blow lands, everything holds
     const hero = this.hero, h = this.h, p = hero.root.position, s = this.stick, m = Math.hypot(s.x, s.y);
     h.comboT -= dt; h.safe -= dt; h.dodgeCd -= dt;
     const S = this.s;
@@ -359,19 +380,7 @@ export class Fight {
       }
     }
     p.x = Math.max(-HX, Math.min(HX, p.x)); p.z = Math.max(this.cz - this.hz, Math.min(this.cz + this.hz, p.z));
-    if (this.cine) {
-      // The held moment, in one shot that goes with him: close, low, from his front and a little to one side, so the
-      // fall itself fills the picture. It follows his body (hips, head and feet, wherever the fall has put them), never
-      // leaves the paved road (the braziers and stalls along its edge would stand in front of the lens) and is never far off.
-      const c = this.cine, q = c.from.root.position, fx = q.x - p.x, fz = q.z - p.z, fd = Math.max(0.01, Math.hypot(fx, fz)), ux = fx / fd, uz = fz / fd;
-      const B = this.bones || (this.bones = ['Hips', 'Head', 'LeftFoot', 'RightFoot'].map(n => hero.model.getObjectByName('mixamorig' + n)));
-      B.forEach((bone, i) => { bone.getWorldPosition(_b); c.keep[i][0] = _b.x; c.keep[i][1] = _b.y + (i === 1 ? 0.3 * S : 0); c.keep[i][2] = _b.z; });      // all of him stays in the picture
-      const hx = c.keep[0][0], hy = c.keep[0][1], hz = c.keep[0][2], rise = h.up ? Math.min(1, (h.t - h.up) / 1.2) : 0;
-      if (!c.side) c.side = Math.abs(p.x - uz * 3) < Math.abs(p.x + uz * 3) ? 1 : -1;      // the side nearer the middle of the road
-      const D = (1.5 + 1.25 * S) * (1 - 0.15 * rise), across = 0.86 * c.side;
-      c.at.set(Math.max(-3.2, Math.min(3.2, hx + ux * D * 0.5 - uz * D * across)), p.y + (0.35 + 0.3 * rise) * S, hz + uz * D * 0.5 + ux * D * across);
-      c.look.set(hx, hy + 0.1 * S, hz);
-    }
+    this.cineView();
     const yaw = Math.atan2(-h.fx, -h.fz); hero.root.rotation.y += wrap(yaw - hero.root.rotation.y) * Math.min(1, dt * (h.act ? 26 : 14));
 
     const alive = this.all.filter(g => g.root.visible && g.st !== 'dead' && g.st !== 'idle');

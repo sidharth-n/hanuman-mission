@@ -77,7 +77,8 @@ export function createStory(g) {
     putHero(0, hz, 0); lankini.place(0, G, lz, 0); lankini.play('sword_idle');
     const rise = { ...shot(v(0, 1, hz), v(0, 1.2, hz), { lookTo: v(0, 2.4, hz), fov: 56, round: { c: v(0, 0, hz), from: Math.PI * 1.22, to: Math.PI * 0.72, r: [3.9, 6.4], y: [0.9, 2.7] } }), secs: quick ? 1.7 : 3.0,
       do: () => { aura.begin(0, G, hz); g.sound.fx('power'); g.grow(1, quick ? 1.4 : 2.6); aura.storm = true; g.sound.fx('fire'); g.sound.fx('beam', { gap: 0.3 }); g.sound.chant(); g.buzz([40, 30, 40, 30, 120]); hero.play('mutant_roaring', { once: true, fade: 0.15 }); } };
-    const face = { ...either(shot(v(8.6, 2.0, mid), v(0, 2.2, mid), { to: v(7.6, 2.1, mid), fov: 50, keep: both }), shot(v(2.7, 1.3, hz + 5.4), v(0, 2.7, mid), { to: v(2.2, 1.5, hz + 4.6), fov: 50, keep: him })), secs: 1.4,
+    // face to face, seen from the road behind his shoulder with her beyond him (from the side, far enough off to hold them both, the lens would stand inside the houses)
+    const face = { ...either(shot(v(3.0, 1.5, hz + 5.8), v(0, 2.5, mid), { to: v(2.5, 1.7, hz + 5.0), fov: 50, keep: both }), shot(v(2.7, 1.3, hz + 5.4), v(0, 2.7, mid), { to: v(2.2, 1.5, hz + 4.6), fov: 50, keep: him })), secs: 1.4,
       do: () => { aura.end(); hero.play('great_sword_idle', { fade: 0.3 }); lankini.play('sword_idle', { fade: 0.2 }); g.sound.fx('bell', { rate: 0.7, gap: 0.5 }); } };
     director.play(quick ? [rise, face] : [
       rise,      // the answer is given and he grows at once: nothing stands between the question and the change
