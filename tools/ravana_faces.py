@@ -24,4 +24,6 @@ if __name__ == '__main__' and '--' in sys.argv:
         # surface drags its loose edges out (one small head came out of it with a spike for a nose)
         bm = R.edit(o); n = len(bm.verts); bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5); m = len(bm.verts); R.keep(o, bm); print('STEP', f'welded: {n} -> {m} points')
         print('STEP', R.slim(o, int(more[1])))
+        if 'hands=real' in more:      # his hands made as hands (tools/hands3d.py), after the slimming so the fingers keep every point
+            import hands3d; print('STEP', hands3d.hands(o, arm, nail=(0.40, 0.27, 0.22)))
         print('STEP', R.export(arm, more[0], int(more[2])))

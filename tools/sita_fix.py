@@ -101,7 +101,10 @@ def repaint(o, pictures, parts=('face', 'hand_l', 'hand_r')):
 
 
 if __name__ == '__main__' and '--' in sys.argv:
-    src, pictures, out, tris, tex = sys.argv[sys.argv.index('--') + 1:][:5]
+    src, pictures, out, tris, tex, *more = sys.argv[sys.argv.index('--') + 1:]
     arm, o = R.load(src); T.rest(arm)
     print('STEP', weld(o)); print('STEP', flatten_ornament(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
-    print('STEP', R.slim(o, int(tris), 0.42, fine)); print('STEP', drape(o, arm)); print('STEP', R.export(arm, out, int(tex), NAMES))
+    print('STEP', R.slim(o, int(tris), 0.42, fine))
+    if 'hands=real' in more:      # her hands made as hands (tools/hands3d.py)
+        import hands3d; print('STEP', hands3d.hands(o, arm, nail=(0.55, 0.30, 0.27)))
+    print('STEP', drape(o, arm)); print('STEP', R.export(arm, out, int(tex), NAMES))
