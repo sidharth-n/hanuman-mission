@@ -381,9 +381,10 @@ function resumeRun() {
 }
 // Out of Ravana's court with his tail alight: the fire run begins.
 function ablaze() {
-  const z = -(FIRE_AT + 7);      // well past the wall Shiva sits against, so the view behind him is past it too
+  const z = -(FIRE_AT + 14);      // well past the wall Shiva sits against, so the view behind him is past it too (he is grown here, and the view stands further back)
   hero.root.position.set(0, groundAt(z), z); state.dist = -z; world.update(0, z);
-  resumeRun(); placeCamera(1, true); rout.next = state.dist + 34;
+  resumeRun(); placeCamera(1, true); rout.next = state.dist + 22;
+  hero.y = 1.7; hero.vy = 0.5; state.vast = 0.57;      // he comes down out of the leap that carried him over the throne, at the size he had in the court (no shrinking at the cut)
 }
 
 function ignite() {

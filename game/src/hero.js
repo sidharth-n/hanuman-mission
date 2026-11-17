@@ -189,7 +189,7 @@ export class Hero {
     if (this.slide > 0) this.slide -= dt;
     if (this.busy > 0) this.busy -= dt;
 
-    if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: 0.75 + speed / 28, fade: 0.14 });
+    if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: (0.75 + speed / 28) / Math.pow(Math.max(1, this.root.scale.x), 0.8), fade: 0.14 });      // grown, his stride is longer: the legs turn slower over the same ground, or his feet slip under him
     this.mixer.update(dt);
     this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();

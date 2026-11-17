@@ -350,11 +350,28 @@ export function createStory(g) {
     // picture goes to black from that view, and the run begins. (Ending the scene at once showed the chase camera in
     // the court for a few frames before the black: a view from nowhere between the choice and what it brings.)
     let loosed = false, gone = false;
-    const leave = () => { hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
+    const leave = () => { trek = null; leapTo = null; hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
     const loose = () => {
       loosed = true; hero.play('mutant_roaring', { once: true, from: 0.9, fade: 0.1 }); g.sound.hit('roar'); g.shake(0.7); g.buzz([40, 30, 140]);
       RING.forEach(([x, z], i) => { const k = 2.4 / Math.hypot(x, z); hurl(fight.guards[i], x * k, z * k); });
-      setTimeout(() => { if (!gone) g.fade(() => { if (!gone) director.skip(); }); }, 420);
+      setTimeout(() => { if (!gone) breakout(); }, 850);
+    };
+    // No black between the word and the run (Sid: "he starts running from the spot where he is untied and every guard
+    // should come to block him, he throws them away"): from where he stands he runs up the carpet at the throne, the
+    // guards who step into his road are flung to either side as he reaches them, and at the foot of the dais he leaps.
+    // The picture cuts on the leap to him coming down beyond the wall Shiva sits against, already running.
+    const breakout = () => {
+      const road = [[6, -1.3, -3.4, 0.42], [7, 1.3, -3.9, 0.5], [8, -1.0, -6.0, 0.8], [9, 1.1, -6.4, 0.86], [4, -2.2, -7.6, 1.0], [5, 2.2, -7.6, 1.0]];      // guard, x, z from where he stands, the moment he reaches him
+      road.forEach(([i, x, dz, at]) => { const e = fight.guards[i]; e.march = null; e.kind('guard'); e.reset(); e.place(x * 1.9, G, hz + dz - 2.2, yawTo(-x, 1)); e.st = 'idle'; e.bar.visible = false;
+        e.play('great_sword_run', { fade: 0 }); e.march = { x0: x * 1.9, z0: hz + dz - 2.2, x, z: hz + dz, t: 0, secs: Math.max(0.3, at - 0.08) };
+        setTimeout(() => { if (!gone) { hurl(e, Math.sign(x) * 4.2, -1.2); g.sound.fx('hit', { gap: 0.05 }); g.shake(0.35); g.buzz(25); } }, at * 1000); });
+      director.play([{ secs: 9, cam: { at: v(1.3, 2.3, hz + 4.4), to: v(0.6, 3.0, hz - 2.4), look: v(0, 2.5, hz - 3), lookTo: v(0, 5.6, hz - 12), fov: either(52, 38), secs: 1.9 } }],      // close behind him and after him up the carpet: the breaking through is seen on him
+        () => { gone = true; g.unask(); leave(); });
+      go([[0, hz - 7.4, 1.08, 'fast_run', 1.05]], () => {
+        hero.play('running_jump', { once: true, fade: 0.08 }); g.sound.fx('leap'); g.sound.fx('wing');
+        leapTo = { x0: 0, z0: hz - 7.4, x: 0, z: hz - 15, t: 0, secs: 1.0, up: 6.4, then: () => {} };
+        setTimeout(() => { if (!gone) director.skip(); }, 170);      // cut while he is still rising over the throne
+      });
     };
     director.play([
       ...hall,
@@ -381,7 +398,7 @@ export function createStory(g) {
       // The camera goes on round him from where it was, slowly, until the answer comes.
       { hold: true, secs: 1e9, ...shot(v(0, 1, hz), v(0, 2.3, hz), { fov: 60, secs: 11, keep: him, round: { c: v(0, 0, hz), from: Math.PI * 0.78, to: Math.PI * 0.56, r: [3.9, 5.2], y: [2.0, 1.5] } }),
         do: () => { aura.end(); hero.play('breathing_idle', { fade: 0.3 }); g.ask(loose, 'Burn Lanka', ''); } },
-    ], () => { gone = true; g.unask(); if (loosed) leave(); else g.fade(leave); });      // loosed: the picture is already black
+    ], () => { gone = true; g.unask(); if (loosed) leave(); else g.fade(leave); });      // skipped before the word was given: through the black
   }
 
   // ── the end: grown vast, he roars in the middle of the burning city, then leaps for the sea ──
