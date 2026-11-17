@@ -30,6 +30,31 @@ def ease(o, rounds_face=6, rounds_hand=3):
     return f'face and hands eased ({rounds_face} and {rounds_hand} passes)'
 
 
+# The ornament at her parting came out of the generator as a solid lump standing off her forehead like a horn. The
+# skin and hair under it are found by letting that patch of the head settle like a stretched membrane; whatever stood
+# more than a few millimetres off that is laid down onto it, and given the colour of her hair (the face is repainted after).
+def flatten_ornament(o, half=0.02, low=0.745, off=0.003):
+    bm = R.edit(o); mw = o.matrix_world; uvl = bm.loops.layers.uv.active
+    def spread(f): a, b, c = [l[uvl].uv for l in f.loops][:3]; return abs((b - a).cross(c - a))
+    hair = max((f for f in bm.faces if all((mw @ v.co).y > 0.04 and (mw @ v.co).z > 0.73 and abs((mw @ v.co).x) < 0.07 for v in f.verts)), key=spread)
+    black = sum((l[uvl].uv for l in hair.loops), hair.loops[0][uvl].uv * 0) / len(hair.loops)      # a point of the texture that is her hair, at the back of her head
+    patch = [v for v in bm.verts if abs((mw @ v.co).x + 0.003) < half and (mw @ v.co).z > low and (mw @ v.co).y < 0.02]
+    was = {v: v.co.copy() for v in patch}
+    for _ in range(150): bmesh.ops.smooth_vert(bm, verts=patch, factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    lump = {v for v in patch if (v.co - was[v]).length > off}
+    for _ in range(2): lump |= {e.other_vert(v) for v in lump for e in v.link_edges if e.other_vert(v) in was}
+    for v in patch:
+        if v not in lump: v.co = was[v]
+    for _ in range(4): bmesh.ops.smooth_vert(bm, verts=list(lump), factor=0.5, use_axis_x=True, use_axis_y=True, use_axis_z=True)
+    n = 0
+    for f in bm.faces:
+        if all(v in lump for v in f.verts):
+            n += 1
+            for l in f.loops: l[uvl].uv = black
+    R.keep(o, bm)
+    return f'ornament laid flat: {len(lump)} points, {n} faces given the colour of her hair'
+
+
 # Her sari is one cloth round both legs, but the rig tied each point of it to one leg or the other almost at random,
 # so it crumpled between her knees when she sat. Each point's hold is shared between the two legs by where it lies
 # across her, then evened out with its neighbours, so the cloth spans from knee to knee as cloth does.
@@ -78,5 +103,5 @@ def repaint(o, pictures, parts=('face', 'hand_l', 'hand_r')):
 if __name__ == '__main__' and '--' in sys.argv:
     src, pictures, out, tris, tex = sys.argv[sys.argv.index('--') + 1:][:5]
     arm, o = R.load(src); T.rest(arm)
-    print('STEP', weld(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
+    print('STEP', weld(o)); print('STEP', flatten_ornament(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
     print('STEP', R.slim(o, int(tris), 0.42, fine)); print('STEP', drape(o, arm)); print('STEP', R.export(arm, out, int(tex), NAMES))

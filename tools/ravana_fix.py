@@ -72,7 +72,7 @@ def cut_back_row(o):
 
 
 # A patch of the texture nothing uses, painted the colour of his hair: the backs of the heads are given this.
-def hair_swatch(o):
+def hair_swatch(o, colour=HAIR):
     me = o.data; N = 256; used = np.zeros((N, N), bool)
     uv = np.empty(len(me.loops) * 2, 'f'); me.uv_layers.active.data.foreach_get('uv', uv); uv = uv.reshape(-1, 2) % 1.0
     ij = np.clip((uv * N).astype(int), 0, N - 1); used[ij[:, 1], ij[:, 0]] = True
@@ -94,7 +94,7 @@ def hair_swatch(o):
         y0, y1, x0, x1 = i * h // N, (i + B) * h // N, j * w // N, (j + B) * w // N
         if img is base:
             rng = np.random.default_rng(7); tone = 0.8 + rng.random((y1 - y0, x1 - x0, 1)) * 0.4
-            px[y0:y1, x0:x1, :3] = np.array(HAIR) ** (1 / 2.2) * tone      # the file holds colour as it is shown
+            px[y0:y1, x0:x1, :3] = np.array(colour) ** (1 / 2.2) * tone      # the file holds colour as it is shown
         else: px[y0:y1, x0:x1, :3] = (1.0, 0.82, 0.0)      # rough, and not metal
         px[y0:y1, x0:x1, 3] = 1; img.pixels.foreach_set(px.ravel()); img.update(); img.pack()
     return ((j + B / 2) / N, (i + B / 2) / N)
