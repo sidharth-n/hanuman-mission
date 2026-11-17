@@ -587,6 +587,33 @@ window.addEventListener('keydown', e => {
 });
 document.addEventListener('visibilitychange', () => { if (document.hidden) pause(); });      // never keep running behind another app
 
+// ── a game, not a page: no pinch, no double-tap zoom, no long-press menu. An iPhone ignores the viewport's own word on
+// zooming, and two thumbs down at once (the stick and Strike) are a pinch to it, so the gestures are refused here. ──
+for (const type of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, e => e.preventDefault(), { passive: false });
+document.addEventListener('touchmove', e => { if (e.touches.length > 1) e.preventDefault(); }, { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault(), { passive: false });
+let lastTouchEnd = 0;
+document.addEventListener('touchend', e => {      // a second quick tap on the open screen would zoom; on a button it must stay a tap
+  const now = Date.now(), quick = now - lastTouchEnd < 320; lastTouchEnd = now;
+  if (quick && !(e.target.closest && e.target.closest('button, a, input'))) e.preventDefault();
+}, { passive: false });
+document.addEventListener('contextmenu', e => e.preventDefault());
+
+// ── installing it: offered on the title, small, put away for good with one tap, and never shown once it is installed ──
+{
+  const installed = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
+  const apple = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  let ask = null;
+  const put = away => { $('install').hidden = away; ui.menu.classList.toggle('offer', !away); };
+  const offer = (html, button) => { if (installed || store.get('install', '') === 'no') return; $('installText').innerHTML = html; $('installGo').hidden = !button; put(false); };
+  window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); ask = e; offer('Install Hanuman Mission as an app', true); });      // Chrome, Android, desktop: the browser's own prompt, when the player asks for it
+  window.addEventListener('appinstalled', () => put(true));
+  $('installGo').addEventListener('click', () => { if (!ask) return; ask.prompt(); ask.userChoice.catch(() => null).then(() => { ask = null; put(true); }); });
+  $('installNo').addEventListener('click', () => { store.set('install', 'no'); put(true); });
+  // an iPhone has no prompt of its own: the player is told where it is
+  if (apple) offer('Install: tap <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M7.5 7.5 12 3l4.5 4.5M5 12v8h14v-8"/></svg>Share, then Add to Home Screen', false);
+}
+
 load().catch(err => { ui.loadLine.textContent = 'Could not load. Check the connection and reload'; console.error(err); });
 requestAnimationFrame(frame);
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
