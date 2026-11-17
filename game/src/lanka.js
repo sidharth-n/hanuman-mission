@@ -35,13 +35,13 @@ const FRAG = `
       c = haze; a = 1.0 - smoothstep(0.0, 1.0, vUp);
     } else if (kind > 0.5 && kind < 1.5) {  // streets and yards between the houses, lit from the fires
       float glow = 0.5 + 0.27 * sin(vAt.x * 0.083 + 1.3) + 0.23 * sin(vAt.y * 0.061 + vAt.x * 0.047);      // firelight lying unevenly over the streets, never a pattern
-      c = mix(vec3(0.02, 0.008, 0.006), vec3(0.13, 0.04, 0.014), glow * glow) * flick;
+      c = mix(vec3(0.03, 0.01, 0.007), vec3(0.24, 0.07, 0.02), glow * glow) * flick;
     } else if (kind > 2.5) {                // a roof of dark tile, its slopes catching the fire from one side
       float lit = 0.45 + 0.75 * max(0.0, dot(normalize(vN), normalize(vec3(0.35, 0.55, 0.75))));
-      c = vec3(0.15, 0.045, 0.028) * lit * flick;
+      c = vec3(0.22, 0.062, 0.03) * lit * flick;
     } else {                                // a house: dark stone, firelight on its upper walls, windows lit from within
       float top = step(0.5, vN.y);
-      vec3 side = mix(vec3(0.03, 0.014, 0.011), vec3(0.3, 0.095, 0.03), vUp * vUp * flick);
+      vec3 side = mix(vec3(0.04, 0.016, 0.012), vec3(0.38, 0.115, 0.034), vUp * vUp * flick);
       float across = abs(vN.x) > 0.5 ? vBox.z : vBox.x;
       vec2 cell = vec2(across / 3.1, vBox.y / 3.7), in_ = fract(cell);
       float pane = step(0.3, in_.x) * step(in_.x, 0.7) * step(0.32, in_.y) * step(in_.y, 0.78);
@@ -77,6 +77,33 @@ export function createLanka(scene, flameTex) {
   const ring = new THREE.Mesh(new THREE.CylinderGeometry(R1 + 60, R1 + 60, 1, 48, 1, true).translate(0, 0.5, 0), mat(2, { transparent: true, side: THREE.BackSide, depthWrite: false }));
   ring.scale.y = 190; root.add(ring);
 
+  // The burning itself, to be seen from the sky (Sid: "the cinematic experience of Lanka burning; now it's not full... the city
+  // view should be great"): tall flames standing on the roofs, two sheets crossed so they stand up from any side, in two
+  // companies that leap out of step; columns of smoke leaning with the wind, lit red at the foot and dark above; the light of
+  // it all lying in the haze over the middle of the city; and sparks going up.
+  const crossed = () => { const g = new THREE.BufferGeometry(), P = [], U = [], I = [];
+    for (const [ax, az] of [[0.5, 0], [0, 0.5]]) { const o = P.length / 3; P.push(-ax, 0, -az, ax, 0, az, ax, 1, az, -ax, 1, -az); U.push(0, 0, 1, 0, 1, 1, 0, 1); I.push(o, o + 1, o + 2, o, o + 2, o + 3); }
+    g.setAttribute('position', new THREE.Float32BufferAttribute(P, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(U, 2)); g.setIndex(I); return g; };
+  const BLAZES = 150, blazeMat = () => new THREE.MeshBasicMaterial({ map: flameTex, color: 0xffa040, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide, fog: false });
+  const blazes = [0, 1].map(() => { const m = new THREE.InstancedMesh(crossed(), blazeMat(), BLAZES); m.frustumCulled = false; m.renderOrder = 3; root.add(m); return m; });
+  const puff = document.createElement('canvas'); puff.width = 64; puff.height = 256;
+  { const c = puff.getContext('2d'), img = c.createImageData(64, 256), rn = rng(77);
+    for (let yy = 0; yy < 256; yy++) for (let xx = 0; xx < 64; xx++) { const up = 1 - yy / 255, wide = 0.2 + 0.3 * up, off = Math.sin(up * 9) * 0.07 * up, e = Math.abs(xx / 63 - 0.5 - off) / wide;
+      const a = Math.max(0, 1 - e * e) * Math.min(1, up * 10) * Math.pow(1 - up, 0.8) * (0.8 + 0.2 * rn()), i = (yy * 64 + xx) * 4, hot = Math.pow(1 - up, 5);
+      img.data[i] = 20 + 150 * hot; img.data[i + 1] = 8 + 44 * hot; img.data[i + 2] = 6 + 8 * hot; img.data[i + 3] = 245 * a; }
+    c.putImageData(img, 0, 0); }
+  const SMOKES = 46, smokes = new THREE.InstancedMesh(crossed(), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(puff), transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false, opacity: 0.9 }), SMOKES);
+  smokes.frustumCulled = false; smokes.renderOrder = 2; root.add(smokes);
+  const halo = document.createElement('canvas'); halo.width = halo.height = 128;
+  { const c = halo.getContext('2d'), gr = c.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,150,60,0.9)'); gr.addColorStop(0.45, 'rgba(255,90,25,0.35)'); gr.addColorStop(1, 'rgba(255,60,10,0)'); c.fillStyle = gr; c.fillRect(0, 0, 128, 128); }
+  const glow = new THREE.Mesh(new THREE.CircleGeometry(250, 40).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(halo), transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, opacity: 0.2 }));
+  glow.renderOrder = 1; root.add(glow);
+  const SPARKS = 420, sparkGeo = new THREE.BufferGeometry(), sparkAt = new Float32Array(SPARKS * 3), sparkSeed = new Float32Array(SPARKS * 3);
+  sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkAt, 3));
+  const sparks = new THREE.Points(sparkGeo, new THREE.PointsMaterial({ map: flameTex, size: 5, sizeAttenuation: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, color: 0xffc070 }));
+  sparks.frustumCulled = false; sparks.renderOrder = 4; root.add(sparks);
+  let floor = 0;
+
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), s = new THREE.Vector3();
   let built = null;
 
@@ -84,7 +111,7 @@ export function createLanka(scene, flameTex) {
   // ({ half, front, back }: its half width, and how far it runs ahead of the middle and behind it); nothing is put there.
   function lay(z, y, clear) {
     const key = z + ':' + y; if (built === key) return; built = key;
-    const r = rng(4242); let n = 0, k = 0; const flames = [];
+    const r = rng(4242); let n = 0, k = 0; const flames = [], burning = [], fb = [0, 0]; let sm = 0;
     const put = (x, zz, w, d, h, yaw, up = 0) => { if (n >= COUNT) return; q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yaw); m4.compose(p.set(x, y + up, zz), q, s.set(w, h, d)); houses.setMatrixAt(n++, m4); };
     const cap = (x, zz, w, d, h, yaw, up) => { if (k >= COUNT) return; q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, yaw); m4.compose(p.set(x, y + up, zz), q, s.set(w, h, d)); roofs.setMatrixAt(k++, m4); };
     const CELL = 21;
@@ -100,9 +127,20 @@ export function createLanka(scene, flameTex) {
         cap(x, z + dz, w * 0.9, d * 0.9, 2.3, yaw, h * 1.42 - 0.4); put(x, z + dz, w * 0.45, d * 0.45, h * 0.34, yaw, h * 1.42);
         cap(x, z + dz, w * 0.62, d * 0.62, 5.5, yaw, h * 1.76);
       } else cap(x, z + dz, w * 1.14, d * 1.14, 2.4 + r() * 2.2, yaw, h);
-      if (rad < R0 + 40 && r() < (tall ? 0.85 : 0.4)) flames.push(x + (r() - 0.5) * 5, y + (tall ? h * 1.4 : h) + 6, z + dz + (r() - 0.5) * 5);
+      const top = tall ? h * 1.76 : h + 2;
+      if (rad < R0 + 70 && r() < (tall ? 0.95 : 0.6)) flames.push(x + (r() - 0.5) * 5, y + (tall ? h * 1.4 : h) + 6, z + dz + (r() - 0.5) * 5);
+      if (rad < R0 + 50 && r() < (tall ? 0.8 : 0.3)) {      // a house well alight: a tall flame on it, and for some a column of smoke
+        const g = r() < 0.5 ? 0 : 1, wide = 13 + r() * 11, high = (tall ? 26 : 14) + r() * 16;
+        if (fb[g] < BLAZES) { q.setFromAxisAngle(THREE.Object3D.DEFAULT_UP, r() * 3.1); m4.compose(p.set(x, y + top - 3, z + dz), q, s.set(wide, high, wide)); blazes[g].setMatrixAt(fb[g]++, m4); }
+        burning.push(x, top + high * 0.5, dz);
+        if (rad > 48 && sm < SMOKES && r() < 0.42) { q.setFromEuler(new THREE.Euler(0.1 + r() * 0.08, r() * 3.1, 0)); m4.compose(p.set(x, y + top + 4, z + dz), q, s.set(34 + r() * 30, 120 + r() * 90, 34 + r() * 30)); smokes.setMatrixAt(sm++, m4); }
+      }
     }
     houses.count = n; houses.instanceMatrix.needsUpdate = true; roofs.count = k; roofs.instanceMatrix.needsUpdate = true;
+    blazes.forEach((m, g) => { m.count = fb[g]; m.instanceMatrix.needsUpdate = true; }); smokes.count = sm; smokes.instanceMatrix.needsUpdate = true;
+    glow.position.set(0, y + 26, z); floor = y;
+    for (let i = 0; i < SPARKS; i++) { const b = burning.length ? Math.floor(r() * (burning.length / 3)) * 3 : 0;      // each spark rises from a burning house, over and over
+      sparkSeed[i * 3] = (burning[b] || 0) + (r() - 0.5) * 14; sparkSeed[i * 3 + 1] = (burning[b + 1] || 10) + r() * 90; sparkSeed[i * 3 + 2] = z + (burning[b + 2] || 0) + (r() - 0.5) * 14; }
     fireGeo.setAttribute('position', new THREE.Float32BufferAttribute(flames, 3));
     ground.position.set(0, y - 0.4, z); ring.position.set(0, y - 2, z);
     for (const m of mats) m.uniforms.centre.value.set(0, y, z);
@@ -113,6 +151,13 @@ export function createLanka(scene, flameTex) {
     show(z, y, clear) { lay(z, y, clear); root.visible = true; },
     hide() { root.visible = false; },
     get on() { return root.visible; },
-    update(t) { if (!root.visible) return; for (const m of mats) m.uniforms.time.value = t; fireMat.size = 26 + Math.sin(t * 9) * 2.5 + Math.sin(t * 23) * 1.2; },
+    update(t) {
+      if (!root.visible) return; for (const m of mats) m.uniforms.time.value = t; fireMat.size = 30 + Math.sin(t * 9) * 2.5 + Math.sin(t * 23) * 1.2;
+      blazes[0].scale.y = 1 + Math.sin(t * 7.3) * 0.1 + Math.sin(t * 17) * 0.05; blazes[1].scale.y = 1 + Math.sin(t * 6.1 + 2) * 0.1 + Math.sin(t * 19 + 1) * 0.05;      // (they stand on roofs of every height: a little of each goes with the scale, which is the leaping)
+      blazes[0].material.opacity = 0.85 + Math.sin(t * 11) * 0.12; blazes[1].material.opacity = 0.85 + Math.sin(t * 13 + 1.7) * 0.12; glow.material.opacity = 0.2 + Math.sin(t * 2.1) * 0.03;
+      for (let i = 0; i < SPARKS; i++) { const rise = (sparkSeed[i * 3 + 1] + t * (9 + (i % 7))) % 110;      // up 110 m, drifting with the wind, and again
+        sparkAt[i * 3] = sparkSeed[i * 3] + rise * 0.16 + Math.sin(t * 1.3 + i) * 1.5; sparkAt[i * 3 + 1] = floor + 8 + rise; sparkAt[i * 3 + 2] = sparkSeed[i * 3 + 2] + Math.sin(t * 0.9 + i * 1.7) * 1.5; }
+      sparkGeo.attributes.position.needsUpdate = true;
+    },
   };
 }
