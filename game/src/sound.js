@@ -11,7 +11,8 @@ const db = v => Math.pow(10, v / 20);
 const INTRO = 5.6;      // seconds of chant at the head of run.mp3: the loop comes back to here, not to the chant
 // how loud each effect sits against the track
 const LEVEL = { chant: 1, leap: 0.5, slide: 0.6, lamp: 0.24, wind: 0.6, bell: 0.9, hit: 0.9, splash: 0.9, wing: 0.7, power: 0.75, smash: 0.8, fire: 0.8, tap: 0.4,
-  fireball: 0.55, spikes: 0.55, beam: 0.9, stone: 0.8, bridge: 0.8, blaze: 0.4 };
+  fireball: 0.55, spikes: 0.55, beam: 0.9, stone: 0.8, bridge: 0.8, blaze: 0.4,
+  step1: 1, step2: 1, step3: 1, step4: 1, breath1: 0.42, breath2: 0.42, breath3: 0.42 };      // his feet and his breath on the way in: small sounds
 
 export function createSound(store) {
   let on = store.get('sound', 'on') === 'on', trackError = '', woke = false;

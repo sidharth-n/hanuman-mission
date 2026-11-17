@@ -331,6 +331,15 @@ function rules(dt) {
   if (state.slow > 0) state.slow = Math.max(0, state.slow - dt * 1.1);
   const p = hero.root.position;
   state.dist = -p.z;
+  // on the way in from the sea gate, before the song: his feet on the stone, and now and then his breath
+  if (!story.done.lankini && state.dist < LANKINI_AT + 4 && hero.name === 'fast_run' && hero.current) {
+    const stride = Math.floor(hero.current.time / hero.current.getClip().duration * 2);
+    if (stride !== state.stride) {
+      state.stride = stride; state.steps = (state.steps || 0) + 1;
+      sound.fx('step' + (1 + state.steps % 4), { rate: 0.94 + Math.random() * 0.12, gap: 0.12 });
+      if (state.steps % 11 === 6) sound.fx('breath' + (1 + Math.floor(state.steps / 11) % 3), { gap: 1.5 });
+    }
+  }
   if (!explore && story.check(state.dist, state.fire)) return;
   if (state.giant > 0) state.giant -= dt;
   if (state.safe > 0) state.safe -= dt;

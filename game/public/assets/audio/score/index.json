@@ -62,6 +62,13 @@
    "pick": "B",
    "gain": 0
   },
+  "run": {
+   "loop": true,
+   "pick": "A",
+   "under": 2,
+   "open": 2,
+   "gain": 0
+  },
   "hall": {
    "loop": false,
    "pick": "A",
