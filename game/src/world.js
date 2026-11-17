@@ -389,7 +389,7 @@ export class World {
       for (const z of [-6, -18]) this.brazier(chunk, s * (ROAD + 0.55), 0, z, r() * 10, 0.14);
     }
     const leaving = c.sec === 'city' && c.n === c.of - 1;      // the last of the city before the moat: the gate stands at its very end
-    if (i % 3 === 2 || leaving) { const a = this.part(this.gateGeo); a.position.set(0, 0.14, leaving ? -22.6 : -12); g.add(a); }
+    if (i % 3 === 2 || leaving) { const a = this.part(this.gateGeo); a.position.set(0, 0.14, leaving ? -22.6 : -12); g.add(a); g.userData.gate = a; }
   }
 
   bridge(chunk, c, r) {

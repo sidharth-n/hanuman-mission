@@ -8,6 +8,7 @@ import { Fight, LIVES, PLANS } from './fight.js';
 import { Director, fit } from './scene.js';
 import { createStory } from './story.js';
 import { createLanka } from './lanka.js';
+import { Debris } from './debris.js';
 import STORY from './story.json';
 import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
@@ -65,7 +66,8 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   meter: 0, giant: 0, big: 0, burned: 0, cine: 0,
   wind: 0, flight: 0, safe: 0,
   sec: 0, from: 0, inside: 0, garden: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
-let hero, world, tailFire, tailLight, aura, fight, director, story, lanka;
+let hero, world, tailFire, tailLight, aura, fight, director, story, lanka, debris;
+const rout = { next: 0 };      // the fire run: where the next knot of guards will stand in his road
 const SHARE = { title: 'Hanuman Mission', url: 'https://hanuman-mission.pages.dev/' };      // what the Share button hands to the phone's own share sheet
 let queued = null;      // a leap asked for a moment before he could make it: made as soon as he can
 let stick = null;       // the fight's thumb stick
@@ -105,7 +107,7 @@ async function load() {
     // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
     sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
     finish: () => { credits(-1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('shareLine').hidden = $('share').hidden = false; } });
-  lanka = createLanka(scene, world.flameTex);
+  lanka = createLanka(scene, world.flameTex); debris = new Debris(scene);
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
   tailLight = new THREE.PointLight(0xff7a2a, 0, 20, 1.8); scene.add(tailLight);
@@ -139,7 +141,7 @@ function resume() { if (state.mode === 'paused') { state.mode = state.was || 'ru
 
 // Back to the title: the street as it was before the run.
 function home() {
-  world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
+  unrout(); world.reset(); fight.clear(); story.reset(true); if (director.active) director.skipQuiet(); unask(); credits(-1); hero.reset(); sound.stop(); ui.fade.classList.remove('on'); ui.card.hidden = true;
   Object.assign(state, { orbit: null, mode: 'ready', fought: false, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: 0, dist: 0, fire: false, blaze: 0, grow: 0, big: 0, giant: 0, flight: 0, shot: null, intro: 0, low: 0, falling: [], tscale: 1, slowT: 0, from: 0, kept: null, inside: 0 });
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false; world.behind = 3;
   world.update(0, 0); screen('menu');
@@ -172,7 +174,7 @@ function start(from = 0, fresh = false) {
   story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
   const back = debug ? +query.get('back') || 0 : 0;      // ?debug&at=grove&back=40: a run that takes up 40 m short of a place, to try the way into it
-  world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
+  unrout(); world.reset(); fight.clear(); hero.reset(); hero.root.position.set(0, groundAt(-sec.from + back), -sec.from + back);
   Object.assign(state, { orbit: null, mode: 'run', fought: false, ramp: 0, vast: 0, fightDone: null, tall: 0, tw: null, asking: null, speed: speedAt(sec.from), dist: sec.from, danger: 0, slow: 0, shake: 0, fire: false, blaze: 0, grow: 0, falling: [],
     tscale: 1, slowT: 0, slowK: 1, intro: INTRO, low: 0, grown: false, shot: null, giant: 0, big: 0, burned: 0, cine: 6, flight: 0, safe: 2, sec: from, from, alarm: false, fallT: 0,
     inside: world.kindAt(-sec.from) === 'hall' ? 1 : 0, ...kept, kept });
@@ -201,10 +203,57 @@ function card(id, secs = 4.2) {
 // A cut through black, for going from one place of the story to another.
 function fade(then) { ui.fade.classList.add('on'); setTimeout(() => { then(); setTimeout(() => ui.fade.classList.remove('on'), 260); }, 460); }
 
+// Set alight, nothing in his road stands: what he meets flies to pieces, and fire is left where it stood.
+function shatter(o, chunk) {
+  const k = hero.root.scale.x, y = groundAt(o.z);
+  if (o.mesh) o.mesh.visible = false;
+  debris.burst(o.x, y + 0.5, o.z, 14, 0.36, 6 + k, 0, -state.speed * 0.55);
+  fight.sparks.floor = y; fight.sparks.burst({ x: o.x, y: y + 1, z: o.z }, 14, [1, 0.6, 0.2], 9, 0, -1);
+  world.burn(o, chunk); state.burned++; state.shake = Math.max(state.shake, 0.3); sound.fx('smash', { gap: 0.18 }); buzz(20);
+}
+// The guards of Lanka stand in his road in twos and threes as he runs out, and he goes through them: each is flung
+// aside as he reaches him. The street gates he is too big for burst as he passes under them.
+function gauntlet(dt) {
+  const p = hero.root.position, k = hero.root.scale.x;
+  if (state.dist >= rout.next && state.dist < END_AT - 70) {
+    rout.next = state.dist + 30 + Math.random() * 16;
+    const free = fight.guards.filter(e => !e.rout), lanes = [0, 1, 2].sort(() => Math.random() - 0.5).slice(0, Math.random() < 0.7 ? 3 : 2);
+    lanes.forEach((l, i) => {
+      const e = free[i]; if (!e) return; const z = p.z - 64 - i * 1.7;
+      e.kind('guard'); e.reset(); e.place(LANE_X[l], groundAt(z), z, 0); e.st = 'idle'; e.bar.visible = false; e.play('great_sword_idle', { fade: 0 }); e.rout = { t: -1 };
+    });
+  }
+  for (const e of fight.guards) {
+    const r = e.rout; if (!r) continue; const q = e.root.position;
+    if (r.t < 0) {
+      if (q.z < p.z - (1.6 + 0.9 * k)) continue;      // not yet on him
+      r.t = 0; r.vx = (q.x > p.x + 0.2 ? 1 : q.x < p.x - 0.2 ? -1 : Math.random() < 0.5 ? -1 : 1) * (8 + Math.random() * 6); r.vy = 10 + Math.random() * 4 + k; r.vz = -(state.speed * 0.9 + 6); r.spin = (Math.random() - 0.5) * 12;
+      e.play('two_handed_sword_death', { once: true, fade: 0.06 });
+      fight.sparks.floor = groundAt(q.z); fight.sparks.burst({ x: q.x, y: q.y + 1.2, z: q.z }, 10, [1, 0.9, 0.7], 8, 0, -1);
+      sound.fx('hit', { gap: 0.07 }); sound.fx('smash', { gap: 0.2, rate: 1.3 }); state.shake = Math.max(state.shake, 0.32); buzz(28); state.burned++;
+    } else {
+      r.t += dt; r.vy -= 24 * dt; q.x += r.vx * dt; q.y += r.vy * dt; q.z += r.vz * dt; e.root.rotation.z += r.spin * dt;
+      const floor = groundAt(q.z);
+      if (q.y < floor) { q.y = floor; r.vy *= -0.25; r.vx *= 0.5; r.vz *= 0.5; r.spin *= 0.3; }
+      if (r.t > 1.9 || q.z > p.z + 8) { e.rout = null; e.root.rotation.z = 0; e.reset(); }
+    }
+  }
+  for (const c of world.nearby(p.z)) {
+    const gate = c.group.userData.gate;
+    if (!gate || !gate.visible || k < 1.6) continue;      // at his own size he runs under it
+    const gz = c.group.position.z + gate.position.z;
+    if (gz < p.z - (5 + 2.2 * k)) continue;
+    gate.visible = false; const y = groundAt(gz);
+    for (const x of [-4.6, 0, 4.6]) debris.burst(x, y + (x ? 2.5 : 6), gz, 18, 0.62, 9 + k, 0, -state.speed * 0.5);
+    sound.fx('smash', { rate: 0.7, gap: 0.1 }); sound.fx('stone', { gap: 0.3 }); state.shake = Math.max(state.shake, 0.55); buzz([30, 30, 60]); state.burned++;
+  }
+}
+function unrout() { rout.next = 0; if (fight) for (const e of fight.guards) if (e.rout) { e.rout = null; e.root.rotation.z = 0; e.reset(); } if (debris) debris.clear(); }
+
 function hit(o, chunk) {
   o.done = true;
+  if (state.fire) return shatter(o, chunk);
   state.falling.push({ mesh: o.mesh, t: 0, dir: o.x <= hero.root.position.x ? -1 : 1 });
-  if (state.fire) { world.burn(o, chunk); state.burned++; state.shake = 0.25; sound.fx('smash', { gap: 0.25 }); return; }
   if (state.big > 0.3) { state.shake = 0.3; sound.fx('smash', { gap: 0.25 }); buzz(25); return; }       // giant: he simply goes through it
   if (state.danger > 0) return caught();
   state.danger = 6; state.slow = 1; state.shake = 0.5; buzz(50); sound.fx('hit'); sound.chant();
@@ -259,7 +308,7 @@ function resumeRun() {
 function ablaze() {
   const z = -(FIRE_AT + 7);      // well past the wall Shiva sits against, so the view behind him is past it too
   hero.root.position.set(0, groundAt(z), z); state.dist = -z; world.update(0, z);
-  resumeRun(); placeCamera(1, true);
+  resumeRun(); placeCamera(1, true); rout.next = state.dist + 34;
 }
 
 function ignite() {
@@ -267,7 +316,7 @@ function ignite() {
   say(LINES.ignite, 3.2); sound.fx('fire'); sound.blaze(true); buzz([40, 40, 90]);
 }
 
-function won() { story.ending(); }      // the last scene; it ends in the result
+function won() { unrout(); story.ending(); }      // the last scene; it ends in the result
 
 function rules(dt) {
   state.speed = Math.min(MAX_SPEED, state.speed + ACCEL * dt);
@@ -295,7 +344,7 @@ function rules(dt) {
     state.blaze = Math.min(1, state.blaze + dt * 0.35);
     state.grow = Math.min(1, Math.max(0, (state.dist - (END_AT - 190)) / 120));      // he grows only at the last, as he breaks out through the city
     if (state.grow > 0 && !state.grown) { state.grown = true; slowMotion(1.1, 0.35); state.low = 2.4; }
-    state.burned += world.igniteUpTo(p.z);
+    state.burned += world.igniteUpTo(p.z); gauntlet(dt);
     if (state.dist >= END_AT) return won();
   }
   state.vast += ((state.fire ? 1 : 0) - state.vast) * Math.min(1, dt * 1.1);
@@ -532,7 +581,7 @@ function frame(now) {
   state.garden += ((kind === 'grove' ? 1 : 0) - state.garden) * Math.min(1, real * 1.5);
   scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(GROVE_SKY, state.garden).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_GROVE, state.garden).lerp(FOG_BLAZE, state.blaze);
   scene.fog.density = state.thin ?? 0.016 + state.garden * 0.007;      // the grove lies in a thin mist; for the last shots from the sky the air is cleared
-  lanka.update(now * 0.001);
+  lanka.update(now * 0.001); debris.update(dt, groundAt);
   hemi.intensity = 1.0 + state.garden * 0.3 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
   moon.intensity = 2.4 + state.garden * 0.5;
   moon.color.copy(MOON_LIGHT).lerp(LAMP_LIGHT, state.inside);
@@ -657,7 +706,8 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 function blocked() {
   const k = hero.root.scale.x, v = new THREE.Vector3(), pts = [];
   for (const n of ['Head', 'Spine2']) { const b = hero.model.getObjectByName('mixamorig' + n); if (b) pts.push(['hanuman ' + (n === 'Head' ? 'head' : 'chest'), b.getWorldPosition(v).toArray()]); }
-  for (const g of fight.all) if (g.root.visible && g.st !== 'dead') { const q = g.root.position; pts.push([(g.k.boss ? 'lankini' : 'guard') + ' chest', [q.x, q.y + g.tall * 0.62, q.z]]); }
+  for (const g of fight.all) if (g.root.visible && g.st !== 'dead' && !g.rout) {      // those he runs through in the fire are part of the road, not people a shot is of
+     const q = g.root.position; pts.push([(g.k.boss ? 'lankini' : 'guard') + ' chest', [q.x, q.y + g.tall * 0.62, q.z]]); }
   // soft: leaves, which are cards with holes in them, are not counted as hiding anyone
   const solid = []; scene.traverseVisible(o => { const m = Array.isArray(o.material) ? o.material[0] : o.material; if (o.isMesh && !o.isSkinnedMesh && !o.userData.soft && m && !m.transparent && m.depthWrite !== false) solid.push(o); });
   const ray = new THREE.Raycaster(), out = [], t = new THREE.Vector3(), d = new THREE.Vector3(), ndc = new THREE.Vector3(), mine = new Set(); hero.root.traverse(o => mine.add(o)); fight.all.forEach(g => g.root.traverse(o => mine.add(o)));
