@@ -41,7 +41,7 @@ export function createSound(store) {
   const music = ctx ? ctx.createGain() : null, under = ctx ? ctx.createGain() : null, speech = ctx ? ctx.createGain() : null;
   // a file fetched and decoded, or null: a missing file must not raise an error of its own
   const decode = url => fetch(url).then(r => (r.ok ? r.arrayBuffer() : Promise.reject())).then(b => new Promise((ok, no) => { const p = ctx.decodeAudioData(b, ok, no); if (p && p.catch) p.catch(() => {}); })).catch(() => null);
-  const cue = name => { if (!(name in played)) played[name] = decode(SCORE + name + '.mp3').then(b => (played[name] = b)); return Promise.resolve(played[name]); };
+  const cue = name => { if (!(name in played)) played[name] = decode(((cues && cues[name] && cues[name].dir) || SCORE) + name + '.mp3').then(b => (played[name] = b)); return Promise.resolve(played[name]); };
   if (ctx) {
     // everything meets in one soft ceiling, so a voice over music over a blow never clips
     const top = ctx.createDynamicsCompressor(); top.threshold.value = -5; top.knee.value = 5; top.ratio.value = 12; top.attack.value = 0.003; top.release.value = 0.2;
@@ -51,7 +51,9 @@ export function createSound(store) {
     try { level = ctx.createGain(); ctx.createMediaElementSource(track).connect(level); level.connect(out); } catch { level = null; }
     const list = dir => fetch(dir + 'index.json').then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => { if (dir === SCORE) cues = j && j.cues ? j.cues : null; return j; });
     list(VOICES).then(j => { lines = j && j.lines ? j.lines : null; });
-    list(SCORE).then(() => { if (cues) for (const k of Object.keys(cues)) if (cues[k].loop === false) cue(k); });      // the short hits are ready before they are wanted
+    list(SCORE).then(() => { if (cues) for (const k of Object.keys(cues)) if (cues[k].loop === false) cue(k); })      // the short hits are ready before they are wanted
+      // music that is on this machine only (it lies beside the song of the run and is in no public build): listed in local.json, it is used where a scene asks for it
+      .then(() => fetch(TRACKS + 'local.json')).then(r => (r.ok ? r.json() : null)).then(j => { if (j && j.cues) { cues = cues || {}; for (const k of Object.keys(j.cues)) cues[k] = { ...j.cues[k], dir: TRACKS }; } }).catch(() => {});
     const get = (name, url) => decode(url).then(buf => { if (buf) buffers[name] = buf; });
     get('chant', TRACKS + 'chant.mp3');
     for (const name of Object.keys(LEVEL)) if (name !== 'chant') get(name, EFFECTS + name + '.mp3');
@@ -153,7 +155,7 @@ export function createSound(store) {
         voices: lines ? Object.keys(lines).length : 0, speaking: !!speaking, cue: now ? now.name : wanted ? wanted + '?' : '', cues: cues ? Object.keys(cues).length : 0 };
     },
     toggle() { on = !on; store.set('sound', on ? 'on' : 'off'); track.muted = !on; if (out) out.gain.value = on ? 1 : 0; if (!on) { hush(); quiet(); } return on; },
-    learn, speak, quiet, score, hit,
+    learn, speak, quiet, score, hit, has: name => !!(cues && cues[name]),
     // a run begins: the chant, then the song (one track, begun by the player's own tap)
     blaze,
     // wait: the song is held back (the run from the sea gate to Lankini is without it): the player's tap only makes it ready, and it begins when he runs on after her

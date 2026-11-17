@@ -42,7 +42,7 @@ export function createStory(g) {
   const both = () => [...him(), ...span(lankini.root.position, 3.85)];
   // The score (Hans's audio screenplay): where the music changes or stops dead (null), the hits that land on a line, and
   // the lines that wait a moment for a great sound to pass before they are spoken.
-  const CUES = { 'court_arrival-0': 'court', 'throne-8': null, 'grove_ravana-8': null };
+  const CUES = { 'throne-0': 'court', 'throne-8': null, 'grove_ravana-8': null };      // the court's opening music holds until Ravana speaks
   const HITS = { 'lankini_yields-1': 'toll', 'grove_sita-5': 'gift', 'grove_bound-1': 'bind', 'ignite-0': 'alight', 'ignite-1': 'burst' };
   const LEAD = { 'ignite-0': 1.0, 'ignite-1': 1.2 };
   const beats = (key, shots = []) => S[key].map((l, i) => { const id = key + '-' + i, b = { who: l.who, line: l.line, voice: id, ...(shots[i] || {}) };
@@ -253,7 +253,7 @@ export function createStory(g) {
 
   // ── Ravana's court ──
   function court() {
-    g.hold(); g.sound.score('hall', { rise: 0.05 }); sita.hide(); gift.visible = false;
+    g.hold(); g.sound.score(g.sound.has('ravana') ? 'ravana' : 'hall', { rise: 0.05 }); sita.hide(); gift.visible = false;
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind
