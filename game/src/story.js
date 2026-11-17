@@ -26,6 +26,12 @@ export function createStory(g) {
   // a small light on whatever lies in an open hand: Rama's ring, Sita's jewel
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
   gift.visible = false; g.scene.add(gift);
+  // and a glint on the jewel: a small four-pointed star that turns and flashes, as a cut stone does when it catches the light
+  const star = document.createElement('canvas'); star.width = star.height = 64;
+  { const c = star.getContext('2d'), core = c.createRadialGradient(32, 32, 0, 32, 32, 12); core.addColorStop(0, 'rgba(255,255,255,1)'); core.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = core; c.fillRect(0, 0, 64, 64);
+    for (const [w, h] of [[64, 3], [3, 64]]) { const ray = c.createRadialGradient(32, 32, 0, 32, 32, 32); ray.addColorStop(0, 'rgba(255,255,255,0.95)'); ray.addColorStop(1, 'rgba(255,255,255,0)'); c.fillStyle = ray; c.fillRect(32 - w / 2, 32 - h / 2, w, h); } }
+  const glint = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(star), color: 0xe8f6ff, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
+  glint.visible = false; g.scene.add(glint);
   // Rama's ring and Sita's hair jewel themselves, small things of gold that lie in an open hand and are seen close
   const gold = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 1, roughness: 0.28, emissive: 0x4a3206, envMapIntensity: 1.6 });
   const stone = (color, glow) => new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.12, emissive: glow, envMapIntensity: 2 });
@@ -36,7 +42,8 @@ export function createStory(g) {
     const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.007, 20), gold); plate.rotation.x = Math.PI / 2; jewel.add(plate);
     const heart = new THREE.Mesh(new THREE.OctahedronGeometry(0.024, 1), stone(0x9fd0f5, 0x16344f)); heart.scale.set(1, 1, 0.6); heart.position.z = 0.012; jewel.add(heart);
     for (let i = 0; i < 8; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 8, 6), stone(0xe9dcc0, 0x1c1912)); p.position.set(Math.cos(i * Math.PI / 4) * 0.036, Math.sin(i * Math.PI / 4) * 0.036, 0.004); jewel.add(p); }
-    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), stone(0xe9dcc0, 0x1c1912)); drop.scale.y = 1.5; drop.position.set(0, -0.058, 0.002); jewel.add(drop); }
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), stone(0xe9dcc0, 0x1c1912)); drop.scale.y = 1.5; drop.position.set(0, -0.058, 0.002); jewel.add(drop);
+    heart.material.emissive.set(0x2a6ea8); jewel.scale.setScalar(0.46); }      // a small jewel, the width of two fingers, its stone bright (Sid: "a good small one that shines, not a big one")
   for (const o of [ring, jewel]) { o.visible = false; o.traverse(m => { m.userData.soft = true; }); g.scene.add(o); }      // soft: a thing in his hand is not something standing in front of him
   let held = null;      // { thing: the ring or the jewel, who: whose open hand it lies in }
   let clear = null;      // { beats, i, on }: the beat that is shown without the veils of the place
@@ -45,7 +52,7 @@ export function createStory(g) {
   // who holds out a hand to a point with the thing in it; who: null puts everything away
   const offer = (who, thing, to) => {
     for (const a of [hero, sita]) if (a !== who) a.offer.on = false;
-    ring.visible = jewel.visible = gift.visible = false; held = null; if (!who) return;
+    ring.visible = jewel.visible = gift.visible = glint.visible = false; held = null; if (!who) return;
     who.offer.to.set(...to); who.offer.on = true; who.offer.lift = who === hero ? 0.045 : 0.03; held = { thing, who }; thing.visible = true;
   };
   const aura = new Aura(g.scene, fight.sparks.points.material.map);      // the light round him when he changes size
@@ -506,7 +513,10 @@ export function createStory(g) {
       if (clear) { const on = director.active && director.beats === clear.beats && director.i === clear.i; if (on !== clear.on) { clear.on = on; g.veil(!on); g.moonAt(on ? [16, 40, -36] : null); g.mist(on ? 0.008 : null); } if (!on) clear = null; }
       if (held) {      // the ring or the jewel lies in the open hand that holds it, a small light on it
         held.who.offer.hold(held.thing.position, palmUp); held.thing.quaternion.setFromUnitVectors(flat, palmUp);
-        gift.visible = true; gift.position.copy(held.thing.position).addScaledVector(palmUp, 0.02); gift.material.color.set(held.thing === ring ? 0xffd36a : 0xbfe6ff); gift.scale.setScalar((held.thing === ring ? 0.11 : 0.06) + Math.sin(performance.now() * 0.006) * 0.012);
+        gift.visible = true; gift.position.copy(held.thing.position).addScaledVector(palmUp, 0.02); gift.material.color.set(held.thing === ring ? 0xffd36a : 0xbfe6ff); gift.scale.setScalar((held.thing === ring ? 0.11 : 0.05) + Math.sin(performance.now() * 0.006) * (held.thing === ring ? 0.012 : 0.006));
+        glint.visible = held.thing === jewel;
+        if (glint.visible) { const t = performance.now() * 0.001, flash = Math.pow(Math.max(0, Math.sin(t * 2.3) * 0.6 + Math.sin(t * 5.1 + 1) * 0.4), 2);      // mostly a small steady star, now and then a flash
+          glint.position.copy(jewel.position).addScaledVector(palmUp, 0.012); glint.material.rotation = t * 0.5; glint.scale.setScalar(0.035 + flash * 0.06); }
       }
     },
   };
