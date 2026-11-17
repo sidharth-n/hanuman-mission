@@ -209,8 +209,18 @@ export function createStory(g) {
   // Hanuman goes by himself along marks [[x, z, seconds, clip, speed]], facing the way he goes; then stands as `then` says.
   function go(marks, then = null) { const p = hero.root.position; hero.sink = 0; hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.flying = false; hero.fly = 0; hero.floor = 0; hero.y = 0; hero.vy = 0; hero.lane = 1; leapTo = null; trek = { marks, i: 0, t: 0, x: p.x, z: p.z, then }; hero.play(marks[0][3], { speed: marks[0][4] || 1, fade: 0.2 }); }
   // Those who are in the grove when he comes: Sita on her seat, Ravana standing over her, his two guards. Seen from far off as he runs in.
+  // Sita on her seat again, for a cut to her from far away: hands joined (1: bowed in prayer, 2: her face lifted). Returns
+  // where she sits, the way she faces and the way to her left, for the shot.
+  function seated(pray) {
+    const sx = sitaAt.x, sz = sitaAt.z, Gs = g.groundAt(sz), yaw = yawTo(-2.3, 2.5), f = [Math.sin(yaw), Math.cos(yaw)], at = [sx + f[0] * SITA.edge, Gs + SITA.up, sz + f[1] * SITA.edge];
+    sita.place(at[0], at[1], at[2], yaw); sita.play('sit', { fade: 0 }); sita.pray = pray; sita.offer.w = sita.offerL.w = 1;
+    const to = (ahead, left, up) => [at[0] + f[0] * ahead + f[1] * left, at[1] + up, at[2] + f[1] * ahead - f[0] * left];
+    return { at, to };
+  }
+  const unseat = () => { sita.pray = 0; sita.offer.on = sita.offerL.on = false; sita.offer.face = sita.offerL.face = null; sita.offer.w = sita.offerL.w = 0; sita.hide(); };
+  const groveKept = () => { const n = Math.floor((GROVE_AT + SITA.n * CHUNK) / CHUNK); g.keep([n - 1, n, n + 1]); };      // her seat, her tree and the stretches on either side stay standing while the story may cut back to her
   function present() {
-    done.present = true; const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, Gs = g.groundAt(sz), yaw = yawTo(rx - sx, rz - sz);
+    done.present = true; groveKept(); const sx = sitaAt.x, sz = sitaAt.z, rx = sx - 2.3, rz = sz + 2.5, Gs = g.groundAt(sz), yaw = yawTo(rx - sx, rz - sz);
     sita.place(sx + Math.sin(yaw) * SITA.edge, Gs + SITA.up, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0 });
     ravana.place(rx, Gs, rz, yawTo(sx - rx, sz - rz)); ravana.play('idle', { fade: 0 });
     standGuards([[rx - 4.2, rz + 2.0, yawTo(1, -0.6)], [rx + 1.2, rz + 4.4, yawTo(-0.1, -1)]]);      // well to either side of the way he goes by: he is broad
@@ -350,7 +360,7 @@ export function createStory(g) {
   // ── Ravana's court ──
   function court() {
     g.hold(); g.sound.score('hall', { rise: 0.05 });      // the court's own opening music, an original: its great stroke falls as Ravana is first seen
-    sita.hide(); offer(null); unsnare();
+    sita.hide(); offer(null); unsnare(); groveKept();
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind
@@ -391,7 +401,7 @@ export function createStory(g) {
     // the court for a few frames before the black: a view from nowhere between the choice and what it brings.)
     let loosed = false, gone = false;
     const bars = open => director.el.root.querySelectorAll('.bar').forEach((b, i) => { b.style.transition = open ? 'transform .5s ease-in' : ''; b.style.transform = open ? `translateY(${i ? 100 : -100}%)` : ''; });      // the black bands of a scene draw back as the run begins, so the picture is already whole when play takes it
-    const leave = () => { bars(false); trek = null; leapTo = null; turn = null; hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
+    const leave = () => { g.keep([]); unseat(); bars(false); trek = null; leapTo = null; turn = null; hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
     const loose = () => {
       loosed = true; hero.play('mutant_roaring', { once: true, from: 0.9, fade: 0.1 }); g.sound.hit('roar'); g.shake(0.7); g.buzz([40, 30, 140]);
       RING.forEach(([x, z], i) => { const k = 2.4 / Math.hypot(x, z); hurl(fight.guards[i], Math.sign(x) * Math.max(Math.abs(x) * k, 3.2 - Math.abs(x)), z * k); });      // none of them is left lying in the road he is about to take down the hall
@@ -442,8 +452,12 @@ export function createStory(g) {
       // Ravana's word is carried out before our eyes: a guard brings a burning brand round behind him and puts it to his tail
       { ...shot(v(-1.5, 0.8, hz + 3.5), v(0.35, 1.3, hz + 1.0), { to: v(-1.2, 0.85, hz + 3.0), fov: either(50, 40) }), secs: 3.4, do: kindle },
       ...beats('ignite', [
-        { ...shot(v(1.4, 1.15, hz - 2.9), v(0, 1.5, hz), { to: v(1.0, 1.3, hz - 2.3), fov: either(40, 32) }), do: () => g.light(true) },      // his face, quiet, the fire at his back
-        { ...shot(v(0, 1, hz), v(0, 1.3, hz), { lookTo: v(0, 2.3, hz), fov: 60, round: { c: v(0, 0, hz), from: Math.PI * 1.2, to: Math.PI * 0.78, r: [3.0, 3.9], y: [0.8, 2.0] } }), secs: 3.6, do: burst },      // carried round him inside the ranks as he grows
+        // "Sita prays": she is seen, in the grove, on her seat, her hands joined and her head bowed over them (Sid: "show her in praying
+        // posture, that cut"); then his face, quiet, the fire at his back
+        (() => { let s = null, back = false; const mix = (a, b, u) => a.map((x, i) => x + (b[i] - x) * u), A = v(1.4, 1.15, hz - 2.9), B = v(1.0, 1.3, hz - 2.3), L = v(0, 1.5, hz);
+          const ride = u => { if (!s) return { at: A, look: L }; if (u < 0.6) return { at: mix(s.to(1.75, 0.55, 1.02), s.to(1.45, 0.4, 1.0), u / 0.6), look: s.to(0.1, 0, 0.93) }; if (!back) { back = true; unseat(); } return { at: mix(A, B, (u - 0.6) / 0.4), look: L }; };
+          return { cam: { at: A, look: L, fov: either(38, 30), ride }, do: () => { g.light(true); s = seated(1); } }; })(),
+        { ...shot(v(0, 1, hz), v(0, 1.3, hz), { lookTo: v(0, 2.3, hz), fov: 60, round: { c: v(0, 0, hz), from: Math.PI * 1.2, to: Math.PI * 0.78, r: [3.0, 3.9], y: [0.8, 2.0] } }), secs: 3.6, do: () => { unseat(); burst(); } },      // carried round him inside the ranks as he grows
       ]),
       // and there he stands, grown, his tail burning, the guards of the court closing round him: the player is given the word.
       // The camera goes on round him from where it was, slowly, until the answer comes.
@@ -461,6 +475,7 @@ export function createStory(g) {
     swell.from = hero.root.scale.x; swell.to = VAST; swell.t = 0; swell.secs = 3.2; leap.on = false;
     g.sound.fx('power'); g.sound.chant(); g.buzz([80, 60, 80, 60, 200]);
     g.sky(true);      // all Lanka is laid round the street now, for the shots from the sky
+    groveKept();      // and the grove stands again where it stood, for the cut back to Sita
     const H = 1.9 * VAST;      // every low shot stays over the street itself: the houses and towers stand close on both sides
     const flies = () => { hero.root.rotation.y = 0; hero.flyHeight = 4.2; hero.startFlight(); leap.on = true; leap.t = 0; g.sound.fx('wing'); g.sound.fx('power'); g.buzz([60, 40, 160]); };
     const gone = () => { leap.on = false; hero.root.visible = false; g.light(false); };
@@ -472,23 +487,25 @@ export function createStory(g) {
       ...beats('ending', [
         // from the sky, drawing back and up: the whole city burning under him, the smoke closing round it
         { ...shot(v(-10, H * 1.25, z + 58), v(0, H * 0.6, z), { to: v(-70, 190, z + 270), lookTo: v(0, 16, z - 24), fov: 50, secs: 9 }), secs: 8.4, do: () => hero.play('victory', { fade: 0.5 }) },
-        // his victory, from the street at his feet
-        { ...shot(v(2.6, 3.2, z + 30), v(0, H * 0.7, z), { to: v(-2.6, 4.2, z + 36), fov: 66, secs: 5.5 }), secs: 5, do: () => hero.play('victory', { fade: 0.4 }) },
+        // "Sita is safe in the grove": she is seen there, under her tree, her hands joined and her face lifted, the grove whole
+        // about her (Sid: "a nice cut: she is safe")
+        (() => { let s = null; const ride = u => (s ? { at: s.to(4.4 - 1.3 * u, 1.5 - 0.5 * u, 1.35), look: s.to(0, 0, 0.82) } : { at: v(2.6, 3.2, z + 30), look: v(0, H * 0.7, z) });
+          return { cam: { at: v(2.6, 3.2, z + 30), look: v(0, H * 0.7, z), fov: either(40, 32), secs: 5.5, ride }, secs: 5, do: () => { s = seated(2); } }; })(),
         // and he is away: seen from far ahead and high as he comes over the roofs and passes overhead
-        { ...shot(v(30, 66, z - 138), v(0, H * 1.1, z - 10), { to: v(22, 58, z - 150), lookTo: v(0, H * 2.5, z - 104), fov: 56, secs: 6 }), secs: 5.6, do: flies },
+        { ...shot(v(30, 66, z - 138), v(0, H * 1.1, z - 10), { to: v(22, 58, z - 150), lookTo: v(0, H * 2.5, z - 104), fov: 56, secs: 6 }), secs: 5.6, do: () => { unseat(); flies(); } },
       ]),
       // the credits, over the city burning far below
       { ...shot(v(0, 150, z + 250), v(0, 14, z), { fov: 46, round: { c: v(0, 0, z), from: 0.2, to: 0.95, r: [255, 285], y: [150, 185] }, secs: 19 }), secs: 4.6, do: () => { gone(); g.credits(0); } },
       { secs: 8.2, do: () => g.credits(1) },
       { secs: 5.2, do: () => g.credits(2) },
-    ], () => { leap.on = false; hero.flyHeight = 2.5; g.sky(false); hero.root.visible = true; g.finish(); });
+    ], () => { leap.on = false; hero.flyHeight = 2.5; g.sky(false); g.keep([]); unseat(); hero.root.visible = true; g.finish(); });
   }
 
   return {
     done, sita, ravana, gate, rematch, yields, grove, meets, wreck, chase, trip, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      if (thaw) thaw(); unsnare(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; turn = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); unsnare(); g.keep([]); sita.pray = 0; sita.offer.face = sita.offerL.face = null; sita.offerL.on = false; g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; turn = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {

@@ -119,7 +119,7 @@ async function load() {
     jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
 
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
-  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, dash: v => { state.dash = v; }, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
+  story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, dash: v => { state.dash = v; }, keep: list => { world.keep = new Set(list); }, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, credits, unask, fireMat: world.flameMat,
     // a great thing broken through in a scene (the doors of Ravana's hall): its pieces thrown on the way he is going
     smash: (x, y, z) => { for (const dx of [-2.6, 0, 2.6]) debris.burst(x + dx, y + (dx ? 2.4 : 4.6), z, 16, 0.6, 10, 0, 7); fight.sparks.floor = y; fight.sparks.burst({ x, y: y + 2.5, z }, 18, [1, 0.6, 0.2], 10, 0, 1); state.shake = Math.max(state.shake, 0.9); sound.fx('smash'); buzz([30, 20, 140]); },

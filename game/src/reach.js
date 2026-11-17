@@ -23,6 +23,7 @@ export class Reach {
     this.arm = get('Arm'); this.fore = get('ForeArm'); this.hand = get('Hand'); this.finger = get('HandMiddle1') || get('HandIndex1');
     this.ok = !!(this.arm && this.fore && this.hand);
     this.palm = new THREE.Vector3(0, -1, 0); this.w = 0; this.on = false; this.to = new THREE.Vector3(); this.lift = 0.03;
+    this.face = null;      // the way the palm is turned to face, in the world; none: up to the sky
     let skin = null; model.traverse(o => { if (!skin && o.isSkinnedMesh && o.skeleton.bones.includes(this.hand)) skin = o; });
     if (skin && this.ok) { m.copy(skin.skeleton.boneInverses[skin.skeleton.bones.indexOf(this.hand)]).invert().decompose(_a, _q, _s); this.palm.set(0, -1, 0).applyQuaternion(_q.invert()).normalize(); }
   }
@@ -44,7 +45,8 @@ export class Reach {
     point(this.fore, this.hand, t.copy(S).addScaledVector(ax, d).sub(E).clone(), w);
     this.fore.getWorldPosition(E); this.hand.getWorldPosition(W); ax.copy(W).sub(E).normalize();
     this.hand.getWorldQuaternion(_w); n.copy(this.palm).applyQuaternion(_w); n.addScaledVector(ax, -n.dot(ax)).normalize();
-    up.set(0, 1, 0).addScaledVector(ax, -ax.y).normalize();
+    if (this.face) up.copy(this.face); else up.set(0, 1, 0);
+    up.addScaledVector(ax, -up.dot(ax)).normalize();
     turn(this.fore, _q.setFromAxisAngle(ax, Math.atan2(t.crossVectors(n, up).dot(ax), n.dot(up))), w);
   }
 

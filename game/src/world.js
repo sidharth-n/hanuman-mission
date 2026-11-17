@@ -241,6 +241,7 @@ export class World {
     // the far end of a hall: darkness, so that the night sky never shows through the palace
     this.cap = new THREE.Mesh(new THREE.PlaneGeometry(2 * palace.HALL_HALF, palace.HALL_TOP), new THREE.MeshBasicMaterial({ color: 0x000000, fog: false }));
     this.cap.visible = false; scene.add(this.cap);
+    this.keep = new Set();      // stretches built and kept wherever he is (the grove, for a cut back to Sita from the far end of the route)
     this.behind = 3;      // how many stretches to keep behind him (more on the title screen, which looks back)
     this.chunks = new Map();
     this.ready = new Map();      // the heavy stretches (the grove, Ravana's court), built before the run and kept until he comes to them
@@ -609,7 +610,8 @@ export class World {
     this.time += dt;
     const at = Math.floor(-heroZ / CHUNK);
     for (let i = at - this.behind; i <= at + AHEAD; i++) if (!this.chunks.has(i)) this.chunks.set(i, this.take(i));
-    for (const [i, c] of this.chunks) if (i < at - this.behind || i > at + AHEAD) { this.drop(c); this.chunks.delete(i); }
+    for (const i of this.keep) if (!this.chunks.has(i)) this.chunks.set(i, this.take(i));
+    for (const [i, c] of this.chunks) if ((i < at - this.behind || i > at + AHEAD) && !this.keep.has(i)) { this.drop(c); this.chunks.delete(i); }
     this.twinkle[0].opacity = 0.55 + Math.sin(this.time * 2.3) * 0.35; this.twinkle[1].opacity = 0.55 + Math.sin(this.time * 1.7 + 2) * 0.35;
 
     const near = [];

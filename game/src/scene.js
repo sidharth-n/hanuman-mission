@@ -52,6 +52,9 @@ export class Actor {
     this.current = null; this.name = null; this.moves = null;
     this.legs = ['Left', 'Right'].map(side => ['UpLeg', 'Leg', 'Foot'].map(part => this.model.getObjectByName('mixamorig' + side + part)));
     this.offer = new Reach(this.model, 'Right');
+    // hands joined before the breast: 1 the head bowed over them (prayer), 2 the face lifted (thanks). The left hand has its own reach for it.
+    this.offerL = new Reach(this.model, 'Left'); this.pray = 0;
+    this.chest = this.model.getObjectByName('mixamorigSpine2'); this.neck = this.model.getObjectByName('mixamorigNeck'); this.head = this.model.getObjectByName('mixamorigHead'); this.crown = this.model.getObjectByName('mixamorigHeadTop_End');
     this.knees = 0;      // seated, how far the knees are brought together (0 as animated, 1 touching): a long skirt tears when they sit apart
     const blob = new THREE.Mesh(new THREE.CircleGeometry(height * 0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.blob = blob; this.root.add(blob);
@@ -87,6 +90,7 @@ export class Actor {
       if (u >= 1) { this.moves = null; if (m.then !== null) this.root.rotation.y = m.then; this.play(m.after, { fade: 0.3 }); }
     }
     this.mixer.update(dt);
+    if (this.pray || this.offerL.w > 0.002) this.join(dt);
     this.offer.update(dt);      // something held out in an open hand
     if (this.knees > 0 && this.name && this.name.startsWith('sit') && this.legs[0][0] && this.legs[1][0]) {
       const at = this.legs.map(l => l.map(b => b.getWorldPosition(new THREE.Vector3())));
@@ -99,6 +103,24 @@ export class Actor {
     }
   }
 }
+
+// Her hands are brought together before her breast, palm to palm, fingers up, elbows down; her head bows over them, or lifts.
+const _fw = new THREE.Vector3(), _lf = new THREE.Vector3(), _ch = new THREE.Vector3(), _dir = new THREE.Vector3();
+Actor.prototype.join = function (dt) {
+  const on = this.pray > 0, yaw = this.root.rotation.y, k = this.height / 1.7;
+  _fw.set(Math.sin(yaw), 0, Math.cos(yaw)); _lf.set(Math.cos(yaw), 0, -Math.sin(yaw));
+  if (on && this.chest) {
+    this.chest.getWorldPosition(_ch); _ch.y += 0.02 * k;
+    this.offer.to.copy(_ch).addScaledVector(_fw, 0.17 * k).addScaledVector(_lf, -0.035 * k); this.offerL.to.copy(_ch).addScaledVector(_fw, 0.17 * k).addScaledVector(_lf, 0.035 * k);
+    this.offer.face = (this.offer.face || new THREE.Vector3()).copy(_lf); this.offerL.face = (this.offerL.face || new THREE.Vector3()).copy(_lf).negate();
+    this.offer.on = this.offerL.on = true;
+  } else { this.offerL.on = false; if (this.offer.face) { this.offer.on = false; if (this.offer.w < 0.01) this.offer.face = this.offerL.face = null; } }
+  this.offerL.update(dt);
+  if (on && this.neck && this.head) {      // the head is turned about the line through her ears: down over her hands, or up
+    const by = this.pray === 1 ? [0.16, 0.34] : [-0.06, -0.16];
+    [this.neck, this.head].forEach((bone, i) => { bone.updateWorldMatrix(true, false); bone.getWorldQuaternion(_w); bone.parent.getWorldQuaternion(_p); bone.quaternion.copy(_p.invert().multiply(_w.premultiply(_q.setFromAxisAngle(_lf, by[i])))); });
+  }
+};
 
 export class Director {
   // el: { root, who, line, skip }: the bars and the words on screen
