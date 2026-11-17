@@ -201,10 +201,10 @@ def ease_faces(o, rounds=3):
 
 # 5. Slimmed for the game in two passes, so the faces keep a set share of the triangles: first the body alone is
 # slimmed (a point with no weight in the group is left untouched by Blender's decimation), then the faces alone.
-def slim(o, target, share=0.48):
+def slim(o, target, share=0.48, keep=None):
     mw = o.matrix_world
     def tris(): return sum(len(p.vertices) - 2 for p in o.data.polygons)
-    def is_face(v): p = mw @ v.co; return p.z > HEADS_FROM and p.y < 0.0
+    def is_face(v): p = mw @ v.co; return keep(p) if keep else p.z > HEADS_FROM and p.y < 0.0
     def in_faces(): 
         f = {v.index for v in o.data.vertices if is_face(v)}
         return f, sum(len(p.vertices) - 2 for p in o.data.polygons if all(i in f for i in p.vertices))
