@@ -506,6 +506,7 @@ function frame(now) {
   state.inside += ((kind === 'hall' || kind === 'throne' ? 1 : 0) - state.inside) * Math.min(1, real * 2.5);
   state.garden += ((kind === 'grove' ? 1 : 0) - state.garden) * Math.min(1, real * 1.5);
   scene.background.copy(NIGHT).lerp(INDOORS, state.inside).lerp(GROVE_SKY, state.garden).lerp(BLAZE, state.blaze); scene.fog.color.copy(FOG_NIGHT).lerp(FOG_INDOORS, state.inside).lerp(FOG_GROVE, state.garden).lerp(FOG_BLAZE, state.blaze);
+  scene.fog.density = 0.016 + state.garden * 0.007;      // the grove lies in a thin mist
   hemi.intensity = 1.0 + state.garden * 0.3 + state.blaze * 0.25; hemi.color.copy(SKY_LIGHT).lerp(LAMP_LIGHT, state.inside * 0.85).lerp(GROVE_LIGHT, state.garden).lerp(FIRE_LIGHT, state.blaze * 0.7);
   moon.intensity = 2.4 + state.garden * 0.5;
   moon.color.copy(MOON_LIGHT).lerp(LAMP_LIGHT, state.inside);
@@ -631,7 +632,8 @@ function blocked() {
   const k = hero.root.scale.x, v = new THREE.Vector3(), pts = [];
   for (const n of ['Head', 'Spine2']) { const b = hero.model.getObjectByName('mixamorig' + n); if (b) pts.push(['hanuman ' + (n === 'Head' ? 'head' : 'chest'), b.getWorldPosition(v).toArray()]); }
   for (const g of fight.all) if (g.root.visible && g.st !== 'dead') { const q = g.root.position; pts.push([(g.k.boss ? 'lankini' : 'guard') + ' chest', [q.x, q.y + g.tall * 0.62, q.z]]); }
-  const solid = []; scene.traverseVisible(o => { const m = Array.isArray(o.material) ? o.material[0] : o.material; if (o.isMesh && !o.isSkinnedMesh && m && !m.transparent && m.depthWrite !== false) solid.push(o); });
+  // soft: leaves, which are cards with holes in them, are not counted as hiding anyone
+  const solid = []; scene.traverseVisible(o => { const m = Array.isArray(o.material) ? o.material[0] : o.material; if (o.isMesh && !o.isSkinnedMesh && !o.userData.soft && m && !m.transparent && m.depthWrite !== false) solid.push(o); });
   const ray = new THREE.Raycaster(), out = [], t = new THREE.Vector3(), d = new THREE.Vector3(), ndc = new THREE.Vector3(), mine = new Set(); hero.root.traverse(o => mine.add(o)); fight.all.forEach(g => g.root.traverse(o => mine.add(o)));
   for (const [name, pt] of pts) {
     t.set(...pt); ndc.copy(t).project(camera); if (Math.abs(ndc.x) > 1 || Math.abs(ndc.y) > 1 || ndc.z > 1) continue;

@@ -3,11 +3,13 @@
 // the rest of the route (world.js), from plain shapes, a few painted pictures and the models made in Lux3D.
 import * as THREE from 'three';
 import * as palace from './palace.js';
+import { Builder } from './build.js';
+import { tree, treeMaterials } from './trees.js';
 
 const L = palace.LEN;
 // where things stand, in the stretch they are in (x across the road, z along it from the stretch's near edge)
-export const SITA = { n: 2, x: 3.4, z: -11, seat: 0.43, edge: 0.66 };      // her stone seat under the great tree, and how far forward of its middle she sits
-export const TREE = { n: 2, x: 7.2, z: -14.6 };                      // the great tree Hanuman hides in
+export const SITA = { n: 2, x: 4.7, z: -11, seat: 0.43, edge: 0.66, up: 0.22, yaw: -0.75 };      // her stone seat on its round platform under the great tree: how far forward of its middle she sits, how high the platform stands, which way the seat faces
+export const TREE = { n: 2, x: 8.8, z: -14.6 };                      // the great tree Hanuman hides in
 export const THRONE = { n: 1, z: -17, top: 1.05, seat: 0.92 };       // the dais and the seat of the throne
 export const STAND = { n: 1, z: -6 };                                // where Hanuman is made to stand before it
 
@@ -51,7 +53,13 @@ function garden(world) {
     lotusMat: new THREE.SpriteMaterial({ map: glow('rgba(255,235,245,1)', 'rgba(255,120,170,0.75)'), blending: THREE.AdditiveBlending, ...common }),
     haloMat: new THREE.SpriteMaterial({ map: glow('rgba(235,242,255,0.34)', 'rgba(150,185,255,0.13)'), blending: THREE.AdditiveBlending, ...common }),
     mistMat: new THREE.SpriteMaterial({ map: glow('rgba(190,215,255,0.5)', 'rgba(140,180,255,0.16)'), blending: THREE.AdditiveBlending, opacity: 0.5, ...common }), pondGeo: new THREE.CircleGeometry(4.6, 28).rotateX(-Math.PI / 2),
-    seatGeo: palace.stoneSeat(0.8, SITA.seat), lanternGeo: palace.stoneLantern(),
+    lanternGeo: palace.stoneLantern(), seatGeo: seat(), platformGeo: platform(),
+    lampMat: new THREE.PointsMaterial({ map: dot, color: 0xffb45a, size: 0.5, blending: THREE.AdditiveBlending, ...common }),
+    warmMat: new THREE.SpriteMaterial({ map: glow('rgba(255,190,110,0.5)', 'rgba(255,140,60,0.16)'), blending: THREE.AdditiveBlending, ...common }),
+    trees: [0, 1, 2, 3].map(i => tree(311 + i * 97, 1, { lite: world.lite })),
+    // the great tree she sits under: one low limb passes over the place where Hanuman crouches to watch (story.js: 1.7 across and 1.5 behind her, 4.3 up)
+    great: tree(977, 1.45, { lite: world.lite, perch: [SITA.x + 1.7 - TREE.x, 4.3, SITA.z - 1.5 - TREE.z] }),
+    ...treeMaterials(),
   };
   return world.garden;
 }
@@ -62,11 +70,19 @@ export function grove(world, chunk, c, r) {
   const path = new THREE.Mesh(world.roadGeo, k.pathMat); path.position.set(0, 0.012, -L / 2); g.add(path);
   if (c.n === 0) { const door = world.part(world.geo.front); door.rotation.y = Math.PI; g.add(door); }      // the palace door he comes out by
   const here = c.n === SITA.n;
-  // Ashoka trees in flower along both sides, never two alike in size or turn
-  for (const s of [-1, 1]) for (let j = 0; j < 3; j++) {
-    const x = s * (6.4 + r() * 6), z = -3 - j * 7.6 - r() * 2.4;
-    if (here && s > 0 && Math.abs(z - TREE.z) < 6) continue;      // room for the great tree
-    const t = world.spawn('ashoka-tree'); t.position.set(x, 0, z); t.rotation.y = r() * 6.3; t.scale.setScalar(0.75 + r() * 0.55); g.add(t);
+  // old Ashoka trees along both sides, close enough that their canopies meet over the path, and a second row behind
+  // them that closes the grove in; never two alike in kind, size or turn
+  const plant = (kind, x, z, turn, size) => {
+    const t = new THREE.Group(), wood = new THREE.Mesh(kind.wood, k.wood), green = new THREE.Mesh(kind.green, k.green);
+    green.userData.soft = true; t.add(wood, green); t.position.set(x, 0, z); t.rotation.y = turn; t.scale.setScalar(size); g.add(t);
+  };
+  for (const s of [-1, 1]) {
+    for (let j = 0; j < 3; j++) {
+      const x = s * (7.0 + r() * 1.5), z = -4 - j * 8 + (r() - 0.5) * 2, kind = k.trees[Math.floor(r() * k.trees.length)], turn = r() * 6.3, size = 0.92 + r() * 0.22;
+      if (here && s > 0 && Math.abs(z - TREE.z) < 7.5) continue;      // room for the great tree
+      plant(kind, x, z, turn, size);
+    }
+    for (let j = 0; j < 2; j++) plant(k.trees[Math.floor(r() * k.trees.length)], s * (14 + r() * 4), -5 - j * 12 + (r() - 0.5) * 3, r() * 6.3, 1.05 + r() * 0.25);
   }
   // shafts of moonlight between the trees
   for (let j = 0; j < 2; j++) {
@@ -92,13 +108,38 @@ export function grove(world, chunk, c, r) {
     const pond = new THREE.Mesh(k.pondGeo, world.waterMat); pond.position.set(-10, 0.03, -12); g.add(pond);
     for (let i = 0; i < 9; i++) { const a = r() * 6.3, d = r() * 3.6, l = new THREE.Sprite(k.lotusMat); l.position.set(-10 + Math.cos(a) * d, 0.28, -12 + Math.sin(a) * d); l.scale.setScalar(0.55 + r() * 0.4); g.add(l); }
   }
-  if (here) {      // the great tree, her seat beneath it, and a soft light that seems to come from her
-    const t = world.spawn('ashoka-great'); t.position.set(TREE.x, 0, TREE.z); t.rotation.y = 2.2; g.add(t);
-    const seat = world.part(k.seatGeo); seat.position.set(SITA.x, 0, SITA.z); g.add(seat);
-    const halo = new THREE.Sprite(k.haloMat); halo.position.set(SITA.x, 1.7, SITA.z); halo.scale.setScalar(8.5); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 8.5 });
+  if (here) {      // the great tree; beneath it a round carved platform ringed with lamps, her seat on it, and a soft light that seems to come from her
+    plant(k.great, TREE.x, TREE.z, 0, 1);
+    const U = SITA.up, base = world.part(k.platformGeo); base.position.set(SITA.x, 0, SITA.z); g.add(base);
+    const chair = world.part(k.seatGeo); chair.position.set(SITA.x, U, SITA.z); chair.rotation.y = SITA.yaw; g.add(chair);
+    const halo = new THREE.Sprite(k.haloMat); halo.position.set(SITA.x, 1.7 + U, SITA.z); halo.scale.setScalar(8.5); g.add(halo); chunk.fx.push({ type: 'pulse', obj: halo, size: 8.5 });
+    const warm = new THREE.Sprite(k.warmMat); warm.position.set(SITA.x, 0.5, SITA.z); warm.scale.set(8, 2.6, 1); g.add(warm);
     const b = new THREE.Mesh(k.beamGeo, k.beamMat); b.position.set(SITA.x - 1.6, 8.6, SITA.z + 1.2); b.rotation.z = 0.2; g.add(b);
-    for (let i = 0; i < 10; i++) { const a = i / 10 * 6.3, l = new THREE.Sprite(k.lotusMat); l.position.set(SITA.x + Math.cos(a) * 1.5, 0.16, SITA.z + Math.sin(a) * 1.5); l.scale.setScalar(0.42); g.add(l); }
+    // small clay lamps all round the rim, and lotuses between them
+    const N = 18, a = new Float32Array(N * 3); for (let i = 0; i < N; i++) { const t = i / N * 6.283; a[i * 3] = SITA.x + Math.cos(t) * 2.2; a[i * 3 + 1] = 0.25; a[i * 3 + 2] = SITA.z + Math.sin(t) * 2.2; }
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); const lamps = new THREE.Points(geo, k.lampMat); lamps.frustumCulled = false; g.add(lamps); chunk.fx.push({ type: 'flicker', obj: lamps });
+    for (let i = 0; i < 9; i++) { const t = (i + 0.5) / 9 * 6.283, l = new THREE.Sprite(k.lotusMat); l.position.set(SITA.x + Math.cos(t) * 2.2, 0.3, SITA.z + Math.sin(t) * 2.2); l.scale.setScalar(0.34); g.add(l); }
   }
+}
+
+// The round platform under the great tree: two low steps of carved stone, the upper one her floor.
+function platform() {
+  const b = new Builder(), N = 24, o = { ground: false, color: [0.74, 0.82, 1] }, at = (k, rr, y) => [Math.cos(k / N * Math.PI * 2) * rr, y, Math.sin(k / N * Math.PI * 2) * rr];
+  for (const [rr, y0, y1] of [[2.45, 0, 0.1], [1.95, 0.1, SITA.up]]) {
+    for (let k = 0; k < N; k++) { const m = (k + 0.5) / N * Math.PI * 2, out = [Math.cos(m), 0, Math.sin(m)]; b.face([at(k, rr, y0), at(k + 1, rr, y0), at(k + 1, rr, y1), at(k, rr, y1)], 'lotus', out, { ...o, fit: true, shade: 0.85 + 0.3 * Math.max(0, -out[0] * 0.6 + out[2] * 0.8) }); }
+    b.face(Array.from({ length: N }, (_, k) => at(k, rr, y1)), 'paving', [0, 1, 0], { ...o, tile: [1.3, 1.3], shade: 1.05 });
+  }
+  return b.geometry();
+}
+// Her seat: a low stone chair with a back and arms, facing +z until it is turned.
+function seat() {
+  const b = new Builder(), o = { ground: false, color: [1.0, 1.06, 1.22], faces: 'fblrt' }, h = SITA.seat;
+  b.box(-0.62, 0.62, 0, h, 0.1, 0.84, 'pfloor', { ...o, tile: [4, 4] });                      // where she sits
+  b.box(-0.62, 0.62, h - 0.1, h, 0.84, 0.86, 'lotus', { ...o, faces: 'f', fit: true });         // a carved edge along its front
+  b.box(-0.7, 0.7, 0, 1.3, -0.08, 0.1, 'pfloor', { ...o, tile: [4, 4], shade: 0.92 });         // the back
+  b.box(-0.7, 0.7, 1.3, 1.42, -0.1, 0.12, 'lotus', { ...o, fit: true });
+  for (const s of [-1, 1]) b.box(s > 0 ? 0.62 : -0.78, s > 0 ? 0.78 : -0.62, 0, h + 0.22, 0.1, 0.8, 'pfloor', { ...o, tile: [4, 4], shade: 0.96 });      // arms
+  return b.geometry();
 }
 
 // ── Ravana's court ──
@@ -172,5 +213,6 @@ export function animate(chunk, time) {
     if (f.type === 'fly') { f.obj.position.set(Math.sin(time * 0.31 + f.seed) * 0.9, f.y + Math.sin(time * 0.53 + f.seed * 2) * 0.35, Math.cos(time * 0.27 + f.seed) * 0.7); f.obj.material.opacity = 0.55 + Math.sin(time * 2.1 + f.seed) * 0.4; }
     else if (f.type === 'fall') { f.obj.position.y = -((time * 0.55 + f.seed) % 9); f.obj.position.x = Math.sin(time * 0.4 + f.seed) * 0.6; }
     else if (f.type === 'pulse') f.obj.scale.setScalar(f.size * (1 + Math.sin(time * 1.3) * 0.05));
+    else if (f.type === 'flicker') f.obj.material.opacity = 0.8 + Math.sin(time * 9) * 0.1 + Math.sin(time * 23) * 0.06;
   }
 }
