@@ -199,6 +199,46 @@ def ease_faces(o, rounds=3):
     return f'faces eased: {len(verts)} points, {rounds} passes'
 
 
+# 4b. A face that the generator drew out into a spike (one of the small heads had a beak for a nose) is pushed back
+# into the face: along the row, whatever stands further forward than a nose can is brought back to that depth. Seen
+# from the front nothing moves, so a face painted from the front still lies where it was painted.
+def flatten_spikes(o, nose=0.045, window=0.08, step=0.02):
+    import numpy as np
+    bm = edit(o); mw = o.matrix_world; inv = mw.inverted()
+    rows = [(v, mw @ v.co) for v in bm.verts]
+    face = [(v, p) for v, p in rows if HEADS_FROM + 0.02 < p.z < 0.9 and abs(p.x) > MID - 0.01 and p.y < 0.0]
+    xs = np.array([p.x for _, p in face]); ys = np.array([p.y for _, p in face]); moved = 0; worst = 0.0
+    for x0 in np.arange(xs.min(), xs.max() + step, step):
+        near = np.abs(xs - x0) < window
+        if near.sum() < 40: continue
+        limit = np.percentile(ys[near], 30) - nose
+        for i in np.where((np.abs(xs - x0) <= step / 2) & (ys < limit))[0]:
+            v, p = face[i]; worst = max(worst, limit - p.y); p.y = limit + (p.y - limit) * 0.08; v.co = inv @ p; moved += 1
+    keep(o, bm)
+    return f'spikes pushed back: {moved} points, the furthest by {worst:.3f}'
+
+
+# 4c. The row of small heads is carried by his chest and by nothing else. The rigger had shared it out between the
+# chest, the neck and the bones of both shoulders and arms: standing with his arms down, one head's nose was drawn out
+# into a spike and the others were pulled about. (In the pose he was rigged in, arms out, it does not show: that is
+# why the flat pictures of the faces looked whole.) Not by his head: the row is a metre to either side of it, and
+# every nod of the great head would swing its ends up and down.
+def rigid_heads(o, bone='mixamorigSpine2'):
+    mw = o.matrix_world; chest = next(g for g in o.vertex_groups if g.name.replace(':', '').endswith(bone))
+    names = {g.index: g.name for g in o.vertex_groups}; strays = {}; n = 0
+    for v in o.data.vertices:
+        p = mw @ v.co
+        if p.z <= HEADS_FROM or abs(p.x) <= MID: continue
+        other = [(names[g.group], g.weight) for g in v.groups if g.group != chest.index and g.weight > 0.02]
+        if other:
+            n += 1
+            for name, w in other: strays[name] = strays.get(name, 0) + 1
+        for g in list(v.groups):
+            if g.group != chest.index: o.vertex_groups[g.group].remove([v.index])
+        chest.add([v.index], 1.0, 'REPLACE')
+    return f'small heads bound to the chest alone: {n} points had been shared with {sorted(strays.items(), key=lambda kv: -kv[1])[:6]}'
+
+
 # 5. Slimmed for the game in two passes, so the faces keep a set share of the triangles: first the body alone is
 # slimmed (a point with no weight in the group is left untouched by Blender's decimation), then the faces alone.
 def slim(o, target, share=0.48, keep=None):

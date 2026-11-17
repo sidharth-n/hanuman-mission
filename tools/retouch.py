@@ -25,6 +25,16 @@ VIEWS = {
         'hand_r': dict(centre=(-0.715, -0.035, 0.455), size=0.21, toward=(0, 0, -1), up=(0, 1, 0), facing=0.2,
                        box=((-0.83, -0.14, 0.38), (-0.625, 0.07, 0.56)), oval=None, match=((690, 470, 40),)),
     },
+    # Ravana's faces, after ravana_fix has put the heads right (ravana_faces.py): the great head, and the row of small
+    # heads on either side of it, each row in one picture (they all look forward)
+    'ravana': {
+        'face': dict(centre=(0.0, 0.0, 0.79), size=0.40, toward=(0, 1, 0), up=(0, 0, 1), facing=0.25,
+                     box=((-0.17, -0.5, 0.64), (0.17, -0.1, 0.94)), oval=(0.0, 0.785, 0.115, 0.135), match=((512, 700, 30),)),
+        'heads_l': dict(centre=(0.64, 0.0, 0.79), size=1.0, toward=(0, 1, 0), up=(0, 0, 1), facing=-0.35,
+                        box=((0.16, -0.5, 0.64), (1.13, 0.2, 0.875)), oval=None, match=None, rim=(0.004, 0.02), close=28),
+        'heads_r': dict(centre=(-0.56, 0.0, 0.79), size=0.86, toward=(0, 1, 0), up=(0, 0, 1), facing=-0.35,
+                        box=((-0.97, -0.5, 0.64), (-0.16, 0.2, 0.875)), oval=None, match=None, rim=(0.004, 0.02), close=28),
+    },
     'lankini': {
         'face': dict(centre=(0.008, 0.0, 0.93), size=0.36, toward=(0, 1, 0), up=(0, 0, 1), facing=0.25,
                      box=((-0.17, -0.4, 0.76), (0.19, -0.05, 1.10)), oval=(0.008, 0.925, 0.095, 0.125), match=((318, 597, 30), (705, 597, 30))),
@@ -96,6 +106,11 @@ def project(o, name, v, before, after, out_png, strength=1.0):
         mask = np.clip((1.0 - d) / 0.22, 0, 1)
     else:      # or wherever the part itself is in the picture (not the grey behind it), fading at its outline
         part = (np.abs(old[..., :3] - 0.5).max(axis=2) > 0.03).astype('f')
+        if v.get('close'):      # a grey smear inside the part (the generator's blind eyes) is still the part: holes up to so many pixels across are closed
+            n = int(v['close']); grown = part
+            for _ in range(n): grown = np.maximum.reduce([grown, np.roll(grown, 1, 0), np.roll(grown, -1, 0), np.roll(grown, 1, 1), np.roll(grown, -1, 1)])
+            for _ in range(n): grown = np.minimum.reduce([grown, np.roll(grown, 1, 0), np.roll(grown, -1, 0), np.roll(grown, 1, 1), np.roll(grown, -1, 1)])
+            part = grown
         for _ in range(10): part = np.minimum(part, (np.roll(part, 1, 0) + np.roll(part, -1, 0) + np.roll(part, 1, 1) + np.roll(part, -1, 1) + part) / 5)
         mask = np.clip(part * 1.6 - 0.3, 0, 1)
         ground = new[4:40, 4:40, :3].reshape(-1, 3).mean(axis=0)      # and never where the redrawn picture shows only its background
@@ -105,7 +120,8 @@ def project(o, name, v, before, after, out_png, strength=1.0):
         gain = tone(old) / np.maximum(tone(new), 1e-3); new = new.copy(); new[..., :3] = np.clip(new[..., :3] * gain, 0, 1)
         print('TONE', name, [round(float(g), 3) for g in gain])
     edge = np.minimum(np.minimum(xx, PX - 1 - xx), np.minimum(yy, PX - 1 - yy)) / PX      # and it gives way toward the picture's own edge (a wrist)
-    mask = mask * np.clip((edge - 0.03) / 0.12, 0, 1)
+    lo_, span = v.get('rim', (0.03, 0.12))      # rim: where the fade toward the picture's edge begins and how wide it is (a row of heads runs right up to the edge)
+    mask = mask * np.clip((edge - lo_) / span, 0, 1)
     mask = (mask * mask * (3 - 2 * mask) * strength)[..., None]
     mix = old.copy(); mix[..., :3] = old[..., :3] * (1 - mask) + new[..., :3] * mask; mix[..., 3] = 1
     img = bpy.data.images.new(name, PX, PX, alpha=False); img.pixels.foreach_set(mix.ravel())
