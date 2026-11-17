@@ -26,6 +26,11 @@ export function createSound(store) {
   const said = {}, played = {};                        // decoded: a line or a cue by name (a promise while it loads)
   let speaking = null, token = 0, now = null, wanted = null, held = false;      // the line sounding; the cue sounding { name, src, gain }; the cue asked for; the game is paused
 
+  let level = null;      // the song's own fader in the engine (null: the element's volume is used instead)
+  const loud = (v, secs = 0) => {
+    if (!level) { track.volume = v; return; }
+    const t = ctx.currentTime; level.gain.cancelScheduledValues(t); level.gain.setValueAtTime(level.gain.value, t); level.gain.linearRampToValueAtTime(v, t + Math.max(0.03, secs));
+  };
   const track = new Audio();
   track.preload = 'auto'; track.muted = !on;
   track.addEventListener('error', () => { trackError = 'e' + (track.error ? track.error.code : '?'); });
@@ -41,6 +46,8 @@ export function createSound(store) {
     const top = ctx.createDynamicsCompressor(); top.threshold.value = -5; top.knee.value = 5; top.ratio.value = 12; top.attack.value = 0.003; top.release.value = 0.2;
     out.gain.value = on ? 1 : 0; out.connect(top); top.connect(ctx.destination);
     music.connect(under); under.connect(out); speech.connect(out);
+    // the song too goes through the engine where it can: an iPhone will not change an audio element's loudness by script, and a song must never stop short, it fades
+    try { level = ctx.createGain(); ctx.createMediaElementSource(track).connect(level); level.connect(out); } catch { level = null; }
     const list = dir => fetch(dir + 'index.json').then(r => (r.ok ? r.json() : null)).catch(() => null).then(j => { if (dir === SCORE) cues = j && j.cues ? j.cues : null; return j; });
     list(VOICES).then(j => { lines = j && j.lines ? j.lines : null; });
     list(SCORE).then(() => { if (cues) for (const k of Object.keys(cues)) if (cues[k].loop === false) cue(k); });      // the short hits are ready before they are wanted
@@ -54,7 +61,8 @@ export function createSound(store) {
     if (!ctx) return;
     if (held) return;      // paused: nothing sounds until the game goes on
     if (ctx.state !== 'running') ctx.resume();
-    if (!woke) { woke = true; const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(); }
+    if (!woke) { try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch { /* not there */ }      // an iPhone with its ringer switched to silent still plays the voices and the music
+      woke = true; const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(); }
   }
   for (const e of ['pointerup', 'touchend', 'click', 'keydown']) window.addEventListener(e, wake, true);
 
@@ -133,7 +141,7 @@ export function createSound(store) {
     cue(name).then(buf => { if (!buf) return; const src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = buf; g.gain.value = db(cues[name].gain || 0); src.connect(g); g.connect(out); src.start(ctx.currentTime + delay); });
   }
 
-  function hush() { if (voice) { voice.onended = null; try { voice.stop(); } catch { /* already over */ } voice = null; track.volume = 1; } }
+  function hush() { if (voice) { voice.onended = null; try { voice.stop(); } catch { /* already over */ } voice = null; loud(1, 0.3); } }
 
   return {
     get on() { return on; },
@@ -147,18 +155,25 @@ export function createSound(store) {
     learn, speak, quiet, score, hit,
     // a run begins: the chant, then the song (one track, begun by the player's own tap)
     blaze,
-    start() { held = false; wake(); hush(); quiet(); score(null, { fade: 0.3 }); blaze(false); resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; try { track.currentTime = 0; } catch { /* not loaded yet */ } track.play().catch(e => { trackError = trackError || e.name; }); },
+    // wait: the song is held back (the run from the sea gate to Lankini is without it): the player's tap only makes it ready, and it begins when he runs on after her
+    start(wait = false) {
+      held = false; wake(); hush(); quiet(); score(null, { fade: 0.3 }); blaze(false); resting = wait; clearInterval(fading); fading = null;
+      track.muted = wait || !on; loud(wait ? 0 : 1); try { track.currentTime = 0; } catch { /* not loaded yet */ }
+      const p = track.play();
+      if (p) p.then(() => { if (resting && wait) { track.pause(); try { track.currentTime = 0; } catch { /* not loaded yet */ } } }).catch(e => { trackError = trackError || e.name; });
+    },
     pause() { track.pause(); hush(); blaze(false); held = true; if (ctx) ctx.suspend(); },                              // the game is paused: the track held where it is, the chant cut
     resume() { held = false; wake(); if (!resting) track.play().catch(() => {}); },             // and taken up again from there (unless a scene or a fight has it at rest)
     // the run stops for a scene or a fight: the song fades away over a second and a half and waits (a phone that fixes the volume simply stops it then)
     rest() {
       if (resting) return; resting = true; hush(); clearInterval(fading);
+      if (level) { loud(0, 1.5); fading = setTimeout(() => { fading = null; track.pause(); }, 1560); return; }
       const from = track.volume, t0 = performance.now();
       fading = setInterval(() => { const u = Math.min(1, (performance.now() - t0) / 1500); track.volume = from * (1 - u) * (1 - u); if (u >= 1) { clearInterval(fading); fading = null; track.pause(); track.volume = 1; } }, 40);
     },
     // and he runs again: the song is simply there, from where it left off
-    run() { score(null); quiet(); if (!resting) return; resting = false; clearInterval(fading); fading = null; track.volume = 1; wake(); track.play().catch(() => {}); },
-    stop() { held = false; if (ctx && ctx.state === 'suspended') ctx.resume(); track.pause(); blaze(false); quiet(); score(null, { fade: 0.4 }); },                                       // the run is over
+    run() { score(null); quiet(); if (!resting) return; resting = false; clearInterval(fading); fading = null; track.muted = !on; track.volume = 1; loud(1, 0.4); wake(); track.play().catch(() => {}); },
+    stop() { held = false; if (ctx && ctx.state === 'suspended') ctx.resume(); blaze(false); quiet(); score(null, { fade: 1.5 }); clearInterval(fading); fading = null; if (level && !track.paused) { loud(0, 1.2); fading = setTimeout(() => { fading = null; track.pause(); }, 1260); } else track.pause(); },                                       // the run is over
     // the chant over a big moment: once per moment, and not on top of the opening chant
     chant() {
       if (!track.paused && track.currentTime < INTRO) return;
@@ -166,8 +181,8 @@ export function createSound(store) {
       if (voice && now - (last.chant || 0) < 1500) return;
       hush();
       const src = fire('chant'); if (!src) return;
-      voice = src; last.chant = now; track.volume = 0.45;      // the song steps back under it (phones that fix the volume keep it level)
-      src.onended = () => { if (voice === src) { voice = null; track.volume = 1; } };
+      voice = src; last.chant = now; loud(0.45, 0.25);      // the song steps back under it (phones that fix the volume keep it level)
+      src.onended = () => { if (voice === src) { voice = null; if (!resting) loud(1, 0.5); } };
     },
     // a short effect; gap: the least time in seconds before the same one may sound again
     fx(name, { rate = 1, delay = 0, gap = 0.05 } = {}) {

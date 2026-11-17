@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero, LANES as LANE_X } from './hero.js';
-import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, groundAt } from './world.js';
+import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, LANKINI_AT, groundAt } from './world.js';
 import { Fight, LIVES, PLANS } from './fight.js';
 import { Director, fit } from './scene.js';
 import { createStory } from './story.js';
@@ -182,7 +182,7 @@ function start(from = 0, fresh = false) {
   tailFire.visible = false; tailLight.intensity = 0; hero.root.scale.setScalar(1); aura.visible = false;
   queued = null; view.join = 0; screen(null); last = performance.now();
   world.update(0, hero.root.position.z);
-  sound.start();      // the chant as he sets off, then the song
+  sound.start(!story.done.lankini && -hero.root.position.z < LANKINI_AT);      // the song is for the journey proper: it begins when Lankini has let him pass (a run that takes up beyond her has it from the first step)
   // every run opens in the air: he rises and flies in over the road as the view comes round behind him, then lands and runs
   state.opening = true; state.flight = OPEN_FLIGHT; hero.startFlight(); slowMotion(1.4, 0.45); sound.fx('wing');
   card(SECTIONS[from].id);
@@ -280,7 +280,7 @@ function startFight(mid = FIGHT_MID, plan = PLANS.court, scale = 1) {
   sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
 }
 function endFight(how) {
-  sound.score(null, { fade: 0.3 });      // the drums stop dead
+  sound.score(null, { fade: 1.3 });      // the drums die away
   fight.result = null; if (stick) stick.release();
   const then = state.fightDone; state.fightDone = null;
   if (how === 'lost') {

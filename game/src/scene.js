@@ -120,7 +120,7 @@ export class Director {
     const b = this.beats[this.i]; this.t = 0;
     this.len = b.secs ?? (b.line ? 2.3 + b.line.length * 0.07 : 1.6);      // long enough to read at ease on a phone (Sid: "need enough time to read"); a tap still goes on
     if (this.sound) {      // spoken, a line sets its own pace: the voice and a breath after it; unspoken, it stays long enough to read
-      if (b.cue !== undefined) this.sound.score(b.cue, b.cue ? {} : { fade: 0.25 });      // the music changes here, or stops dead
+      if (b.cue !== undefined) this.sound.score(b.cue);      // the music changes here, or fades away: it never stops short
       if (b.hit) this.sound.hit(b.hit);
       const d = b.voice ? this.sound.speak(b.voice, b.lead || 0) : (this.sound.quiet(), 0);
       if (d) this.len = Math.max(b.secs || 0, d + 0.9);
