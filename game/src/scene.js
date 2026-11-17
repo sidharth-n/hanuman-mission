@@ -2,6 +2,7 @@
 // do, a line of dialogue on screen), and the actors it directs (Sita, Ravana, Lankini: models rigged and animated
 // in Lux3D). A tap goes on to the next line; Skip ends the scene.
 import * as THREE from 'three';
+import { Reach } from './reach.js';
 import { clone } from 'three/addons/utils/SkeletonUtils.js';
 
 const ease = t => t * t * (3 - 2 * t);
@@ -50,6 +51,7 @@ export class Actor {
     this.actions = {}; for (const clip of gltf.animations) this.actions[clip.name] = this.mixer.clipAction(clip);
     this.current = null; this.name = null; this.moves = null;
     this.legs = ['Left', 'Right'].map(side => ['UpLeg', 'Leg', 'Foot'].map(part => this.model.getObjectByName('mixamorig' + side + part)));
+    this.offer = new Reach(this.model, 'Right');
     this.knees = 0;      // seated, how far the knees are brought together (0 as animated, 1 touching): a long skirt tears when they sit apart
     const blob = new THREE.Mesh(new THREE.CircleGeometry(height * 0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.blob = blob; this.root.add(blob);
@@ -85,6 +87,7 @@ export class Actor {
       if (u >= 1) { this.moves = null; if (m.then !== null) this.root.rotation.y = m.then; this.play(m.after, { fade: 0.3 }); }
     }
     this.mixer.update(dt);
+    this.offer.update(dt);      // something held out in an open hand
     if (this.knees > 0 && this.name && this.name.startsWith('sit') && this.legs[0][0] && this.legs[1][0]) {
       const at = this.legs.map(l => l.map(b => b.getWorldPosition(new THREE.Vector3())));
       const mid = at[0][1].clone().add(at[1][1]).multiplyScalar(0.5);

@@ -23,16 +23,35 @@ export function createStory(g) {
   g.scene.add(sita.root, ravana.root);
   sita.knees = 0.8; sita.model.traverse(o => { if (o.isMesh) o.material.side = THREE.DoubleSide; });      // seated, the folds of her sari open: their inner side must show as cloth, not as holes
   const lankini = fight.boss, escort = [fight.guards[6], fight.guards[7]], wardens = [fight.guards[4], fight.guards[5]];      // the two who lead him, the two who stand by the throne
-  // a small bright thing passed from hand to hand: Rama's ring, Sita's jewel
+  // a small light on whatever lies in an open hand: Rama's ring, Sita's jewel
   const gift = new THREE.Sprite(new THREE.SpriteMaterial({ map: fight.sparks.points.material.map, color: 0xffd36a, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true }));
   gift.visible = false; g.scene.add(gift);
+  // Rama's ring and Sita's hair jewel themselves, small things of gold that lie in an open hand and are seen close
+  const gold = new THREE.MeshStandardMaterial({ color: 0xf2c14e, metalness: 1, roughness: 0.28, emissive: 0x4a3206, envMapIntensity: 1.6 });
+  const stone = (color, glow) => new THREE.MeshStandardMaterial({ color, metalness: 0.2, roughness: 0.12, emissive: glow, envMapIntensity: 2 });
+  const ring = new THREE.Group(), jewel = new THREE.Group();
+  { const band = new THREE.Mesh(new THREE.TorusGeometry(0.027, 0.0055, 10, 28), gold); ring.add(band);
+    const seat = new THREE.Mesh(new THREE.CylinderGeometry(0.013, 0.016, 0.012, 12), gold); seat.position.set(0, 0.03, 0); ring.add(seat);
+    const gem = new THREE.Mesh(new THREE.SphereGeometry(0.011, 12, 8), stone(0xb3122a, 0x4a0510)); gem.position.set(0, 0.039, 0); ring.add(gem);
+    const plate = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.036, 0.007, 20), gold); plate.rotation.x = Math.PI / 2; jewel.add(plate);
+    const heart = new THREE.Mesh(new THREE.OctahedronGeometry(0.024, 1), stone(0x9fd0f5, 0x16344f)); heart.scale.set(1, 1, 0.6); heart.position.z = 0.012; jewel.add(heart);
+    for (let i = 0; i < 8; i++) { const p = new THREE.Mesh(new THREE.SphereGeometry(0.0075, 8, 6), stone(0xe9dcc0, 0x1c1912)); p.position.set(Math.cos(i * Math.PI / 4) * 0.036, Math.sin(i * Math.PI / 4) * 0.036, 0.004); jewel.add(p); }
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.011, 10, 8), stone(0xe9dcc0, 0x1c1912)); drop.scale.y = 1.5; drop.position.set(0, -0.058, 0.002); jewel.add(drop); }
+  for (const o of [ring, jewel]) { o.visible = false; o.traverse(m => { m.userData.soft = true; }); g.scene.add(o); }      // soft: a thing in his hand is not something standing in front of him
+  let held = null;      // { thing: the ring or the jewel, who: whose open hand it lies in }
+  const palmUp = new THREE.Vector3(), flat = new THREE.Vector3(0, 0, 1);
+  // who holds out a hand to a point with the thing in it; who: null puts everything away
+  const offer = (who, thing, to) => {
+    for (const a of [hero, sita]) if (a !== who) a.offer.on = false;
+    ring.visible = jewel.visible = gift.visible = false; held = null; if (!who) return;
+    who.offer.to.set(...to); who.offer.on = true; who.offer.lift = who === hero ? 0.045 : 0.03; held = { thing, who }; thing.visible = true;
+  };
   const aura = new Aura(g.scene, fight.sparks.points.material.map);      // the light round him when he changes size
   // the burning brand a guard of the court puts to his tail: a flame that rides the point of the guard's sword
   const brand = new THREE.Group(); brand.visible = false; g.scene.add(brand);
   for (const [size, up] of [[1.25, 0], [0.95, 0.3], [0.6, 0.62]]) { const f = new THREE.Sprite(g.fireMat); f.userData.s = size; f.position.y = up; brand.add(f); }
   let torch = null;      // { e: the guard, t, stage, from, to }: he walks round behind Hanuman, strikes at the tail, and it is alight
   const tipOf = new THREE.Vector3();
-  const pass = { t: 0, secs: 0, from: new THREE.Vector3(), to: new THREE.Vector3() };
   const done = { lankini: false, challenged: false, grove: false, end: false, present: false };
   let trek = null, leapTo = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
   let G = 0;      // the height of the floor where the scene is played
@@ -57,7 +76,6 @@ export function createStory(g) {
     hero.root.position.set(x, g.groundAt(z), z); hero.root.rotation.y = yaw; hero.floor = up; hero.y = up; hero.vy = 0; hero.lane = 1;
     hero.play(clip, { fade: 0.25 });
   }
-  function give(from, to, color, secs = 1.3) { pass.from.set(...from); pass.to.set(...to); pass.t = 0; pass.secs = secs; gift.material.color.set(color); gift.visible = true; }
   function standGuards(list, who = escort, up = 0) { list.forEach(([x, z, yaw], i) => { const e = who[i]; e.kind('guard'); e.reset(); e.place(x, g.groundAt(z) + up, z, yaw); e.st = 'idle'; e.bar.visible = false; e.play('great_sword_idle', { fade: 0 }); }); }
 
   // ── the gate: Lankini bars the way. She is far bigger than he is, so the player is asked whether he should grow to
@@ -187,7 +205,7 @@ export function createStory(g) {
   }
   function meets() {
     g.sound.score('sita');
-    g.hold(); const sx = sitaAt.x, sz = sitaAt.z, hx = sx - 2.0, hz = sz + 2.1, U = SITA.up, T = hideAt;
+    g.hold(); G = g.groundAt(sitaAt.z); const sx = sitaAt.x, sz = sitaAt.z, hx = sx - 2.0, hz = sz + 2.1, U = SITA.up, T = hideAt;
     ravana.hide(); escort.forEach(e => { e.reset(); e.leave = 0; });
     const yaw = yawTo(hx - sx, hz - sz);
     sita.place(sx + Math.sin(yaw) * SITA.edge, G + U, sz + Math.cos(yaw) * SITA.edge, yaw); sita.play('sit', { fade: 0.2 });
@@ -198,7 +216,14 @@ export function createStory(g) {
     // out from hiding in one leap, down beside her, and a bow
     const leap = () => { leapTo = { x0: H[0], z0: H[1], x: hx, z: hz, t: 0, secs: 1.25, up: 3.4, then: () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.08 }); } }; hero.root.rotation.y = heroYaw(hx - H[0], hz - H[1]); const w = hero.actions.running_jump.getClip().userData; hero.play('running_jump', { once: true, from: Math.max(0, w.from - 0.06), speed: (w.to - w.from + 0.06) / 1.25, fade: 0.1 }); };
     const landed = () => { if (leapTo || hero.root.position.x < hx - 1) { leapTo = null; putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'breathing_idle'); } };      // there already, even if the leap was tapped past
-    const hand = [hx + 0.5, G + 1.25, hz - 0.5], hers = [sx - 0.45, G + 1.0 + U, sz + 0.5];
+    // where the hands go (the two sit and stand three paces apart, so each giving is seen close, on the hand that gives):
+    // f: the way from him to her along the ground; r: toward his right hand
+    const fl = Math.hypot(sx - hx, sz - hz), f = [(sx - hx) / fl, (sz - hz) / fl], r = [-f[1], f[0]];
+    const hand = [hx + f[0] * 0.5 + r[0] * 0.22, G + 1.2, hz + f[1] * 0.5 + r[1] * 0.22], keeps = [hx + f[0] * 0.42 + r[0] * 0.2, G + 1.3, hz + f[1] * 0.42 + r[1] * 0.2];
+    const qx = sita.root.position.x, qz = sita.root.position.z;      // where she really sits: at the edge of her seat, toward him
+    const hers = [qx - f[0] * 0.3 - r[0] * 0.14, G + U + 1.0, qz - f[1] * 0.3 - r[1] * 0.14], gives = [qx - f[0] * 0.5 - r[0] * 0.2, G + U + 0.98, qz - f[1] * 0.5 - r[1] * 0.2];
+    const near = (p, df, dr, dy, look, fov) => shot([p[0] + f[0] * df + r[0] * dr, p[1] + dy, p[2] + f[1] * df + r[1] * dr], [p[0], p[1] + look, p[2]], { to: [p[0] + f[0] * df * 0.86 + r[0] * dr * 0.86, p[1] + dy * 0.92, p[2] + f[1] * df * 0.86 + r[1] * dr * 0.86], fov });
+    const ringShot = near(hand, 0.66, 0.34, 0.26, 0.12, either(40, 30)), jewelShot = near(gives, -0.62, -0.3, 0.32, 0.1, either(40, 30)), keepShot = near(keeps, 0.7, 0.3, 0.24, 0.1, either(40, 30));
     const onHero = shot(v(hx + 1.44, 1.5, hz - 0.21), v(hx, 1.52, hz), { to: v(hx + 1.3, 1.5, hz - 0.3), fov: either(36, 27) });      // close on him as he speaks, the grove behind him: nothing of her seat in the picture (on a phone its back came up under the words)
     const onSita = shot(v(hx + 0.2, 1.3 + U, hz - 0.2), v(sx, 1.1 + U, sz + 0.2), { to: v(hx + 0.4, 1.25 + U, hz - 0.4), fov: 38 });
     const two = either(shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 }), shot(v(hx - 2.1, 1.9, hz + 0.9), v(sx - 0.5, 1.05, sz + 0.5), { to: v(hx - 1.8, 1.85, hz + 0.7), fov: 46 }));
@@ -208,16 +233,16 @@ export function createStory(g) {
       { ...shot(v(1.4, 2.3, H[1] + 5.5), v((H[0] + hx) / 2, 1.9, (H[1] + hz) / 2), { to: v(1.0, 2.0, H[1] + 3.5), lookTo: v(hx - 0.6, 1.2, hz), fov: 56 }), secs: 3.4, do: leap },      // from the path behind him: the tree, the leap, and her under the great tree beyond
       { ...onHero, do: () => { landed(); hero.play('breathing_idle', { fade: 0.4 }); } },
       { ...onSita, do: () => { landed(); sita.play('sit_talk'); } },
-      { ...two, do: () => { landed(); sita.play('sit'); give(hand, hers, 0xffd36a); } },
-      { ...onSita, do: () => sita.play('sit_talk') },
-      onHero,
-      { ...two, do: () => { landed(); sita.play('sit_talk'); give(hers, hand, 0xbfe6ff); } },
-      { ...onHero, do: () => sita.play('sit') },
-      { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => { landed(); sita.play('sit_talk'); } },
+      { ...ringShot, do: () => { landed(); sita.play('sit'); offer(hero, ring, hand); } },      // the ring, lying in his open hand held out to her
+      { ...onSita, do: () => { sita.play('sit_talk'); offer(sita, ring, hers); } },      // and now in hers: she holds it before her and looks at it
+      { ...onHero, do: () => offer(null) },
+      { ...jewelShot, do: () => { landed(); sita.play('sit_talk'); offer(sita, jewel, gives); } },      // her jewel, held out to him
+      { ...keepShot, do: () => { sita.play('sit'); offer(hero, jewel, keeps); } },      // and it lies in his hand as he gives his word
+      { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => { landed(); sita.play('sit_talk'); offer(null); } },
     ]), wreck);
   }
   function wreck() {
-    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score(null); const z = -GROVE_MID - 7; gift.visible = false; sita.play('sit');
+    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score(null); const z = -GROVE_MID - 7; offer(null); sita.play('sit');
     putHero(0, z, heroYaw(0, 1), 'great_sword_idle');
     director.play(beats('grove_wreck', [
       shot(v(1.6, 1.2, z + 3.6), v(0, 1.4, z), { to: v(1.2, 1.3, z + 3.0), fov: 42 }),
@@ -258,7 +283,7 @@ export function createStory(g) {
 
   // ── Ravana's court ──
   function court() {
-    g.hold(); g.sound.score(g.sound.has('ravana') ? 'ravana' : 'hall', { rise: 0.05 }); sita.hide(); gift.visible = false;
+    g.hold(); g.sound.score(g.sound.has('ravana') ? 'ravana' : 'hall', { rise: 0.05 }); sita.hide(); offer(null);
     const base = -(THRONE_AT + THRONE.n * CHUNK), tz = base + THRONE.z, hz = base + STAND.z, T = THRONE.top; G = g.groundAt(hz);
     putHero(0, hz, 0); hero.bind(true);
     fight.guards.forEach(e => { e.march = null; e.reset(); });      // the ring of the grove is left behind
@@ -368,7 +393,7 @@ export function createStory(g) {
     done, sita, ravana, gate, yields, grove, meets, wreck, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); gift.visible = false; brand.visible = false; torch = null; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -380,7 +405,7 @@ export function createStory(g) {
       return false;
     },
     ending,
-    // Every frame of a scene: the characters move, the gift passes from hand to hand.
+    // Every frame of a scene: the characters move, and what is held out lies in the hand that holds it.
     update(dt) {
       sita.update(dt); ravana.update(dt);
       if (aura.update(dt, hero.root.scale.x)) { g.sound.fx('smash', { rate: 1.9, gap: 0.12 }); g.shake(0.4); g.buzz(25); }      // each bolt that strikes is heard and felt
@@ -418,9 +443,9 @@ export function createStory(g) {
         p.x = l.x0 + (l.x - l.x0) * u; p.z = l.z0 + (l.z - l.z0) * u; hero.y = 4 * l.up * u * (1 - u); hero.vy = 0;
         if (u >= 1) { leapTo = null; hero.y = 0; l.then(); }
       }
-      if (gift.visible) {
-        pass.t += dt; const u = Math.min(1, pass.t / pass.secs), e = u * u * (3 - 2 * u);
-        gift.position.lerpVectors(pass.from, pass.to, e); gift.position.y += Math.sin(u * Math.PI) * 0.25; gift.scale.setScalar(0.34 + Math.sin(pass.t * 9) * 0.05);
+      if (held) {      // the ring or the jewel lies in the open hand that holds it, a small light on it
+        held.who.offer.hold(held.thing.position, palmUp); held.thing.quaternion.setFromUnitVectors(flat, palmUp);
+        gift.visible = true; gift.position.copy(held.thing.position).addScaledVector(palmUp, 0.02); gift.material.color.set(held.thing === ring ? 0xffd36a : 0xbfe6ff); gift.scale.setScalar((held.thing === ring ? 0.11 : 0.06) + Math.sin(performance.now() * 0.006) * 0.012);
       }
     },
   };

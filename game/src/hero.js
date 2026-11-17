@@ -1,5 +1,6 @@
 // Hanuman: always runs forward by himself. The player only picks a lane, jumps or slides.
 import * as THREE from 'three';
+import { Reach } from './reach.js';
 import { GRAVITY, JUMP_V, SLIDE_TIME, AIR_TIME } from './pace.js';
 
 export const LANES = [-2.4, 0, 2.4];
@@ -75,6 +76,7 @@ export class Hero {
     this.hips = this.model.getObjectByName('mixamorigHips');
     this.bones = {};
     this.model.traverse(o => { if (o.isBone && o.name.startsWith('mixamorig')) this.bones[o.name.slice(9)] = o; });
+    this.offer = new Reach(this.model, 'Right');
     this.flightPose = FLIGHT.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], new THREE.Vector3(...d)]);
 
     const blob = new THREE.Mesh(new THREE.CircleGeometry(0.75, 20),
@@ -101,6 +103,7 @@ export class Hero {
 
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0; this.root.rotation.y = 0; this.free = false; this.pace = 0;
+    if (this.offer) { this.offer.on = false; this.offer.w = 0; }
     this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.flying = false; this.fly = 0;
     this.model.rotation.x = 0; this.model.position.z = 0;
     this.root.scale.setScalar(1);
@@ -190,6 +193,7 @@ export class Hero {
     this.mixer.update(dt);
     this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();
+    this.offer.update(dt);      // something held out in his open hand, in a scene
   }
 
   poseFlight() {
