@@ -28,10 +28,53 @@ def ease(o, rounds_face=4, rounds_hand=3):
     return f'face and hands eased ({rounds_face} and {rounds_hand} passes)'
 
 
+# Her hands came from the generator as mittens: one lump with a thumb, the fingers only hinted at. Here three grooves are
+# cut along each hand between four fingers, on its back and its palm alike (the hand is pinched toward its own middle
+# along three lines that follow its taper), shallow where the fingers leave the knuckles and right through at their tips.
+# Arms out as she is rigged: the fingers run along x, lie side by side along y, and the hand is thin along z.
+GAPS = (0.265, 0.515, 0.755)      # where the gaps lie across the fingers (the same places tools/lankini_hands.py draws them dark)
+WRIST = 0.84                      # where the hand's skin begins beyond the bracer
+def fingers(o, depth=0.6, wide=0.0055):
+    bm = R.edit(o); mw = o.matrix_world; inv = mw.inverted(); said = []
+    step = lambda t: max(0.0, min(1.0, t)) ** 2 * (3 - 2 * max(0.0, min(1.0, t)))
+    for side, name in ((1, 'left'), (-1, 'right')):
+        faces = [f for f in bm.faces if all((mw @ v.co).x * side > WRIST + 0.02 for v in f.verts)]
+        bmesh.ops.subdivide_edges(bm, edges=list({e for f in faces for e in f.edges}), cuts=1, use_grid_fill=True)      # finer, so a groove has points to sit on
+        vs = [v for v in bm.verts if (mw @ v.co).x * side > WRIST]
+        P = {v: mw @ v.co for v in vs}; tip = max(p.x * side for p in P.values()); span = tip - WRIST
+        n = 48; lo = [None] * n; hi = [None] * n; zs = [[] for _ in range(n)]
+        for p in P.values():
+            u = (p.x * side - WRIST) / span; i = min(n - 1, int(u * n))
+            if u < 0.40: continue      # the thumb leaves the hand nearer the wrist than this
+            lo[i] = p.y if lo[i] is None else min(lo[i], p.y); hi[i] = p.y if hi[i] is None else max(hi[i], p.y); zs[i].append(p.z)
+        ok = [i for i in range(n) if lo[i] is not None and len(zs[i]) > 6]
+        ease = lambda a: {i: sum(a[j] for j in ok if abs(j - i) <= 2) / sum(1 for j in ok if abs(j - i) <= 2) for i in ok}
+        lo_, hi_ = ease(lo), ease(hi); mid = ease([sum(z) / len(z) if z else 0 for z in zs])
+        moved = 0
+        for v, p in P.items():
+            u = (p.x * side - WRIST) / span; i = min(n - 1, int(u * n))
+            if i not in lo_ or u < 0.45: continue
+            across = hi_[i] - lo_[i]
+            if across < 0.02: continue
+            t = (p.y - lo_[i]) / across
+            g = max(math.exp(-(((t - a) * across) / wide) ** 2) for a in GAPS)
+            if g < 0.02: continue
+            d = g * step((u - 0.45) / 0.12) * (depth + (0.97 - depth) * step((u - 0.84) / 0.12))
+            q = p.copy(); q.z = mid[i] + (p.z - mid[i]) * (1 - d); v.co = inv @ q; moved += 1
+        said.append(f'{name} hand to x {tip:.3f}, {moved} points drawn in')
+    R.keep(o, bm)
+    return 'fingers cut: ' + '; '.join(said)
+
+
 def repaint(o, pictures):
     after = next((os.path.join(pictures, f'face-after.{e}') for e in ('png', 'jpg') if os.path.exists(os.path.join(pictures, f'face-after.{e}'))), None)
     if not after: return 'face: no redrawn picture, left as it was'
-    return T.project(o, 'lankini_face', T.VIEWS['lankini']['face'], os.path.join(pictures, 'face-before.png'), after, os.path.join(pictures, 'face-texture.png'))
+    said = [T.project(o, 'lankini_face', T.VIEWS['lankini']['face'], os.path.join(pictures, 'face-before.png'), after, os.path.join(pictures, 'face-texture.png'))]
+    # her hands: the generator left mittens (a lump with a thumb, no fingers); each is repainted from above as a clenched fist
+    for name in ('hand_l', 'hand_r'):
+        redrawn = next((os.path.join(pictures, f'{name}-after.{e}') for e in ('png', 'jpg') if os.path.exists(os.path.join(pictures, f'{name}-after.{e}'))), None)
+        if redrawn: said.append(T.project(o, 'lankini_' + name, T.VIEWS['lankini'][name], os.path.join(pictures, name + '-before.png'), redrawn, os.path.join(pictures, name + '-texture.png')))
+    return '; '.join(str(x) for x in said)
 
 
 # Sword-fighting moves for her, taken from the guards' Mixamo animations. Her skeleton has the same bones by name but
@@ -107,8 +150,8 @@ def show_sword(arm, path, length=1.35):
 if __name__ == '__main__' and '--' in sys.argv:
     src, pictures, out, tris, tex = sys.argv[sys.argv.index('--') + 1:][:5]
     arm, o = R.load(src); T.rest(arm)
-    print('STEP', weld(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
-    print('STEP', R.slim(o, int(tris), 0.16, fine))
+    print('STEP', weld(o)); print('STEP', ease(o)); print('STEP', fingers(o)); print('STEP', repaint(o, pictures))
+    print('STEP', R.slim(o, int(tris), 0.24, fine))      # a larger share for face and hands now that the fingers are cut
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     print('STEP', sword_clips(arm, os.path.join(root, 'assets/rig/guard/Breathing Idle.fbx'), os.path.join(root, 'assets/rig/guard/anims')))
     print('STEP', R.export(arm, out, int(tex), NAMES + list(SWORD.values())))

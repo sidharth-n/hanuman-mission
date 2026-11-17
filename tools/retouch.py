@@ -38,6 +38,11 @@ VIEWS = {
     'lankini': {
         'face': dict(centre=(0.008, 0.0, 0.93), size=0.36, toward=(0, 1, 0), up=(0, 0, 1), facing=0.25,
                      box=((-0.17, -0.4, 0.76), (0.19, -0.05, 1.10)), oval=(0.008, 0.925, 0.095, 0.125), match=((318, 597, 30), (705, 597, 30))),
+        # her hands, seen from above with her arms out (Sid, 18 Nov: "fix the hand or fingers of lankini, it's not good")
+        'hand_l': dict(centre=(0.97, -0.06, 0.47), size=0.40, toward=(0, 0, -1), up=(0, 1, 0), facing=0.2,
+                       box=((0.82, -0.24, 0.36), (1.22, 0.12, 0.58)), oval=None, match=None),
+        'hand_r': dict(centre=(-0.97, -0.06, 0.47), size=0.40, toward=(0, 0, -1), up=(0, 1, 0), facing=0.2,
+                       box=((-1.22, -0.24, 0.36), (-0.82, 0.12, 0.58)), oval=None, match=None),
     },
     # near: how far above the picture's middle the view begins, so what stands over the part (his legs, over his feet) is not in it
     'hanuman': {

@@ -159,6 +159,7 @@ function glowTexture(inner, outer) {
   });
 }
 
+const PANO_TURN = 0;      // how far the panorama is turned about the upright, so that what it shows ahead is ahead on the road
 export class World {
   // opt.lite: plain shading and one torch, for phones. opt.bare: nothing in his way, for looking round the world.
   constructor(scene, models, tex, opt = {}) {
@@ -303,10 +304,13 @@ export class World {
   sky(models, picture) {
     const far = new THREE.Group(); this.far = far; this.scene.add(far);
     // the galaxy: one picture spread over the half of the sky ahead and mirrored behind, from just below the horizon to high overhead
-    picture.colorSpace = THREE.SRGBColorSpace; picture.wrapS = THREE.MirroredRepeatWrapping; picture.wrapT = THREE.ClampToEdgeWrapping;
-    picture.repeat.set(2, 2.4); picture.offset.set(0, -1.133);
+    // or a whole panorama (twice as wide as it is high: the night over Lanka, made with Aholo's world model, SpatialGen):
+    // laid once round the whole sky, its horizon on ours, turned so that the palace on its hill stands ahead
+    const pano = picture.image && picture.image.width / picture.image.height > 1.9;
+    picture.colorSpace = THREE.SRGBColorSpace; picture.wrapS = pano ? THREE.RepeatWrapping : THREE.MirroredRepeatWrapping; picture.wrapT = THREE.ClampToEdgeWrapping;
+    if (!pano) { picture.repeat.set(2, 2.4); picture.offset.set(0, -1.133); }
     this.skyMat = new THREE.MeshBasicMaterial({ map: picture, side: THREE.BackSide, fog: false, depthWrite: false });
-    const dome = new THREE.Mesh(new THREE.SphereGeometry(560, 32, 20), this.skyMat); dome.renderOrder = -2; far.add(dome);
+    const dome = new THREE.Mesh(new THREE.SphereGeometry(560, 48, 24), this.skyMat); dome.renderOrder = -2; dome.rotation.y = pano ? PANO_TURN : 0; this.dome = dome; this.pano = pano; far.add(dome);
     const lights = new THREE.Group(); this.heavens = lights; far.add(lights);      // moon and stars: put out while he is indoors
     const moon = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture('rgba(255,255,245,1)', 'rgba(190,205,255,0.35)'), fog: false, depthWrite: false }));
     moon.scale.setScalar(60); moon.position.set(46, 92, -260); lights.add(moon);
