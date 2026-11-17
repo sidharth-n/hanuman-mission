@@ -227,7 +227,7 @@ export function hallModule() {
 // The front of the palace, with its great doorway and the doors standing open. Also used for the walls that
 // divide one hall from the next. It stands on z = 0 and is 1.2 m thick; the leaves open away from the court.
 export const DOOR_HALF = 4.1, DOOR_HIGH = 8.2;
-export function hallFront() {
+export function hallFront(shut = false) {      // shut: the two leaves closed across the doorway (Ravana's own hall, with a prisoner inside)
   const b = new Builder(), o = { ground: false }, W = COURT_HALF, D = DOOR_HALF, H = DOOR_HIGH, T = 14.4, z0 = -1.2, lights = [];
   for (const s of [-1, 1]) {
     b.box(Math.min(s * D, s * W), Math.max(s * D, s * W), 0, T, z0, 0, 'pwall', { faces: 'fb' + (s > 0 ? 'l' : 'r'), tile: [4, 4] });
@@ -239,8 +239,8 @@ export function hallFront() {
       lit(lights, s * (D + 1.9), 3.7, f === 'f' ? 0.7 : z0 - 0.7, 3.4, 0.6);
     }
     // a door leaf, swung back against the passage, seen from both sides
-    const leaf = [[s * D, 0, z0], [s * (D - 0.5), 0, z0 - 4.05], [s * (D - 0.5), H, z0 - 4.05], [s * D, H, z0]];
-    for (const way of [-1, 1]) b.face(leaf, 'pdoor', [way * s, 0, 0], { ...o, fit: true, along: [0, 0, -way * s], shade: 0.9 });
+    const zs = z0 + 0.5, leaf = shut ? [[s * D, 0, zs], [0, 0, zs], [0, H, zs], [s * D, H, zs]] : [[s * D, 0, z0], [s * (D - 0.5), 0, z0 - 4.05], [s * (D - 0.5), H, z0 - 4.05], [s * D, H, z0]];
+    for (const way of [-1, 1]) b.face(leaf, 'pdoor', shut ? [0, 0, way] : [way * s, 0, 0], { ...o, fit: true, along: shut ? [-way * s, 0, 0] : [0, 0, -way * s], shade: 0.9 });
   }
   b.box(-D, D, H, T, z0, 0, 'pwall', { ...o, faces: 'fbd', tile: [4, 4] });
   for (const [za, zb, f] of [[0, 0.2, 'f'], [z0 - 0.2, z0, 'b']]) b.box(-D - 0.8, D + 0.8, H, H + 0.9, za, zb, 'frieze', { ...o, faces: f + 'd', tile: [3.6, 0.9] });

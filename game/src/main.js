@@ -107,6 +107,8 @@ async function load() {
   director = new Director(camera, { root: $('drama'), who: $('who'), line: $('line'), skip: $('skip') }); director.sound = sound;
   story = createStory({ scene, hero, fight, director, models, groundAt, sound, buzz, say, card, hold, go: resumeRun, battle: (mid, plan, done, scale) => { state.fightDone = done; startFight(mid, plan, scale); }, ask, grow, giant: GIANT, shake: a => { state.shake = Math.max(state.shake || 0, a); },
     fade, light: on => { tailFire.visible = on; }, ablaze, credits, unask, fireMat: world.flameMat,
+    // a great thing broken through in a scene (the doors of Ravana's hall): its pieces thrown on the way he is going
+    smash: (x, y, z) => { for (const dx of [-2.6, 0, 2.6]) debris.burst(x + dx, y + (dx ? 2.4 : 4.6), z, 16, 0.6, 10, 0, 7); fight.sparks.floor = y; fight.sparks.burst({ x, y: y + 2.5, z }, 18, [1, 0.6, 0.2], 10, 0, 1); state.shake = Math.max(state.shake, 0.9); sound.fx('smash'); buzz([30, 20, 140]); },
     // the veils of a place (shafts of moonlight, the mist on the grass) put out for a shot that would be taken through them, and lit again after
     veil: show => { for (const c of world.chunks.values()) c.group.traverse(o => { if (o.userData.veil) o.visible = show; }); },
     mist: d => { state.thin = d; },      // the air of a place cleared for one shot that looks a long way through it (null: as the place has it)
@@ -381,10 +383,12 @@ function resumeRun() {
 }
 // Out of Ravana's court with his tail alight: the fire run begins.
 function ablaze() {
-  const z = -(FIRE_AT + 14);      // well past the wall Shiva sits against, so the view behind him is past it too (he is grown here, and the view stands further back)
-  hero.root.position.set(0, groundAt(z), z); state.dist = -z; world.update(0, z);
-  resumeRun(); placeCamera(1, true); rout.next = state.dist + 22;
-  hero.y = 1.7; hero.vy = 0.5; state.vast = 0.57;      // he comes down out of the leap that carried him over the throne, at the size he had in the court (no shrinking at the cut)
+  const z = -(FIRE_AT + 14), y = groundAt(z);      // well past the wall at the hall's far end, so that the view behind him is past it too (he is grown here, and the view stands further back)
+  hero.root.position.set(0, y, z); state.dist = -z; world.update(0, z);
+  resumeRun(); state.speed = 10.5; state.vast = 0.57;      // at the pace and the size he had going down the hall: the picture before this frame was that run, seen from this same place behind him
+  placeCamera(1, true); rout.next = state.dist + 22;
+  for (const dx of [-2.8, 0, 2.8]) debris.burst(dx, y + (dx ? 2.2 : 4.2), z + 2, 16, 0.62, 10, 0, -9);      // what is left of the doors goes out ahead of him
+  fight.sparks.floor = y; fight.sparks.burst({ x: 0, y: y + 2.4, z: z + 1 }, 16, [1, 0.6, 0.2], 10, 0, -1); state.shake = Math.max(state.shake, 0.8);
 }
 
 function ignite() {

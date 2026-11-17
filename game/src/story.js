@@ -55,7 +55,7 @@ export function createStory(g) {
   let torch = null;      // { e: the guard, t, stage, from, to }: he walks round behind Hanuman, strikes at the tail, and it is alight
   const tipOf = new THREE.Vector3();
   const done = { lankini: false, challenged: false, grove: false, end: false, present: false };
-  let trek = null, leapTo = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
+  let trek = null, leapTo = null, turn = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
   let G = 0;      // the height of the floor where the scene is played
 
   const v = (x, y, z) => [x, G + y, z];
@@ -350,28 +350,38 @@ export function createStory(g) {
     // picture goes to black from that view, and the run begins. (Ending the scene at once showed the chase camera in
     // the court for a few frames before the black: a view from nowhere between the choice and what it brings.)
     let loosed = false, gone = false;
-    const leave = () => { trek = null; leapTo = null; hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
+    const bars = open => director.el.root.querySelectorAll('.bar').forEach((b, i) => { b.style.transition = open ? 'transform .5s ease-in' : ''; b.style.transform = open ? `translateY(${i ? 100 : -100}%)` : ''; });      // the black bands of a scene draw back as the run begins, so the picture is already whole when play takes it
+    const leave = () => { bars(false); trek = null; leapTo = null; turn = null; hero.bind(false); aura.end(); brand.visible = false; torch = null; g.light(true); g.grow(0, 0.01); ravana.hide(); fight.guards.forEach(e => { e.march = null; e.reset(); }); g.ablaze(); };
     const loose = () => {
       loosed = true; hero.play('mutant_roaring', { once: true, from: 0.9, fade: 0.1 }); g.sound.hit('roar'); g.shake(0.7); g.buzz([40, 30, 140]);
-      RING.forEach(([x, z], i) => { const k = 2.4 / Math.hypot(x, z); hurl(fight.guards[i], x * k, z * k); });
+      RING.forEach(([x, z], i) => { const k = 2.4 / Math.hypot(x, z); hurl(fight.guards[i], Math.sign(x) * Math.max(Math.abs(x) * k, 3.2 - Math.abs(x)), z * k); });      // none of them is left lying in the road he is about to take down the hall
       setTimeout(() => { if (!gone) breakout(); }, 850);
     };
-    // No black between the word and the run (Sid: "he starts running from the spot where he is untied and every guard
-    // should come to block him, he throws them away"): from where he stands he runs up the carpet at the throne, the
-    // guards who step into his road are flung to either side as he reaches them, and at the foot of the dais he leaps.
-    // The picture cuts on the leap to him coming down beyond the wall Shiva sits against, already running.
+    // No black and no cut between the word and the run, and Ravana is left behind him (Sid: "he runs in the opposite
+    // direction... straight from the courtroom to the outside, and we need not show Ravana on that side... it's continuous,
+    // breaking the courtroom wall as he goes"): he turns his back on the throne and runs down the length of the hall, the
+    // guards who come at him from the doors are flung to either side, and he goes through the shut doors without slowing.
+    // The camera does not cut either: from where it stood for the choice it swings in behind him and ends where the chase
+    // view of the run stands, so that the run takes over in the frame the doors give way (ablaze() in main.js).
     const breakout = () => {
-      const road = [[6, -1.3, -3.4, 0.42], [7, 1.3, -3.9, 0.5], [8, -1.0, -6.0, 0.8], [9, 1.1, -6.4, 0.86], [4, -2.2, -7.6, 1.0], [5, 2.2, -7.6, 1.0]];      // guard, x, z from where he stands, the moment he reaches him
-      road.forEach(([i, x, dz, at]) => { const e = fight.guards[i]; e.march = null; e.kind('guard'); e.reset(); e.place(x * 1.9, G, hz + dz - 2.2, yawTo(-x, 1)); e.st = 'idle'; e.bar.visible = false;
-        e.play('great_sword_run', { fade: 0 }); e.march = { x0: x * 1.9, z0: hz + dz - 2.2, x, z: hz + dz, t: 0, secs: Math.max(0.3, at - 0.08) };
-        setTimeout(() => { if (!gone) { hurl(e, Math.sign(x) * 4.2, -1.2); g.sound.fx('hit', { gap: 0.05 }); g.shake(0.35); g.buzz(25); } }, at * 1000); });
-      director.play([{ secs: 9, cam: { at: v(1.3, 2.3, hz + 4.4), to: v(0.6, 3.0, hz - 2.4), look: v(0, 2.5, hz - 3), lookTo: v(0, 5.6, hz - 12), fov: either(52, 38), secs: 1.9 } }],      // close behind him and after him up the carpet: the breaking through is seen on him
-        () => { gone = true; g.unask(); leave(); });
-      go([[0, hz - 7.4, 1.08, 'fast_run', 1.05]], () => {
-        hero.play('running_jump', { once: true, fade: 0.08 }); g.sound.fx('leap'); g.sound.fx('wing');
-        leapTo = { x0: 0, z0: hz - 7.4, x: 0, z: hz - 15, t: 0, secs: 1.0, up: 6.4, then: () => {} };
-        setTimeout(() => { if (!gone) director.skip(); }, 170);      // cut while he is still rising over the throne
+      const doors = base + CHUNK - 0.7, end = doors - 2.1, pace = 10.5, turnSecs = 0.36, secs = (end - hz) / pace;
+      const road = [[4, -1.3, 5.4], [5, 1.3, 6.6], [6, -1.0, 10.6], [7, 1.1, 11.8], [8, -1.5, 16.2], [9, 1.5, 17.3]];      // guard, x, z from where he stands
+      road.forEach(([i, x, dz]) => {
+        const e = fight.guards[i], at = turnSecs + (dz - 1.2) / pace, run = 0.75, from = Math.min(doors - 1.4, hz + dz + 6.5), wait = Math.max(0, at - 0.08 - run);
+        e.march = null; e.kind('guard'); e.reset(); e.place(x * 1.5, G, from, yawTo(-x * 0.2, -1)); e.st = 'idle'; e.bar.visible = false; e.play('great_sword_idle', { fade: 0 });
+        setTimeout(() => { if (gone) return; e.play('great_sword_run', { fade: 0.12 }); e.march = { x0: x * 1.5, z0: from, x, z: hz + dz, t: 0, secs: at - 0.08 - wait }; }, wait * 1000);
+        setTimeout(() => { if (!gone) { hurl(e, Math.sign(x) * 4.2, 1.5); g.sound.fx('hit', { gap: 0.05 }); g.shake(0.35); g.buzz(25); } }, at * 1000);
       });
+      const c0 = director.camera.position.toArray(), l0 = director.look.toArray(), back = either(6.94, 8.16), high = either(3.37, 4.36);      // where the chase view stands behind him at this size (placeCamera in main.js)
+      let struck = false;
+      const ride = w => {      // from the first moment of his turn the view is on its way: it does not wait among the ranks where it stood
+        const p = hero.root.position, m = (a, b) => a + (b - a) * w;
+        if (!struck && p.z > end - 0.9) { struck = true; g.smash(0, G, doors); }      // the doors give way a moment before the picture is the run's
+        return { at: [m(c0[0], 0), m(c0[1], G + high), m(c0[2], p.z - back)], look: [m(l0[0], 0), m(l0[1], G + 2.25), m(l0[2], p.z + 9)] };
+      };
+      director.play([{ secs: 9, cam: { at: c0, look: l0, ride, fov: either(60, 50), fovTo: either(58, 43.75), secs: turnSecs + secs * 0.72 } }], () => { gone = true; g.unask(); leave(); });
+      hero.play('fast_run', { speed: 1.15, fade: 0.2 }); bars(true);
+      turn = { from: hero.root.rotation.y, to: hero.root.rotation.y + Math.PI, t: 0, secs: turnSecs, then: () => go([[0, end, secs, 'fast_run', 1.15]], () => { if (!gone) director.skip(); }) };
     };
     director.play([
       ...hall,
@@ -437,7 +447,7 @@ export function createStory(g) {
     done, sita, ravana, gate, rematch, yields, grove, meets, wreck, bound, court, brand,
     // Everything of the story put away: a new journey from the gate.
     reset(fresh) {
-      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
+      if (thaw) thaw(); g.hush(false); g.name(null); g.sky(false); hero.root.visible = true; sita.hide(); ravana.hide(); offer(null); brand.visible = false; torch = null; vowT = -1; hero.bind(false); if (fresh) done.lankini = done.challenged = false; aura.stop(); retreat = 0; done.grove = false; done.present = false; trek = null; leapTo = null; turn = null; done.end = false; fight.guards.forEach(e => { e.march = null; }); swell.t = swell.secs = 0; leap.on = false;
     },
     // Called while he runs: does the story take over here? d: metres along the route.
     check(d, fire) {
@@ -476,6 +486,10 @@ export function createStory(g) {
         const m = e.march; m.t += dt; const u = Math.min(1, Math.max(0, m.t / m.secs));
         e.root.position.x = m.x0 + (m.x - m.x0) * u; e.root.position.z = m.z0 + (m.z - m.z0) * u;
         if (u >= 1) { e.march = null; if (!m.stay) { const hp = hero.root.position; e.root.rotation.y = e.yaw = yawTo(hp.x - m.x, hp.z - m.z); e.play('great_sword_idle', { fade: 0.25 }); } }      // stay: thrown down, he lies where he fell
+      }
+      if (turn) {      // he turns where he stands, and then does what follows
+        turn.t += dt; const u = Math.min(1, turn.t / turn.secs); hero.root.rotation.y = turn.from + (turn.to - turn.from) * u * u * (3 - 2 * u);
+        if (u >= 1) { const then = turn.then; turn = null; then(); }
       }
       if (trek) {      // Hanuman on his way from mark to mark
         const m = trek.marks[trek.i], p = hero.root.position; trek.t += dt; const u = Math.min(1, trek.t / m[2]);

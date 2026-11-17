@@ -228,7 +228,7 @@ export function throne(world, chunk, c, r) {
   const g = chunk.group, k = court(world); chunk.fx = [];
   const last = c.n === THRONE.n, Z = THRONE.z, T = THRONE.top;
   g.add(world.part(k.hallGeo[last ? 1 : 0]));
-  if (c.n === 0) g.add(world.part(world.geo.front));
+  if (c.n === 0) g.add(world.part(world.geo.frontShut));      // the doors of his hall are shut on the prisoner: he goes out through them
   // fire in every bowl along the aisle, and light slanting down through the smoke from windows too high to see
   for (const s of [-1, 1]) {
     for (const z of HALL.bowls) if (!last || z > Z + 6.5) {

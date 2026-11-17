@@ -184,7 +184,7 @@ export class World {
     this.geo = {
       bridge: { none: palace.bridgeModule(), gap: palace.bridgeModule(GAP_AT) },
       stairs: { 1: palace.stairsModule(1), [-1]: palace.stairsModule(-1) },
-      court: palace.courtModule(), gate: palace.bellGate(), bell: palace.bell(), hall: palace.hallModule(), front: palace.hallFront(),
+      court: palace.courtModule(), gate: palace.bellGate(), bell: palace.bell(), hall: palace.hallModule(), front: palace.hallFront(), frontShut: palace.hallFront(true),
       table: palace.table(), chain: palace.lampChain(), drum: palace.drum(), rack: palace.rack(), plate: palace.spikePlate(), spikes: palace.spikes(),
       log: palace.spikedLog(), door: palace.dropBeam(),
     };

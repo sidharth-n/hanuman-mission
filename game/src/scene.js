@@ -162,6 +162,7 @@ export class Director {
       this.camera.position.set(o.c[0] + Math.sin(a) * r, o.c[1] + o.y[0] + (o.y[1] - o.y[0]) * u, o.c[2] + Math.cos(a) * r);
     } else this.camera.position.set(c.at[0] + (to[0] - c.at[0]) * u, c.at[1] + (to[1] - c.at[1]) * u, c.at[2] + (to[2] - c.at[2]) * u);
     this.look.set(c.look[0] + (lookTo[0] - c.look[0]) * u, c.look[1] + (lookTo[1] - c.look[1]) * u, c.look[2] + (lookTo[2] - c.look[2]) * u);
+    if (c.ride) { const r = c.ride(u); this.camera.position.set(r.at[0], r.at[1], r.at[2]); this.look.set(r.look[0], r.look[1], r.look[2]); }      // a shot that rides with someone who is moving: its place and its look are worked out afresh each frame
     if (c.face) {      // a shot of one person looks at that person's face, wherever the pose has put it, and follows it gently: never every nod
       const f = c.face(); if (this.faced !== c) { this.faced = c; this.gaze.copy(f); } else this.gaze.lerp(f, 0.05);
       this.look.copy(this.gaze);
