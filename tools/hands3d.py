@@ -81,8 +81,10 @@ def group(o, b):
 
 
 # nail: its colour, or None for a hand without nails. wrist: how far beyond the hand's joint the new hand begins, in
-# knuckle widths (past a bangle). only: 'Left' or 'Right' to make one hand.
-def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0):
+# knuckle widths (past a bangle). only: 'Left' or 'Right' to make one hand. like: 'Left' or 'Right', the hand whose
+# fingers both hands are laid out as (a rigger can leave one hand's finger bones short and curled). long: the fingers
+# made so many times as long as their bones, measured from the knuckle.
+def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0, like=None, long=1.0):
     said = []; mw = o.matrix_world; inv = mw.inverted(); M = arm.matrix_world; made = {}; skins = []
     base = next(n for n in o.data.materials[0].node_tree.nodes if n.type == 'BSDF_PRINCIPLED').inputs['Base Color'].links[0].from_node.image
     tw, th = base.size; px = np.empty(tw * th * 4, 'f'); base.pixels.foreach_get(px); px = px.reshape(th, tw, 4)
@@ -91,7 +93,8 @@ def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0):
     for name in ('Left', 'Right'):
         i1, r1 = bone(arm, name + 'HandIndex1'), bone(arm, name + 'HandRing1')
         if i1 and r1: width[name] = (M @ r1.head_local - M @ i1.head_local).length / 2
-    for name in ('Left', 'Right'):
+    shape = {}      # each made hand's finger joints in its own frame, in knuckle widths
+    for name in sorted(('Left', 'Right'), key=lambda n: n != like):
         if only and name != only: continue
         if width and width.get(name, 0) < 0.6 * max(width.values()): said.append(f'{name.lower()} hand: its finger bones are bunched together ({width.get(name, 0) * 100:.1f} cm between knuckles against {max(width.values()) * 100:.1f}), left as it was'); continue
         B = lambda n: bone(arm, name + 'Hand' + n); hand = B('')
@@ -124,6 +127,9 @@ def hands(o, arm, nail=(0.20, 0.022, 0.032), wrist=0.0, only=None, thick=1.0):
         bmesh.ops.delete(bm, geom=off, context='FACES')
         # 2. the lump comes off at the knuckles; the fingers are set in its place, solid, a little way into the palm
         J = {f: [C(H(c[0])), C(H(c[1])), C(H(c[2])), C(Tl(c[2]))] for f, c in chains.items()}
+        shape[name] = {f: [q / sp for q in J[f]] for f, _, _ in FINGERS}
+        if like and like != name and like in shape: J.update({f: [q * sp for q in shape[like][f]] for f, _, _ in FINGERS})
+        if long != 1.0: J.update({f: [J[f][0]] + [J[f][0] + (q - J[f][0]) * long for q in J[f][1:]] for f, _, _ in FINGERS})
         CUT = min(J[f][0].x for f in ('Index', 'Middle', 'Ring')) - 0.36 * sp
         bmesh.ops.bisect_plane(hb, geom=hb.faces[:] + hb.edges[:] + hb.verts[:], dist=1e-6, plane_co=Vector((CUT, 0, 0)), plane_no=Vector((1, 0, 0)), clear_outer=True)
         bmesh.ops.holes_fill(hb, edges=[e for e in hb.edges if e.is_boundary], sides=0)

@@ -103,8 +103,10 @@ def repaint(o, pictures, parts=('face', 'hand_l', 'hand_r')):
 if __name__ == '__main__' and '--' in sys.argv:
     src, pictures, out, tris, tex, *more = sys.argv[sys.argv.index('--') + 1:]
     arm, o = R.load(src); T.rest(arm)
-    print('STEP', weld(o)); print('STEP', flatten_ornament(o)); print('STEP', ease(o)); print('STEP', repaint(o, pictures))
+    real = 'hands=real' in more; opt = dict(x.split('=') for x in more if '=' in x)
+    print('STEP', weld(o)); print('STEP', flatten_ornament(o)); print('STEP', ease(o))
+    print('STEP', repaint(o, pictures, ('face',) if real else ('face', 'hand_l', 'hand_r')))      # hands that are remade take their colour from her own skin, not from a painted back
     print('STEP', R.slim(o, int(tris), 0.42, fine))
-    if 'hands=real' in more:      # her hands made as hands (tools/hands3d.py)
-        import hands3d; print('STEP', hands3d.hands(o, arm, nail=(0.55, 0.30, 0.27)))
+    if real:      # her hands made as hands (tools/hands3d.py): both laid out as her right, whose finger bones are the longer and straighter
+        import hands3d; print('STEP', hands3d.hands(o, arm, nail=(0.55, 0.30, 0.27), like='Right', long=float(opt.get('long', 1.2)), thick=float(opt.get('thick', 0.92))))
     print('STEP', drape(o, arm)); print('STEP', R.export(arm, out, int(tex), NAMES))
