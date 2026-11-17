@@ -108,5 +108,5 @@ if __name__ == '__main__' and '--' in sys.argv:
     print('STEP', repaint(o, pictures, ('face',) if real else ('face', 'hand_l', 'hand_r')))      # hands that are remade take their colour from her own skin, not from a painted back
     print('STEP', R.slim(o, int(tris), 0.42, fine))
     if real:      # her hands made as hands (tools/hands3d.py): both laid out as her right, whose finger bones are the longer and straighter
-        import hands3d; print('STEP', hands3d.hands(o, arm, nail=(0.55, 0.30, 0.27), like='Right', long=float(opt.get('long', 1.2)), thick=float(opt.get('thick', 0.92))))
+        import hands3d; print('STEP', hands3d.hands(o, arm, nail=(0.55, 0.30, 0.27), like='Right', long=float(opt.get('long', 1.2)), thick=float(opt.get('thick', 1.06))))
     print('STEP', drape(o, arm)); print('STEP', R.export(arm, out, int(tex), NAMES))
