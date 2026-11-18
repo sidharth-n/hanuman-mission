@@ -305,7 +305,7 @@ export class World {
     for (const o of cut) o.frustumCulled = true;
   }
 
-  spawn(name) { const o = this.prefabs[name].clone(); o.userData = this.prefabs[name].userData; return o; }
+  spawn(name) { const o = this.prefabs[name].clone(); o.userData = this.prefabs[name].userData; o.spawned = name; return o; }
   part(geo) { return new THREE.Mesh(geo, this.cityMat); }
 
   sky(models, picture) {

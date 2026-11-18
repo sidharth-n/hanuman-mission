@@ -387,6 +387,8 @@ export function createStory(g) {
     standGuards([[-3.3, tz + 0.6, 0.5], [3.3, tz + 0.6, -0.5]], wardens, T - 0.35);      // on the second step of the dais
     ravana.place(0, G + T + 0.34, tz + 0.62, 0); ravana.play('sit', { fade: 0 });
     g.card('throne');
+    const nandiWay = () => g.clearWay([4.1, tz + 10.4], [8.1, tz + 6.3], 1.7);      // the look at the Nandi by the steps began behind a courtier's back and went through him
+    nandiWay();
     const wide = shot(v(0, 2.3, -THRONE_AT - 3), v(0, 3.2, tz), { to: v(0, 2.0, -THRONE_AT - 15), fov: 56 });
     const crane = shot(v(-5.2, 7, hz + 9), v(0, 2.6, tz), { to: v(-3.4, 5.2, hz + 3), fov: 52 });
     const onRavana = shot(v(1.5, T + 2.0, tz + 4.4), v(0, T + either(2.2, 1.7), tz + 0.4), { to: v(1.1, T + 2.05, tz + 3.7), fov: either(32, 27) });      // close on him: his face and shoulders, the dark red of the throne behind
@@ -397,7 +399,7 @@ export function createStory(g) {
     const sy = HALL.seat, szv = base + HALL.shivaZ, see = (at, look, o, secs) => ({ ...shot(at, look, o), secs });
     const hall = [
       see(v(2.8, sy + 10.2, base - 11.5), v(0, sy + 11.6, szv), { to: v(2.2, sy + 6.4, base - 11), lookTo: v(0, sy + 6.8, szv), fov: 40 }, 3.4),
-      see(v(4.4, 1.5, tz + 9.6), v(8.1, 2.1, tz + 6.3), { to: v(5.0, 1.9, tz + 9.0), fov: 42 }, 2.4),
+      { ...see(v(4.4, 1.5, tz + 9.6), v(8.1, 2.1, tz + 6.3), { to: v(5.0, 1.9, tz + 9.0), fov: 42 }, 2.4), do: nandiWay },      // (again as the look begins: the hall may not have stood yet when the scene was set)
       see(v(-2.6, 0.7, base + 19), v(-5.6, 2.3, base + 8), { to: v(-2.9, 1.2, base + 15.5), lookTo: v(-4.6, 3.4, base - 4), fov: 50 }, 2.8),
       see(v(0, 9.5, base + 21.5), v(0, 7.5, szv), { to: v(0, 3.4, base + 18), lookTo: v(0, 5.5, szv), fov: 62 }, 3.4),
     ];

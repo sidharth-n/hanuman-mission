@@ -124,6 +124,9 @@ async function load() {
     // a great thing broken through in a scene (the doors of Ravana's hall): its pieces thrown on the way he is going
     smash: (x, y, z) => { for (const dx of [-2.6, 0, 2.6]) debris.burst(x + dx, y + (dx ? 2.4 : 4.6), z, 16, 0.6, 10, 0, 7); fight.sparks.floor = y; fight.sparks.burst({ x, y: y + 2.5, z }, 18, [1, 0.6, 0.2], 10, 0, 1); state.shake = Math.max(state.shake, 0.9); sound.fx('smash'); buzz([30, 20, 140]); },
     // the veils of a place (shafts of moonlight, the mist on the grass) put out for a shot that would be taken through them, and lit again after
+    // Nobody of the standing crowd is left in the way of a shot: the courtiers within r of the line from a to b (x, z) are taken out of the hall
+    clearWay: (a, b, r = 1.6) => { const P = new THREE.Vector3(), dx = b[0] - a[0], dz = b[1] - a[1]; for (const c of world.chunks.values()) c.group.traverse(o => { if (o.spawned !== 'courtier') return; o.getWorldPosition(P);
+      const t = Math.max(0, Math.min(1, ((P.x - a[0]) * dx + (P.z - a[1]) * dz) / (dx * dx + dz * dz))); if (Math.hypot(P.x - a[0] - dx * t, P.z - a[1] - dz * t) < r) o.visible = false; }); },
     veil: show => { for (const c of world.chunks.values()) c.group.traverse(o => { if (o.userData.veil) o.visible = show; }); },
     mist: d => { state.thin = d; },      // the air of a place cleared for one shot that looks a long way through it (null: as the place has it)
     moonAt: p => { moon.position.set(...(p || [-18, 40, 36])); },      // and the moon put behind a camera that looks back along the road (null: where it hangs)
@@ -885,6 +888,16 @@ function feet() {
 // fall) and still spoil the moment. What is found is kept as spans: what, in which mode, from when to when, how many frames.
 const faults = []; let audited = 0;
 const _mace = new THREE.Vector3();
+// The lens inside someone who stands in the place (a courtier, a guard): no shot may start in a body or pass through one
+// (Sid, 18 Nov, on the court's opening: "it starts behind someone's vest and the camera goes through that. camera can never pass through objects").
+const _fig = new THREE.Vector3();
+function lensIn() {
+  const c = camera.position; let who = null;
+  const test = (o, name) => { if (who || !o.visible) return; o.getWorldPosition(_fig); const k = o.scale.x || 1; if (Math.hypot(_fig.x - c.x, _fig.z - c.z) < 0.5 * k && c.y > _fig.y - 0.1 && c.y < _fig.y + 2.1 * k) who = name; };
+  for (const ch of world.chunks.values()) if (ch.group.visible && Math.abs(ch.group.position.z - c.z) < 60) ch.group.traverse(o => { if (o.spawned === 'courtier') test(o, 'a courtier'); });
+  if (fight) for (const e of fight.all) test(e.root, 'a guard');
+  return who;
+}
 function audit() {
   const add = what => { const t = +(performance.now() / 1000).toFixed(2), last = faults.findLast(f => f.what === what); if (last && t - last.to < 0.6) { last.to = t; last.frames++; } else faults.push({ what, mode: state.mode, from: t, to: t, frames: 1 }); };
   const c = camera.position;
@@ -897,6 +910,7 @@ function audit() {
   if (!hero.flying && hero.y < 0.02 && !/fall_|rise_|jump|hang|slide|roll|falling/.test(hero.name || '') && feet() > 0.3) add('he is off the road in ' + hero.name);
   if (hero.mace && hero.mace.visible && hero.root.visible && !hero.flying) { const k = hero.root.scale.x, m = hero.maceHeadAt(_mace); if (m.y - hero.maceR * k < groundAt(m.z) - 0.06 * k) add('his mace is under the road in ' + hero.name); }      // whatever he carries stays above the road in every pose
   if (++audited % 6 === 0) for (const line of blocked()) add(line.replace(/ [\d.]+ m .*$/, ''));
+  if (state.mode === 'scene' && audited % 3 === 0) { const who = lensIn(); if (who) add('the lens is inside ' + who); }
 }
 if (debug || import.meta.env.DEV) window.__game = { blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
