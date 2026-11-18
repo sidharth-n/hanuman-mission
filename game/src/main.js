@@ -652,6 +652,9 @@ function placeCamera(dt, snap) {
     lookWant.set(c.x * 0.92, G + 0.9 * fight.s, c.z - (tall ? 0 : 1.6));      // he stands just below the middle of the screen, clear of the thumbs, with room to see a guard coming up behind him
     camera.position.lerp(want, Math.min(1, dt * 4.5)); look.lerp(lookWant, Math.min(1, dt * 5.5));
     fov = tall ? 62 : 50; view.back = back; view.join = 1;
+    // he never goes out under the picture: when a dodge or a throw brings him in beneath the view faster than it follows, it backs away with him, keeping the road he is on above its lower edge
+    { const down = Math.atan2(camera.position.y - look.y, Math.hypot(camera.position.z - look.z, camera.position.x - look.x)) + fov * Math.PI / 360, need = (camera.position.y - G) / Math.tan(Math.min(1.45, down)) + 0.25 * k;      // measured to the road under him: in a roll his body is down on it
+      if (camera.position.z - p.z < need) camera.position.z = p.z + need; }
   } else if (state.mode === 'ready' || state.intro > 0) {
     // title: a slow drift in front of him. On Run the camera sweeps round behind as he takes off.
     const e = state.mode === 'ready' ? 0 : ease(1 - state.intro / INTRO);
