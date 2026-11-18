@@ -299,3 +299,63 @@ body:not(.keys) .controls b { color: var(--quiet); font-weight: 500; max-width: 
 @media (max-height: 520px) { body:not(.keys) .controls { display: none; } }
 body.keys #panel .tablet { width: min(660px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; }
 body.keys .controls { gap: 6px 40px; }
+
+/* The end of a run: the lines that make the score, the score, his place in the world today, the head of the board, his name. */
+.stats[hidden], .rankline[hidden], .board[hidden] { display: none; }
+.score { width: min(440px, 100%); display: flex; flex-direction: column; gap: 8px; pointer-events: auto; }
+.tally div { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 2px; border-bottom: 1px solid rgba(232, 180, 76, .22); font: 600 18px/1.1 var(--text); color: var(--ink); }
+.tally small { margin-left: 8px; font: 500 15px/1 var(--text); color: var(--quiet); }
+.tally b { font: 700 17px/1 var(--head); color: var(--gold-light); font-variant-numeric: tabular-nums; }
+.total { display: flex; justify-content: space-between; align-items: baseline; }
+.total span { font: 700 14px/1 var(--head); letter-spacing: .24em; text-transform: uppercase; color: var(--quiet); }
+.total b { font: 900 44px/1 var(--head); color: var(--gold); text-shadow: 0 1px 0 var(--gold-light), 0 2px 0 var(--gold-shadow), 0 4px 12px #000; font-variant-numeric: tabular-nums; }
+.rankline { display: flex; align-items: center; gap: 14px; padding: 9px 14px; border: 1px solid var(--gold-deep); border-radius: 8px; background: linear-gradient(90deg, rgba(232, 180, 76, .26), rgba(232, 180, 76, .04)); }
+.rankline b { font: 900 36px/1 var(--head); color: var(--gold-light); }
+.rankline p { margin: 0; font: 600 18px/1.15 var(--text); color: var(--ink); } .rankline small { display: block; font: italic 500 16px/1.2 var(--text); color: var(--quiet); }
+.board { border: 1px solid rgba(176, 122, 36, .7); border-radius: 8px; background: rgba(16, 12, 9, .78); overflow: hidden; }
+.brow { display: grid; grid-template-columns: 30px 24px 1fr auto; align-items: center; gap: 4px; padding: 7px 12px; border-bottom: 1px solid rgba(255, 255, 255, .07); }
+.brow:last-child { border-bottom: 0; } .brow i { font: 700 14px/1 var(--head); font-style: normal; color: var(--quiet); } .brow u { text-decoration: none; font-size: 15px; line-height: 1; }
+.brow span { font: 600 18px/1.1 var(--text); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .brow span small { margin-left: 6px; font: italic 500 14px/1 var(--text); color: var(--quiet); }
+.brow b { font: 700 16px/1 var(--head); color: var(--gold-light); font-variant-numeric: tabular-nums; }
+.brow.me { background: linear-gradient(90deg, rgba(255, 138, 42, .36), rgba(255, 138, 42, .08)); box-shadow: inset 0 0 0 1px var(--flame); } .brow.me i, .brow.me span { color: #fff; }
+.board .gap { padding: 0 12px; color: var(--quiet); font: 600 14px/1.2 var(--text); }
+.namerow { display: flex; align-items: center; justify-content: space-between; gap: 10px; } .namerow span { font: 500 16px/1 var(--text); color: var(--quiet); }
+.namerow input { width: 10.5em; padding: 8px 10px; font: 600 18px/1 var(--text); color: var(--ink); background: rgba(16, 12, 9, .85); border: 1px solid var(--gold-deep); border-radius: 6px; outline: none; user-select: text; -webkit-user-select: text; touch-action: none; }
+.namerow input:focus { border-color: var(--gold-light); }
+@media (max-height: 560px) { .tally, #mini { display: none; } .total b { font-size: 32px; } .rankline { padding: 5px 12px; } .rankline b { font-size: 28px; } }
+
+/* The leaderboard: three on plinths, the ranks below, his own place always in view. One column on a phone; on a wide screen the
+   plinths and his place stand on the left and the ranks on the right. */
+.link { margin-top: 2px; padding: 8px 14px; background: none; border: 0; font: 700 13px/1 var(--head); letter-spacing: .18em; text-transform: uppercase; color: var(--gold-light); text-decoration: underline; text-underline-offset: 4px; pointer-events: auto; }
+#board { padding: calc(14px + var(--top, 0px)) 16px calc(14px + var(--bottom)); }
+.bwrap { width: min(440px, 100%); display: flex; flex-direction: column; gap: 10px; pointer-events: auto; }
+.bhead { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; } .bhead h2 { margin: 0; }
+.closes { margin: 4px 0 0; font: italic 500 16px/1 var(--text); color: var(--quiet); min-height: 16px; }
+.tabs { display: flex; gap: 6px; } .tabs button { padding: 8px 14px; font: 700 12px/1 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--quiet); background: rgba(20, 14, 8, .6); border: 1px solid var(--gold-deep); border-radius: 5px; }
+.tabs button.on { color: #1c1206; background: linear-gradient(#f3cf78, #c98e2c); border-color: #f3cf78; }
+.bleft { display: contents; }
+.podium { display: grid; grid-template-columns: 1fr 1.16fr 1fr; align-items: end; gap: 6px; order: 1; }
+.pl { text-align: center; min-width: 0; --metal: #dfe4ee; --glow: rgba(200, 210, 230, .4); } .pl.p1 { --metal: #fbe7ae; --glow: rgba(232, 180, 76, .7); } .pl.p3 { --metal: #e0a070; --glow: rgba(210, 130, 70, .4); }
+.pl .medal { position: relative; width: 62px; height: 62px; margin: 0 auto; } .pl.p1 .medal { width: 82px; height: 82px; }
+.pl .medal svg { width: 100%; height: 100%; filter: drop-shadow(0 0 6px var(--glow)); } .pl .medal b { position: absolute; inset: 0; display: grid; place-items: center; font: 900 24px/1 var(--head); color: var(--metal); text-shadow: 0 1px 3px #000; } .pl.p1 .medal b { font-size: 32px; }
+.pl .name { margin-top: 5px; font: 700 18px/1.05 var(--text); color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .pl.p1 .name { font-size: 21px; } .pl.me .name { color: var(--flame); }
+.pl .ttl { margin-top: 2px; font: italic 500 13px/1 var(--text); color: var(--quiet); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pl .plinth { margin-top: 7px; padding-top: 9px; height: 36px; border: 1px solid var(--metal); border-bottom: 0; border-radius: 5px 5px 0 0; background: linear-gradient(rgba(255, 255, 255, .10), rgba(20, 14, 8, .75)); font: 800 17px/1 var(--head); color: var(--metal); font-variant-numeric: tabular-nums; }
+.pl.p1 .plinth { height: 58px; } .pl.p2 .plinth { height: 46px; }
+#ranks { order: 2; margin-top: -10px; border-top-left-radius: 0; border-top-right-radius: 0; } #ranks .gap { padding: 14px 12px; text-align: center; font: italic 500 16px/1.2 var(--text); }
+#ranks .brow:nth-child(n+6) { display: none; }
+.standing { order: 3; margin: 0; text-align: center; font: italic 500 15px/1.1 var(--text); color: var(--quiet); }
+.mine { order: 4; display: flex; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--flame); border-radius: 8px; background: linear-gradient(90deg, rgba(255, 138, 42, .34), rgba(40, 22, 10, .9)); }
+.mine[hidden] { display: none; } .mine > b { font: 900 30px/1 var(--head); color: #fff; } .mine p { margin: 0; flex: 1; font: 600 18px/1.1 var(--text); color: var(--ink); } .mine p small { display: block; margin-top: 3px; font: italic 500 15px/1.1 var(--text); color: var(--gold-light); } .mine > em { font: 800 18px/1 var(--head); font-style: normal; color: var(--gold-light); }
+#boardBack { order: 5; align-self: center; }
+@media (min-height: 780px) { #ranks .brow:nth-child(n+6) { display: grid; } #ranks .brow:nth-child(n+9) { display: none; } }
+@media (max-height: 560px) and (max-width: 899px) { .podium, .standing { display: none; } #ranks { margin-top: 0; border-radius: 8px; } #ranks .brow:nth-child(n+4) { display: none; } }
+@media (min-width: 900px) and (min-height: 600px) {
+  .bwrap { width: min(1040px, 100%); display: grid; grid-template-columns: 1fr 1.1fr; grid-template-rows: auto 1fr; gap: 18px 56px; align-items: start; }
+  .bhead { grid-column: 1 / -1; flex-direction: row; justify-content: space-between; text-align: left; } .bhead h2 { text-align: left; }
+  .bleft { display: flex; flex-direction: column; gap: 14px; } .podium { border-bottom: 1px solid rgba(232, 180, 76, .7); padding: 0 8px; gap: 10px; }
+  .pl .medal { width: 84px; height: 84px; } .pl.p1 .medal { width: 110px; height: 110px; } .pl .name { font-size: 22px; } .pl.p1 .name { font-size: 26px; } .pl .ttl { font-size: 16px; } .pl .plinth { height: 44px; font-size: 20px; } .pl.p1 .plinth { height: 72px; } .pl.p2 .plinth { height: 58px; }
+  #ranks { margin-top: 0; border-radius: 8px; } #ranks .brow { padding: 11px 18px; } #ranks .brow:nth-child(n) { display: grid; }
+  .standing { font-size: 18px; } #boardBack { align-self: stretch; }
+}
+.brow span, .mine p, .tally span, .rankline p { text-align: left; }

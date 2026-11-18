@@ -30,7 +30,7 @@ function reckon(row, b, now) {
   const secs = (now - row.t0) / 1000, sec = row.sec;
   const done = !!b.done && sec >= SECS - 1 && secs >= 150;
   const dist = Math.min(int(b.dist, 0, ROUTE), done ? ROUTE : SEC_END[sec] + 24, Math.floor(secs * 18));
-  const lamps = Math.min(int(b.lamps, 0, 5000), Math.floor(dist * 0.34) + 5);
+  const lamps = Math.min(int(b.lamps, 0, 5000), Math.floor(dist * 0.65) + 10);
   // a fight counts as won only when the place beyond it has been reached: the city past Lankini, the halls past the court's guards, the throne past the grove
   const won = Math.min(int(b.won, 0, FIGHTS), sec >= 7 ? 3 : sec >= 5 ? 2 : sec >= 1 ? 1 : 0), falls = int(b.falls, 0, 99);
   const lines = { lamps: lamps * POINTS.lamp, dist: dist * POINTS.metre, fights: Math.max(0, won * POINTS.fight - falls * POINTS.fall), burned: done ? POINTS.burned : 0 };
@@ -95,11 +95,12 @@ export async function onRequest({ request, env, waitUntil }) {
         const up = 'INSERT INTO best (day, pid, name, cc, title, score, ts) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) ON CONFLICT (day, pid) DO UPDATE SET score = excluded.score, ts = excluded.ts, name = excluded.name, cc = excluded.cc, title = excluded.title WHERE excluded.score > best.score';
         await db.batch([
           db.prepare('UPDATE runs SET ts = ?, score = ?, lamps = ?, dist = ?, won = ?, falls = ?, done = ?, name = ?, title = ? WHERE id = ?').bind(now, r.score, r.lamps, r.dist, r.won, r.falls, r.done, name, title, row.id),
-          db.prepare(up).bind(day, row.pid, name, row.cc || cc, title, r.score, now), db.prepare(up).bind('all', row.pid, name, row.cc || cc, title, r.score, now),
-          db.prepare('UPDATE best SET name = ?1 WHERE pid = ?2 AND day IN (?3, ?4)').bind(name, row.pid, day, 'all')]);
+          db.prepare(up).bind(day, row.pid, name, row.cc || cc, title, r.score, now), db.prepare(up).bind('all', row.pid, name, row.cc || cc, title, r.score, now)]);
       }
+      await db.prepare('UPDATE best SET name = ?1 WHERE pid = ?2 AND day IN (?3, ?4) AND name <> ?1').bind(name, row.pid, day, 'all').run();      // a name changed on the end screen is changed on the board
       const fresh = await board(db, now);
-      return json({ ...r, name, title, me: { today: await place(db, day, row.pid), all: await place(db, 'all', row.pid) }, board: fresh });
+      const kept = r.score > row.score ? r : { lamps: row.lamps, dist: row.dist, won: row.won, falls: row.falls, done: row.done, score: row.score };      // what this run stands at on the board
+      return json({ ...r, best: kept.score, name, title, cc: row.cc || cc, me: { today: await place(db, day, row.pid), all: await place(db, 'all', row.pid) }, board: fresh });
     }
     return no('no such thing', 404);
   } catch (e) { return no('the scores are resting: ' + String(e && e.message).slice(0, 120), 500); }

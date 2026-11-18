@@ -119,6 +119,7 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
   </div>
   <div class="group">
     <button id="go" class="plaque">Play</button>
+    <button id="openBoard" class="plaque quiet">Leaderboard</button>
     <button id="openSettings" class="plaque quiet">Settings</button>
     <p class="hint" id="howLine">Swipe left or right to change lane, up to jump, down to slide</p>
   </div>
@@ -140,14 +141,30 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
 
 <section id="result" class="veil dim" hidden>
   <h2 id="resultTitle" class="logo small">Captured</h2>
-  <div class="tablet stats">
+  <div class="tablet stats" hidden>
     <div class="stat"><span>Distance</span><b id="rDist">0</b></div>
     <div class="stat"><span>Lamps</span><b id="rLamps">0</b></div>
     <div class="stat"><span id="rThirdLabel">Best</span><b id="rThird">0</b></div>
   </div>
+  <div class="score">
+    <div id="tally" class="tally"></div>
+    <div class="total"><span>Score</span><b id="total">0</b></div>
+    <div id="rankLine" class="rankline" hidden><b></b><p></p></div>
+    <div id="mini" class="board" hidden></div>
+    <label class="namerow"><span>Your name</span><input id="name" maxlength="12" autocomplete="off" autocapitalize="words" spellcheck="false" enterkeyhint="done" placeholder="Vanara"></label>
+  </div>
   <p class="hint" id="fromLine" hidden></p>
   <p class="hint" id="shareLine" hidden>Liked it? Share it with your friends.</p>
   <div class="acts"><button id="share" class="plaque" hidden>Share</button><button id="again" class="plaque">Run again</button><button id="home" class="plaque quiet">Home</button></div>
+  <button id="seeBoard" class="link">Leaderboard</button>
+</section>
+
+<section id="board" class="veil dim" hidden>
+  <div class="bwrap">
+    <div class="bhead"><div><h2 class="logo small">Leaderboard</h2><p id="closes" class="closes"></p></div><div class="tabs" id="tabs"><button data-v="today" class="on">Today</button><button data-v="all">All time</button></div></div>
+    <div class="bleft"><div class="podium" id="podium"></div><p class="standing" id="standing"></p><div class="mine" id="mine"></div><button id="boardBack" class="plaque">Back</button></div>
+    <div class="board" id="ranks"></div>
+  </div>
 </section>
 <script type="module" src="/src/main.js"></script>
 </body>

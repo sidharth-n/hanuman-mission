@@ -18,7 +18,7 @@ export function listen(target, on) {
   target.addEventListener('pointerup', end);
   target.addEventListener('pointercancel', () => { start = null; });
   const KEYS = { ArrowLeft: 'left', a: 'left', ArrowRight: 'right', d: 'right', ArrowUp: 'up', w: 'up', ' ': 'up', ArrowDown: 'down', s: 'down', Enter: 'tap', g: 'giant', f: 'fly', Shift: 'fly' };
-  window.addEventListener('keydown', e => { const k = KEYS[e.key]; if (k && !e.repeat) { e.preventDefault(); on(k); } });
+  window.addEventListener('keydown', e => { if (e.target && e.target.tagName === 'INPUT') return; const k = KEYS[e.key]; if (k && !e.repeat) { e.preventDefault(); on(k); } });
 }
 
 // The fight's controls, laid out the way action games on a phone lay them out: a thumb stick on the left that comes to

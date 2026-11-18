@@ -14,6 +14,7 @@ import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen, fightControls } from './input.js';
 import { createSound } from './sound.js';
+import { createScores, reckon, flag, seal } from './scores.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
@@ -30,7 +31,7 @@ const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d120
 const SKY_LIGHT = new THREE.Color(0x7f95d8), LAMP_LIGHT = new THREE.Color(0xd9a25e), FIRE_LIGHT = new THREE.Color(0xff9a5a), MOON_LIGHT = new THREE.Color(0xb4c4ff), tint = new THREE.Color();
 
 const $ = id => document.getElementById(id);
-const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
+const ui = { board: $('board'), loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
   hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant'),
   pad: $('pad'), strike: $('strike'), dodge: $('dodge'), card: $('card'), fade: $('fade') };
 // what the player chose last time, kept on the device
@@ -143,7 +144,7 @@ async function load() {
     name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
     // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
     sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
-    finish: () => { credits(-1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('shareLine').hidden = $('share').hidden = false; } });
+    finish: () => { credits(-1); tally.done = true; scores.mark(SECTIONS.length - 1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('shareLine').hidden = $('share').hidden = false; } });
   lanka = createLanka(scene, world.flameTex); debris = new Debris(scene);
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
@@ -164,7 +165,7 @@ async function load() {
 
 // One full-screen layer at a time: 'loading' | 'menu' | 'panel' | 'result', or none while running.
 function screen(name) {
-  for (const k of ['loading', 'menu', 'panel', 'result']) ui[k].hidden = k !== name;
+  for (const k of ['loading', 'menu', 'panel', 'result', 'board']) ui[k].hidden = k !== name;
   const inRun = state.mode === 'run' || state.mode === 'paused' || state.mode === 'fight';
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
   const inFight = inRun && fight && fight.active;      // the fight's own controls
@@ -240,6 +241,59 @@ function share() {
   else said(SHARE.url.replace('https://', ''));
 }
 
+// The end of a run, reckoned. The lines add up to the score at once, by the rule the scores service uses; the service's own
+// reckoning replaces them when it answers, with his place in the world today and the head of the board.
+const scores = createScores(store), tally = { won: new Set(), falls: 0, done: false, far: 0, send: null };
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';'), num = n => Math.round(n).toLocaleString('en-US');
+const rowHTML = (r, rank, me) => `<div class="brow${me ? ' me' : ''}"><i>${rank}</i><u>${flag(r.cc)}</u><span>${esc(r.name)}${me ? ' (you)' : ''}<small>${esc(r.title || '')}</small></span><b>${num(r.score)}</b></div>`;
+function showTally(r) {
+  const L = r.lines, rows = [['Lamps', r.lamps, L.lamps], ['Distance', num(r.dist) + ' m', L.dist], ['Fights', `${r.won} won${r.falls ? `, ${r.falls} ${r.falls === 1 ? 'fall' : 'falls'}` : ''}`, L.fights]];
+  if (L.burned) rows.push(['Lanka burned', '', L.burned]);
+  $('tally').innerHTML = rows.map(([k, d, v]) => `<div><span>${k}<small>${d}</small></span><b>${num(v)}</b></div>`).join('');
+  const el = $('total'), from = +el.dataset.v || 0, to = r.score, t0 = performance.now(); el.dataset.v = to;
+  const tick = () => { const u = Math.min(1, (performance.now() - t0) / 700); el.textContent = num(from + (to - from) * (1 - (1 - u) ** 3)); if (u < 1 && +el.dataset.v === to) requestAnimationFrame(tick); };
+  tick();
+}
+function showPlace(a) {
+  const me = a.me && a.me.today, line = $('rankLine'), rows = a.board.today.rows;
+  line.hidden = !me; if (!me) return;
+  line.firstElementChild.textContent = '#' + me.rank;
+  line.lastElementChild.innerHTML = `in the world today<small>${me.next ? `${num(me.next.gap)} more to pass ${esc(me.next.name)}` : me.total > 1 ? 'No one is ahead of you' : 'The first on the board today'}</small>`;
+  const mine = { name: me.name, title: me.title, score: me.score, cc: a.cc };
+  $('mini').innerHTML = rows.slice(0, 3).map((r, i) => rowHTML(r, i + 1, me.rank === i + 1)).join('') + (me.rank > 3 ? (me.rank > 4 ? '<div class="gap">· · ·</div>' : '') + rowHTML(mine, me.rank, true) : '');
+  $('mini').hidden = false;
+}
+function tallyUp() {
+  if (!tally.done) tally.falls++;
+  tally.far = Math.max(tally.far, tally.done ? END_AT : state.dist);
+  const stats = { lamps: state.gold, dist: Math.round(tally.far), won: tally.won.size, falls: tally.falls, done: tally.done };
+  $('total').dataset.v = 0; $('rankLine').hidden = $('mini').hidden = true; showTally(reckon(stats));
+  tally.send = () => scores.submit({ ...stats, name: $('name').value.trim() || 'Vanara', title: 'Hanuman' }).then(a => { if (ui.result.hidden) return; showTally(a); showPlace(a); }).catch(() => {});
+  tally.send();
+}
+
+// The leaderboard: today's board (the day as India counts it) and the board of all time. Three on plinths, the ranks below,
+// his own place always in view. Opened from the title and from the end of a run; Back returns to where it was opened.
+const lb = { data: null, tab: 'today', from: 'menu' };
+function drawBoard() {
+  const d = lb.data, b = d && d[lb.tab], me = d && d.me && d.me[lb.tab];
+  for (const t of $('tabs').children) t.classList.toggle('on', t.dataset.v === lb.tab);
+  if (!b) { $('podium').innerHTML = ''; $('ranks').innerHTML = `<div class="gap">${d === false ? 'The board cannot be reached just now.' : 'Reading the board…'}</div>`; $('standing').textContent = $('closes').textContent = ''; $('mine').hidden = true; return; }
+  const h = Math.floor(d.closes / 3600000), m = Math.floor(d.closes % 3600000 / 60000);
+  $('closes').textContent = lb.tab === 'today' ? `Today's board closes in ${h} h ${m} m` : 'The best run of every player, since the first';
+  const mine = r => me && r.name === me.name && r.score === me.score, metal = ['#fbe7ae', '#dfe4ee', '#e0a070'];
+  $('podium').innerHTML = [1, 0, 2].map(i => { const r = b.rows[i];
+    return `<div class="pl p${i + 1}${r && mine(r) ? ' me' : ''}"><div class="medal">${seal(r ? r.name + r.score : 'empty' + i, metal[i])}<b>${i + 1}</b></div><div class="name">${r ? flag(r.cc) + ' ' + esc(r.name) : '&nbsp;'}</div><div class="ttl">${r ? esc(r.title || '') : 'not yet taken'}</div><div class="plinth">${r ? num(r.score) : '—'}</div></div>`; }).join('');
+  $('ranks').innerHTML = b.rows.slice(3).map((r, i) => rowHTML(r, i + 4, mine(r))).join('') || `<div class="gap">${b.rows.length ? 'The ranks below are open.' : 'No one has run yet. Be the first.'}</div>`;
+  $('standing').textContent = b.total ? `${num(b.total)} ${b.total === 1 ? 'player is' : 'players are'} on this board` : '';
+  $('mine').hidden = false;
+  $('mine').innerHTML = me ? `<b>#${me.rank}</b><p>Your best ${lb.tab === 'today' ? 'today' : 'of all time'}<small>${me.next ? `${num(me.next.gap)} more to pass ${esc(me.next.name)}` : 'No one is ahead of you'}</small></p><em>${num(me.score)}</em>` : `<p>You are not on this board yet<small>Finish a run from the gate to take a place</small></p>`;
+}
+function openBoard(from) {
+  lb.from = from; lb.data = null; drawBoard(); screen('board');
+  scores.board().then(d => { lb.data = d; }).catch(() => { lb.data = false; }).then(() => { if (!ui.board.hidden) drawBoard(); });
+}
+
 function result(title, thirdLabel, third) {
   const best = Math.max(+store.get('best', 0), Math.round(state.dist)); store.set('best', best);
   $('resultTitle').textContent = title; $('rDist').textContent = Math.round(state.dist).toLocaleString(); $('rLamps').textContent = state.gold;
@@ -247,14 +301,16 @@ function result(title, thirdLabel, third) {
   // caught beyond the first stretch: the next run takes up from the start of the place he had reached
   if (state.dist >= END_AT) { state.from = 0; state.kept = null; }
   $('shareLine').hidden = $('share').hidden = true;      // offered only when the tale is told to its end
+  ui.card.hidden = true;
   $('again').textContent = state.retry ? 'Fight again' : state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.retry ? 'Straight back to the fight' : state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = !state.retry && state.from === 0;
-  state.mode = 'ready'; sound.stop(); screen('result');
+  state.mode = 'ready'; sound.stop(); screen('result'); tallyUp();
 }
 
 // from: the section the run takes up from (0 = the gate). What he carried when he reached it is given back.
 function start(from = 0, fresh = false, straight = false) {
   if (typeof from !== 'number') from = 0;
   state.retry = null; teach(null); nudge(null);
+  if (from === 0) { tally.won.clear(); tally.falls = 0; tally.done = false; tally.far = 0; scores.begin(); }      // a run begun at the gate is a new run on the board: it asks for its ticket
   if (fresh || from === 0) lesson.known.clear();      // a game begun from the title or from the gate is taught again: each arrow once
   story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; state.held = null; ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
@@ -413,6 +469,7 @@ function endFight(how) {
     state.retry = then ? 'boss' : 'guards';      // thrown down: the next try begins at this fight itself, nothing before it
     return caught(true);      // he stays where he fell, among them, until the next run
   }
+  tally.won.add(state.sec || 0);      // one fight won in this place, however often it was tried
   sound.fx('power'); buzz([40, 40, 120]);
   if (then) return then(how);      // the story goes on from here
   say(STORY.alerts.cleared, 2.4); resumeRun();
@@ -473,7 +530,7 @@ function rules(dt) {
   // each new place along the route is named as he enters it, and becomes where the next run takes up from
   const sec = SECTIONS.findLastIndex(s => state.dist >= s.from);
   if (sec > state.sec) {
-    state.sec = sec; state.from = sec; state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
+    scores.mark(sec); state.sec = sec; state.from = sec; state.kept = { gold: state.gold, meter: state.meter, wind: state.wind };
     if (!SECTIONS[sec].fire) card(SECTIONS[sec].id);
   }
   if (!state.fought && !state.fire && !explore && state.dist >= FIGHT_AT && state.dist < FIGHT_MID + 6) { state.fought = true; return startFight(); }
@@ -824,6 +881,9 @@ function press2(id, fn) {
 const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
 if (!phone) { document.body.classList.add('keys'); $('howLine').innerHTML = `${cap('←', '→')} change lane &nbsp; ${cap('↑')} leap &nbsp; ${cap('↓')} slide`; }
 $('controls').innerHTML = '<h3>Controls</h3>' + CONTROLS.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
+{ const el = $('name'); el.value = store.get('name', ''); el.addEventListener('change', () => { el.value = el.value.trim().slice(0, 12); store.set('name', el.value); if (tally.send && !ui.result.hidden) tally.send(); }); }      // the name he gives is kept, and changed on the board at once
+press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('result')); press('boardBack', () => screen(lb.from));
+for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
 press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
@@ -846,6 +906,7 @@ press('mute', () => { sound.toggle(); showSound(); sound.fx('tap'); }); showSoun
 press('vib', () => { settings.vib = !settings.vib; store.set('vib', settings.vib ? 'on' : 'off'); showSettings(); buzz(40); });
 showSettings();
 window.addEventListener('keydown', e => {
+  if (e.target && e.target.tagName === 'INPUT') { if (e.key === 'Enter') e.target.blur(); return; }      // typing a name is not playing
   if (state.asking && (e.key === 'Enter' || e.key === 'y' || e.key === 'Y' || e.key === ' ')) { e.preventDefault(); return state.asking(); }
   if (e.key === 'Enter' && (!ui.menu.hidden || !ui.result.hidden)) start(ui.menu.hidden ? state.from : startAt, !ui.menu.hidden);
   if (e.key === 'Escape' || e.key === 'p') { if (state.mode === 'run') pause(); else if (state.mode === 'paused') resume(); }
@@ -952,6 +1013,6 @@ function audit() {
   if (++audited % 6 === 0) for (const line of blocked()) add(line.replace(/ [\d.]+ m .*$/, ''));
   if (state.mode === 'scene' && audited % 3 === 0) { const who = lensIn(); if (who) add('the lens is inside ' + who); }
 }
-if (debug || import.meta.env.DEV) window.__game = { blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { tally, scores, endRun: result, blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
 if (debug && query.has('film')) import('./film.js').then(m => { film = m.createFilm({ renderer, scene, camera, hemi, moon, state, hero: () => hero, world: () => world, director: () => director }); window.__game.film = film; });
