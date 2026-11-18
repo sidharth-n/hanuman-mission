@@ -882,6 +882,7 @@ function feet() {
 // Every frame of a test is judged, not a sample of them: a bad view can last two frames (one did, at the cut to a held
 // fall) and still spoil the moment. What is found is kept as spans: what, in which mode, from when to when, how many frames.
 const faults = []; let audited = 0;
+const _mace = new THREE.Vector3();
 function audit() {
   const add = what => { const t = +(performance.now() / 1000).toFixed(2), last = faults.findLast(f => f.what === what); if (last && t - last.to < 0.6) { last.to = t; last.frames++; } else faults.push({ what, mode: state.mode, from: t, to: t, frames: 1 }); };
   const c = camera.position;
@@ -892,6 +893,7 @@ function audit() {
     if (Math.abs(n.x) > 1.02 || Math.abs(n.y) > 1.02 || n.z > 1) add('Hanuman out of the picture');
   }
   if (!hero.flying && hero.y < 0.02 && !/fall_|rise_|jump|hang|slide|roll|falling/.test(hero.name || '') && feet() > 0.3) add('he is off the road in ' + hero.name);
+  if (hero.mace && hero.mace.visible && hero.root.visible && !hero.flying) { const k = hero.root.scale.x, m = hero.maceHeadAt(_mace); if (m.y - hero.maceR * k < groundAt(m.z) - 0.06 * k) add('his mace is under the road in ' + hero.name); }      // whatever he carries stays above the road in every pose
   if (++audited % 6 === 0) for (const line of blocked()) add(line.replace(/ [\d.]+ m .*$/, ''));
 }
 if (debug || import.meta.env.DEV) window.__game = { blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,

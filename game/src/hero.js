@@ -125,7 +125,7 @@ export class Hero {
     const unit = 1 / hand.getWorldScale(new THREE.Vector3()).x;          // the skeleton may be in other units than metres
     grip.scale.setScalar(unit); grip.position.set(0, 0.09 * unit, 0.03 * unit); grip.rotation.set(0, 0, -Math.PI / 2);      // hammer grip: head up when the forearm is level
     hand.add(grip); this.mace = grip; this.maceUnit = unit; this.maceRest = grip.quaternion.clone(); this.maceAt = grip.position.clone();
-    this.maceR = Math.max(size.x, size.z) * 0.5 * length / size.y;      // half the breadth of its head: lying on the road, it lies that far above it
+    this.maceR = Math.max(size.x, size.z) * 0.5 * length / size.y; this.maceHead = 0.7 * length - this.maceR;      // half the breadth of its head: lying on the road, it lies that far above it
   }
 
   reset() {
@@ -224,6 +224,7 @@ export class Hero {
     this.poseFlight();
     this.poseProne();
     this.dropMace();
+    this.restMace();
     this.join(dt);
     this.offer.update(dt);      // something held out in his open hand, in a scene
     this.joinEnd();
@@ -288,6 +289,18 @@ export class Hero {
     m.position.copy(this.maceAt).lerp(_a, w); m.quaternion.slerp(_q, w); this.maceDown = true;
   }
 
+  // In every other pose the head of the mace is kept off the road: where a clip would put it through the paving (thrown on his
+  // back, rolling, getting up) it is turned up about his grip, keeping its heading, until it rests on the road.
+  restMace() {
+    const m = this.mace; if (!m || !m.visible || this.prone > 0 || this.flying || !this.maceHead) return;
+    const k = this.root.scale.x, ground = this.root.position.y + Math.max(0, this.floor), r = this.maceR * k;
+    m.updateWorldMatrix(true, false); m.getWorldPosition(_a); this.maceHeadAt(_b);
+    if (_b.y - r >= ground) return;
+    const t = Math.min(1, (ground + r - _a.y) / (this.maceHead * k)), c = Math.sqrt(Math.max(0, 1 - t * t));
+    _b.sub(_a); _b.y = 0; const h = _b.length(); if (h < 1e-4) _b.set(1, 0, 0); else _b.multiplyScalar(1 / h);
+    aim(m, null, _t.set(_b.x * c, t, _b.z * c), 1);
+  }
+
   poseFlight() {
     const w = this.fly * this.fly * (3 - 2 * this.fly);
     if (this.mace) this.mace.quaternion.copy(this.maceRest);
@@ -335,6 +348,9 @@ export class Hero {
     }
     this.ropes.visible = on; if (this.mace) this.mace.visible = !on;
   }
+
+  // The middle of the mace's head in the world (the game's own check that it is never under the road).
+  maceHeadAt(v) { this.mace.updateWorldMatrix(true, false); return v.set(0, this.maceHead, 0).applyMatrix4(this.mace.matrixWorld); }
 
   // The head of the mace and its grip in the world, for the bright trail a swing leaves.
   maceEnds(tip, base) {
