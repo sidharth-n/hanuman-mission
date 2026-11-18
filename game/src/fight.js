@@ -24,6 +24,7 @@ export const PLANS = {
 const FALL = { clip: 'fall_flying_back', speed: 1.35, land: 0.9 }, KIP = { clip: 'rise_kip_up', from: 0.3, end: 2.0, speed: 1.6, slow: 1.3 };
 const PACE = 5.8;                       // how fast he moves under the stick, metres a second
 const RING = 3.1;                       // how far the guards who are waiting stand off from him
+const HIGH = 1.85;                      // how tall he stands at his own size: his health bar rides that far over his feet, and a little more
 const GOLD = [1, 0.74, 0.3], WHITE = [1, 0.95, 0.82], RED = [1, 0.25, 0.12];
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();
@@ -124,6 +125,10 @@ export class Fight {
     // the ring of light that runs out over the ground from the mace's great blow
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 56).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffc860, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide }));
     this.ring.visible = false; this.ring.frustumCulled = false; this.scene.add(this.ring); this.blast = null;
+    // his own health, over his head as theirs is over theirs: the same bar, green where theirs are red; not shown while a fall is held
+    // (Sid, 18 Nov: "place the health bar of Hanuman as the other guards... do not show it in cinematic cuts... maybe in a different colour")
+    const hb = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x1a0d08, depthTest: false, fog: false, transparent: true, opacity: 0.85 })), hf = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x4fd872, depthTest: false, fog: false }));
+    hb.renderOrder = 10; hf.renderOrder = 11; this.health = new THREE.Group(); this.health.add(hb, hf); this.health.visible = false; this.scene.add(this.health); this.hb = hb; this.hf = hf;
     const add = g => { g.trail = new Trail(this.scene, [1, 0.42, 0.24]); this.scene.add(g.root); return g; };
     this.guards = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map(() => add(new Guard(this.gltf, this.sword)));      // ten: the ring that closes round him in the grove
     // Lankini fights with a great sword, in the guards' own way: far stronger, and she does not fall back from a light blow
@@ -174,7 +179,7 @@ export class Fight {
 
   // Everything put away: a new run, or back to the title.
   clear() {
-    this.active = false; this.over = null; this.result = null; this.nextT = 0; this.stick.x = this.stick.y = 0; this.cine = null; this.blast = null; this.ring.visible = false;
+    this.active = false; this.over = null; this.result = null; this.nextT = 0; this.stick.x = this.stick.y = 0; this.cine = null; this.blast = null; this.ring.visible = false; this.health.visible = false;
     for (const g of this.all) { g.reset(); g.trail.clear(); }
     this.heroTrail.clear(); this.hero.free = false; this.hero.root.rotation.y = 0;
   }
@@ -354,9 +359,18 @@ export class Fight {
   }
 
   // ── every frame of the fight. dt: game time; real: clock time (the fight's short freezes are in clock time) ──
+  // His bar: over his head, as wide as the bar of the one he fights (Lankini's when he has grown to meet her).
+  healthBar() {
+    const on = this.active && !this.cine && this.lives > 0; this.health.visible = on; if (!on) return;
+    const p = this.hero.root.position, S = this.s, big = S > 1.5, wide = big ? 2.2 : 0.9;
+    this.health.position.set(p.x, p.y + HIGH * S + 0.42, p.z);
+    this.hb.scale.set(wide, big ? 0.16 : 0.1, 1); this.hf.scale.set((wide - 0.04) * this.lives / this.full, big ? 0.11 : 0.06, 1);
+  }
+
   update(dt, real) {
     if (!this.active) return;
-    if (this.over) { this.overT -= real; if (this.overT <= 0) { this.active = false; this.result = this.over; return; } }
+    if (this.over) { this.overT -= real; if (this.overT <= 0) { this.active = false; this.result = this.over; this.health.visible = false; return; } }
+    this.healthBar();
     if (this.freeze > 0) { this.freeze -= real; this.cineView(); return; }      // the instant a blow lands, everything holds
     const hero = this.hero, h = this.h, p = hero.root.position, s = this.stick, m = Math.hypot(s.x, s.y);
     h.comboT -= dt; h.safe -= dt; h.dodgeCd -= dt;
