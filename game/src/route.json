@@ -73,7 +73,7 @@
         { "at": 220, "type": "pickup", "what": "wind" },
         { "at": 290, "type": "fight", "who": "three guards and a captain", "what": "second fight" }
       ] },
-    { "id": "grove", "name": "The Grove", "kind": "grove", "length": 192, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 13,
+    { "id": "grove", "name": "The Grove", "kind": "grove", "length": 312, "place": "the Ashoka grove in moonlight", "speed": 4, "rowGap": 13,
       "obstacles": [],
       "events": [
         { "at": 10, "type": "shot", "what": "quiet walk under the trees" },

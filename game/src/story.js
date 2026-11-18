@@ -324,7 +324,7 @@ export function createStory(g) {
   function chase() {
     for (const e of fight.all) e.bar.visible = false;
     snare = { at: THRONE_AT - 18, t: -1, from: null, fall: null };
-    g.go(); g.dash(10.5);
+    g.go(); g.dash(14.5);      // (Sid: "after he defeats the three guards let's run some more before getting caught": the grove runs on past her seat, with its roots and boughs, and he runs it at his own pace)
   }
   function trip() {
     const p = hero.root.position; g.grow(0, 0.15); g.hold(); G = g.groundAt(p.z);
@@ -359,7 +359,8 @@ export function createStory(g) {
     if (taken) return director.play(tied, () => g.fade(court));
     // where the ten start from: the gaps between the trees on either side (clear of the trunks and of the pond), and the path behind him
     const from = [];
-    for (const gap of [base - 8, base - 16]) for (const s of [-1, 1]) from.push([s * 7.2, gap - 0.8], [s * 6.2, gap + 0.8]);
+    const stretch = fallen ? -Math.floor(-p.z / CHUNK) * CHUNK : base;      // (brought down far along the grove, they come from the gaps between the trees of the stretch he lies in)
+    for (const gap of [stretch - 8, stretch - 16]) for (const s of [-1, 1]) from.push([s * 7.2, gap - 0.8], [s * 6.2, gap + 0.8]);
     from.push([-1.3, p.z + 13], [1.3, p.z + 14]);
     fight.guards.forEach((e, i) => {
       const a = (i + 0.5) / 10 * Math.PI * 2, to = [p.x + Math.sin(a) * 3.4, p.z + Math.cos(a) * 3.4];

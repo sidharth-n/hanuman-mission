@@ -69,7 +69,7 @@ function placeRows() {
       if (!c.rows) d = (i + 1) * CHUNK;
       else if (c.kind === 'stairs' && Math.abs(s - 13) > 0.01) d = s < 13 ? i * CHUNK + 13 : (i + 1) * CHUNK;      // the middle landing only
       else if (d < LANKINI_MID + 26) d = LANKINI_MID + 26;      // the street inside the gate is kept bare: Lankini bars the way there
-      else if (c.kind === 'grove' && (c.n === 0 || c.n >= c.of - 3 || (c.n === c.of - 4 && s > 11))) d = (i + 1) * CHUNK;      // none under the wall he comes in by, none from a little before the tree he hides behind
+      else if (c.kind === 'grove' && (c.n === 0 || (c.n >= places.HIDE.n && c.n <= places.SITA.n + 1) || (c.n === places.HIDE.n - 1 && s > 11) || c.n === c.of - 1 || (c.n === c.of - 2 && s > 12))) d = (i + 1) * CHUNK;      // none under the wall he comes in by, none from a little before the tree he hides behind to a little past Sita's seat, none where the snare takes him; beyond her seat the grove runs on, and he runs it with the guards behind him
       else if (c.kind === 'court' && c.n === 0 && s < 8) d = i * CHUNK + 8;      // clear of the bell gate
       else if (c.kind === 'court' && ((c.n === FIGHT_N - 1 && s > 14) || c.n === FIGHT_N)) d = (i + 1) * CHUNK + 10;      // the floor where the guards make their stand is kept bare, and the road they come in by
       else if (c.kind === 'court' && c.n === FIGHT_N + 1 && s < 10) d = i * CHUNK + 10;
