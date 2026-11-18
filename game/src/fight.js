@@ -26,6 +26,7 @@ const PACE = 5.8;                       // how fast he moves under the stick, me
 const RING = 3.1;                       // how far the guards who are waiting stand off from him
 const HIGH = 1.85;                      // how tall he stands at his own size: his health bar rides that far over his feet, and a little more
 const GOLD = [1, 0.74, 0.3], WHITE = [1, 0.95, 0.82], RED = [1, 0.25, 0.12];
+const TRAILS = false;                   // the arc of light a swing left behind it is not drawn (Sid, 18 Nov: "these yellow lines are still there, not needed"): the star where the blow lands says it
 const wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
 const _a = new THREE.Vector3(), _b = new THREE.Vector3();
 
@@ -316,14 +317,13 @@ export class Fight {
     _a.set(gp.x - nx * 0.45, gp.y + high, gp.z - nz * 0.45);
     // a guard standing ready sometimes turns the first blow of a row aside on his sword: sparks, no hurt, and he is driven back a step
     if (!heavy && !g.lux && g.st === 'ready' && this.h.combo === 1 && Math.random() < 0.25) {
-      this.sparks.burst(_a, 30, WHITE, 8, -nx, -nz, 0.7); this.flare(_a, WHITE, 1.7 * (this.s || 1), 0.2); this.flash(_a, WHITE, 0.8); this.sound.fx('tap', { rate: 1.6, gap: 0.03 });
+      this.sparks.burst(_a, 30, WHITE, 8, -nx, -nz, 0.7); this.flare(_a, WHITE, 1.7 * (this.s || 1), 0.2); this.sound.fx('tap', { rate: 1.6, gap: 0.03 });
       g.vx = nx * 3.5; g.vz = nz * 3.5; g.play(g.clips.hit, { once: true, from: 0.1, speed: 2.2, fade: 0.05 }); g.st = 'hurt'; g.t = 0.25;
       return;
     }
     const K = this.s || 1;      // mace on steel throws the most and the whitest; a blow that lands on a body is gold
     this.sparks.burst(_a, heavy ? 46 : clash ? 44 : 24, clash ? WHITE : GOLD, (heavy ? 10.5 : clash ? 9.5 : 6.5) * (0.6 + 0.4 * K), nx, nz, clash ? 0.7 : heavy ? 0.4 : 0.25);
-    this.flare(_a, clash ? WHITE : GOLD, (heavy ? 2.5 : clash ? 2.3 : 1.35) * K, clash || heavy ? 0.24 : 0.17);
-    this.flash(_a, clash ? WHITE : GOLD, (heavy ? 1.4 : 0.9) * K, 0.1);
+    this.flare(_a, clash ? WHITE : GOLD, (heavy ? 2.5 : clash ? 2.3 : 1.35) * K, clash || heavy ? 0.24 : 0.17);      // the star is the whole light of a blow: no soft glow under it
     g.hp -= dmg; g.showHp();
     // Lankini is not driven back by a great blow: she takes it and comes on. Only when enough of them have told on her is she stopped for a moment, where she stands.
     // (Sid: "even when i strike lankini the stroke is not hit and she does not react": she took six blows without a sign. Now every
@@ -452,7 +452,7 @@ export class Fight {
         }
       }
       if (h.act === 'attack') {
-        if (h.t > h.strikeAt - 0.13 && h.t < h.strikeAt + 0.12 && hero.maceEnds(_a, _b)) this.heroTrail.add(_a, _b);
+        if (TRAILS && h.t > h.strikeAt - 0.13 && h.t < h.strikeAt + 0.12 && hero.maceEnds(_a, _b)) this.heroTrail.add(_a, _b);
         if (!h.struck && h.t >= h.strikeAt) { h.struck = true; this.heroStrike(); }
       }
       if (h.t >= h.len) {
@@ -524,7 +524,7 @@ export class Fight {
       } else if (g.st === 'windup') {
         if (g.t < TELL - 0.25) g.turn(toHero, dt, 12);                    // he commits to where the player was a quarter of a second before the blow
         else if (g.t < TELL && d > body) { gp.x += Math.sin(g.yaw) * 3.4 * S * dt; gp.z += Math.cos(g.yaw) * 3.4 * S * dt; }      // and steps into it, never through him
-        if (g.t > TELL - 0.16 && g.t < TELL + 0.14) { g.swordEnds(_a, _b); g.trail.add(_a, _b); }
+        if (TRAILS && g.t > TELL - 0.16 && g.t < TELL + 0.14) { g.swordEnds(_a, _b); g.trail.add(_a, _b); }
         if (!g.struck && g.t >= TELL) {
           g.struck = true; this.sound.fx('slide', { rate: k.boss ? 1.1 : 1.7, gap: 0.04 });
           const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw), hx = p.x - gp.x, hz = p.z - gp.z, hd = Math.max(0.01, Math.hypot(hx, hz));
