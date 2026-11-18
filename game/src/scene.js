@@ -54,7 +54,7 @@ export class Actor {
     this.model.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(this.model), size = box.getSize(new THREE.Vector3()), c = box.getCenter(new THREE.Vector3());
     const fit = new THREE.Group(); fit.add(this.model); this.model.position.set(-c.x, -box.min.y, -c.z); fit.scale.setScalar(height / size.y);
-    this.root.add(fit); this.height = height;
+    this.root.add(fit); this.fit = fit; this.height = height;
     this.model.traverse(o => { if (o.isMesh) { o.frustumCulled = false; o.material.envMapIntensity = 0.7; } });
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {}; for (const clip of gltf.animations) this.actions[clip.name] = this.mixer.clipAction(clip);
@@ -66,7 +66,8 @@ export class Actor {
     // hand: how each hand's fingers are held ('relaxed', 'flat', 'point'; none: as the clip has them). clipHand: { clip: { Left: 'point' } } for one clip.
     this.hand = { Left: null, Right: null }; this.clipHand = null; this.digits = {};
     // pointAt: { to: a place in the world, clip: the clip it belongs to }: while that clip plays, his left arm is stretched toward the place (a clip's own gesture knows nothing of where anyone stands: Ravana's swept across his own row of heads)
-    this.aimL = new Reach(this.model, 'Left'); this.pointAt = null;
+    // face: true on it: his whole body turns as well, so that his chest (and, for Ravana, the row of heads it carries) is toward the one he points at; the clip turns him side-on, and his faces looked away from her
+    this.aimL = new Reach(this.model, 'Left'); this.pointAt = null; this.turn = 0;
     for (const side of ['Left', 'Right']) {
       const B = n => this.model.getObjectByName('mixamorig' + side + 'Hand' + n), W = b => b.getWorldPosition(new THREE.Vector3()), Q = b => b.getWorldQuaternion(new THREE.Quaternion()), wrist = B('');
       if (!wrist || !B('Index1') || !B('Middle1') || !B('Pinky1')) continue;
@@ -98,7 +99,7 @@ export class Actor {
   }
 
   // Stood at a place, facing a heading (the models face +Z).
-  place(x, y, z, yaw = 0) { this.root.position.set(x, y, z); this.root.rotation.y = yaw; this.root.visible = true; this.moves = null; return this; }
+  place(x, y, z, yaw = 0) { this.root.position.set(x, y, z); this.root.rotation.y = yaw; this.root.visible = true; this.moves = null; this.turn = 0; this.fit.rotation.y = 0; return this; }
   hide() { this.root.visible = false; this.moves = null; }
 
   // Walk to a place in so many seconds, turning to face the way; then stand and face `then` (a heading), playing `after`.
@@ -167,7 +168,14 @@ Actor.prototype.palms = function () {
 };
 Actor.prototype.points = function (dt) {
   const r = this.aimL, d = this.digits.Left; if (!r.ok || !d) return;
-  const on = !!this.pointAt && this.name === this.pointAt.clip;
+  const on = !!this.pointAt && this.name === this.pointAt.clip, R = this.offer.arm;
+  if (R && ((on && this.pointAt.face) || Math.abs(this.turn) > 0.002)) {      // the chest's heading from the line of the shoulders; the turn is what brings most of it round to the one pointed at
+    let want = 0;
+    if (on && this.pointAt.face) { r.arm.getWorldPosition(_h1); R.getWorldPosition(_h2); _h3.copy(_h1).add(_h2).multiplyScalar(0.5); _h1.sub(_h2);
+      let off = Math.atan2(this.pointAt.to.x - _h3.x, this.pointAt.to.z - _h3.z) - Math.atan2(-_h1.z, _h1.x); off = Math.atan2(Math.sin(off), Math.cos(off));
+      want = Math.max(-1.4, Math.min(1.4, (this.turn + off) * 0.8)); }      // (the turn already made is in the heading measured, so it is added back)
+    this.turn += (want - this.turn) * Math.min(1, dt * 6); this.fit.rotation.y = this.turn; this.fit.updateMatrixWorld(true);
+  }
   if (on) { r.arm.getWorldPosition(_h1); const len = r.fore.getWorldPosition(_h2).distanceTo(_h1) + r.hand.getWorldPosition(_h3).distanceTo(_h2);
     _h4.copy(this.pointAt.to).sub(_h1).normalize(); this.aimDir = (this.aimDir || new THREE.Vector3()).copy(_h4); r.to.copy(_h1).addScaledVector(_h4, len * 0.93); r.face = (r.face || new THREE.Vector3()).set(0, -1, 0); }
   r.on = on; r.update(dt);

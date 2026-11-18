@@ -262,7 +262,7 @@ export function createStory(g) {
       { ...onSita, do: () => { ravana.play('idle'); sita.play('sit_talk'); } },
       { ...shot(v(sx - 1.5, 1.1 + U, sz + 1.0), v(sx, 1.05 + U, sz + 0.2), { to: v(sx - 1.2, 1.08 + U, sz + 0.8), fov: 36, face: faceOf(sita) }), do: () => sita.play('sit_talk') },
       { ...shot(v(sx + 1.5, 2.25, sz - 1.5), v(rx, 2.0, rz), { to: v(sx + 1.2, 2.2, sz - 1.2), fov: 48 }), do: () => { clear = { beats: director.beats, i: director.i, on: false }; } },      // over her head and the back of her seat. From here the lens looks through the shaft of moonlight that falls on her and across the mist on the grass, toward the moon: a white wash lay over him. For this one shot the veils are put out and the moon stands behind the camera
-      { ...onRavana, do: () => { sita.play('sit'); ravana.pointAt = { to: sita.head.getWorldPosition(new THREE.Vector3()), clip: 'command' }; ravana.play('command', { once: true }); ravana.rise = 1.3; } },
+      { ...onRavana, do: () => { sita.play('sit'); ravana.pointAt = { to: sita.head.getWorldPosition(new THREE.Vector3()), clip: 'command', face: true }; ravana.play('command', { once: true }); ravana.rise = 1.3; } },
       { ...watch({ fov: 34 }), do: () => { hid(); ravana.walk(out[0], out[1], 6.2); escort.forEach((e, i) => { e.root.rotation.y = yawTo(out[0] - rx, out[1] - rz); e.play('great_sword_walk'); e.leave = 1; e.go = [(out[0] - rx) / Math.hypot(out[0] - rx, out[1] - rz), (out[1] - rz) / Math.hypot(out[0] - rx, out[1] - rz)]; }); } },
       { ...onHim, do: hid },
     ]), meets);
