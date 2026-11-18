@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { Hero, LANES as LANE_X } from './hero.js';
 import { World, SECTIONS, FIRE_AT, END_AT, FIGHT_AT, FIGHT_MID, LANKINI_AT, groundAt } from './world.js';
-import { Fight, LIVES, PLANS } from './fight.js';
+import { Fight, PLANS } from './fight.js';
 import { Director, fit } from './scene.js';
 import { createStory } from './story.js';
 import { createLanka } from './lanka.js';
@@ -114,9 +114,9 @@ async function load() {
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
   // his health in a fight: a named bar under the top row, as each of those he fights has one over his head. One notch a life
-  // (a brute's blow takes two); a pale trail shows what the last blow took before it drains away.
-  ui.lives.innerHTML = '<span class="heart"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 39 C9 28 7 21 7 16.5 C7 11.5 11 8 15.5 8 C19 8 22 10 24 13.5 C26 10 29 8 32.5 8 C37 8 41 11.5 41 16.5 C41 21 39 28 24 39 Z"/></svg></span><div class="who"><b>Hanuman</b><div class="track"><i class="trail"></i><i class="fill"></i>' + Array.from({ length: LIVES - 1 }, (_, i) => `<s style="left:${(i + 1) * 100 / LIVES}%"></s>`).join('') + '</div></div>';
-  ui.lives.setAttribute('role', 'meter'); ui.lives.setAttribute('aria-label', 'Hanuman\'s health'); ui.lives.setAttribute('aria-valuemin', 0); ui.lives.setAttribute('aria-valuemax', LIVES);
+  // (as many as the fight gives him; a brute's blow takes two); a pale trail shows what the last blow took before it drains away.
+  ui.lives.innerHTML = '<span class="heart"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 39 C9 28 7 21 7 16.5 C7 11.5 11 8 15.5 8 C19 8 22 10 24 13.5 C26 10 29 8 32.5 8 C37 8 41 11.5 41 16.5 C41 21 39 28 24 39 Z"/></svg></span><div class="who"><b>Hanuman</b><div class="track"><i class="trail"></i><i class="fill"></i><span class="notches"></span></div></div>';
+  ui.lives.setAttribute('role', 'meter'); ui.lives.setAttribute('aria-label', 'Hanuman\'s health'); ui.lives.setAttribute('aria-valuemin', 0);
   fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, lankini: models.lankini, sound, buzz, groundAt, more: what => { say(STORY.alerts[what], 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()),
     jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
@@ -391,7 +391,7 @@ function fell() {
 function startFight(mid = FIGHT_MID, plan = PLANS.court, scale = 1) {
   state.mode = 'fight'; state.orbit = null; state.shot = null; state.danger = 0; state.slow = 0; queued = null; sound.rest(); sound.score('fight', { rise: 0.3, fade: 0.5 });
   if (state.flight > 0) { state.flight = 0; hero.endFlight(); if (state.opening) { state.opening = false; state.wind = 1; } }      // on the wing when the horn sounds: he comes down to meet them
-  fight.begin(mid, plan, scale); painted.lives = null;
+  fight.begin(mid, plan, scale); painted.lives = null; painted.full = null;
   if (state.meter >= 1 && +store.get('smashFight', 0) < 3) { store.set('smashFight', +store.get('smashFight', 0) + 1); nudge('Mace is full. Tap Smash when they close in', 9); }
   if (scale === 1) say(STORY.alerts.guards, 2.6);
   sound.fx('bell', { rate: 0.8, gap: 1 }); sound.chant(); buzz([40, 60, 40]); screen(null);
@@ -781,9 +781,10 @@ function frame(now) {
     paint('gRing', Math.round(giant * 50), v => ui.giant.style.setProperty('--p', v / 50));
     paint('gState', state.giant > 0 ? 'active' : state.meter >= 1 && !state.fire ? 'ready' : '', v => { ui.giant.classList.toggle('ready', v === 'ready'); ui.giant.classList.toggle('active', v === 'active'); });
     paint('fRing', Math.round(fly * 50), v => ui.fly.style.setProperty('--p', v / 50));
+    if (fighting) paint('full', fight.full, n => { ui.lives.querySelector('.notches').innerHTML = Array.from({ length: n - 1 }, (_, i) => `<s style="left:${(i + 1) * 100 / n}%"></s>`).join(''); ui.lives.setAttribute('aria-valuemax', n); });      // he has more health in the first fights than in the last
     if (fighting) paint('lives', fight.lives, v => { const el = ui.lives, was = +el.dataset.v;
-      el.style.setProperty('--hp', Math.max(0, v) / LIVES); el.dataset.v = v; el.setAttribute('aria-valuenow', Math.max(0, v));
-      el.classList.toggle('worn', v === 2); el.classList.toggle('low', v <= 1);      // amber with two lives left, red and beating on the last
+      el.style.setProperty('--hp', Math.max(0, v) / fight.full); el.dataset.v = v; el.setAttribute('aria-valuenow', Math.max(0, v));
+      el.classList.toggle('worn', v > 1 && v / fight.full <= 0.4); el.classList.toggle('low', v <= 1);      // amber when two fifths or less is left, red and beating on the last
       if (v < was) { el.classList.remove('struck'); void el.offsetWidth; el.classList.add('struck'); } else el.classList.remove('struck'); });
     paint('fState', state.flight > 0 ? 'active' : state.wind >= 1 && !state.fire ? 'ready' : '', v => { ui.fly.classList.toggle('ready', v === 'ready'); ui.fly.classList.toggle('active', v === 'active'); });
   }

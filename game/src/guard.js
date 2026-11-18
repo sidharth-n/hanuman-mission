@@ -13,7 +13,7 @@ export const KINDS = {
   rusher:  { hp: 3, size: 0.98, pace: 1.45, tell: -0.1, reach: 2.4, wound: 1, tint: 0xc9d6ff },                 // lean and quick: on him fast, little warning, soon down
   brute:   { hp: 9, size: 1.34, pace: 0.7, tell: 0.24, reach: 3.0, wound: 2, firm: true, tint: 0xff9a80 },      // huge and slow: a long warning, a terrible blow
   captain: { hp: 12, size: 1.24, pace: 1.1, tell: 0, reach: 2.8, wound: 1, twice: true, tint: 0xffe08a },       // the captain: two blows in a row
-  lankini: { hp: 24, size: 1, pace: 1.05, tell: 0.12, reach: 4.2, wound: 1, firm: true, boss: true, stays: true, twice: true },      // as tall as he is when he has grown to meet her: a great sword, two blows in a row
+  lankini: { hp: 18, size: 1, pace: 1.05, tell: 0.3, reach: 4.2, wound: 1, firm: true, boss: true, stays: true },      // as tall as he is when he has grown to meet her: a great sword. The first fight of the game: eighteen blows' worth (a row of three is four), a long warning, one blow at a time (she had 24, and struck twice in a row)
 };
 const GUARD_CLIPS = { idle: 'great_sword_idle', walk: 'great_sword_walk', run: 'great_sword_run', attack: 'great_sword_slash', hit: 'great_sword_impact', death: 'two_handed_sword_death' };
 

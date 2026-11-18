@@ -212,7 +212,7 @@ body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + va
 #lives .track i { position: absolute; left: 0; top: 0; bottom: 0; width: calc(var(--hp) * 100%); }
 #lives .trail { background: #fbe7ae; transition: width .6s ease-in .35s; }
 #lives .fill { background: linear-gradient(#a8ecb0, #43b267 50%, #1f7a41); box-shadow: 0 0 10px rgba(80, 200, 120, .55); transition: width .16s ease-out; }
-#lives .track s { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(18, 14, 11, .8); }
+#lives .notches s { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: rgba(18, 14, 11, .8); }
 #lives.worn .fill { background: linear-gradient(#ffe09a, #e8a13a 50%, #a8641a); box-shadow: 0 0 10px rgba(232, 161, 58, .6); }
 #lives.low .fill { background: linear-gradient(#ffab8c, #e0452c 50%, #8e1f12); box-shadow: 0 0 10px rgba(224, 69, 44, .7); }
 #lives.low .track { animation: lifeLow .55s ease-in-out infinite alternate; }

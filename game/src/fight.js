@@ -8,10 +8,16 @@ const HX = 3.7, HZ = 9;                 // the floor it is fought on: half its w
 export const LIVES = 5;
 // Each fight is a list of waves. foes: who comes, by kind (guard.js). most: how many may come at him at once.
 // tell: seconds from a sword going up to the blow landing. rest: the pause between attacks.
+// On the first wave, for the whole fight: lives: how much health he has in it (LIVES if not said). mercy: on his last life nobody
+// begins a blow, so the fight cannot be lost.
+// (Sid, 18 Nov, from a beta player who stopped playing when he lost to Lankini: "let's make this first fight an easier one... he can
+// fall a few times but Hanuman's energy meter is higher and hers is lower and his few hits kill her, so people win this level
+// always. Doesn't feel like first hit wins, but most of Hanuman's hits get to her and she falls easier. Same the next guards
+// fight: not too easy but not too tough either." A player who only taps Strike lost both, in 20 and 27 seconds.)
 export const PLANS = {
-  gate: [{ foes: ['lankini'], most: 1, tell: 0.66, rest: 0.5 }],
-  court: [{ foes: ['guard', 'rusher', 'guard'], most: 1, tell: 0.62, rest: 0.7 }, { foes: ['guard', 'brute', 'guard', 'rusher', 'rusher'], most: 2, tell: 0.58, rest: 0.55 }],
-  grove: [{ foes: ['guard', 'rusher', 'guard'], most: 2, tell: 0.6, rest: 0.6 }],      // three, and he can beat them; then ten more come (story.js) and he is taken
+  gate: [{ foes: ['lankini'], most: 1, tell: 0.66, rest: 1.0, lives: 8, mercy: true }],
+  court: [{ foes: ['guard', 'rusher', 'guard'], most: 1, tell: 0.7, rest: 1.0, lives: 6 }, { foes: ['guard', 'brute', 'rusher', 'guard'], most: 2, tell: 0.66, rest: 0.9 }],
+  grove: [{ foes: ['guard', 'rusher', 'guard'], most: 2, tell: 0.66, rest: 0.8 }],      // three, and he can beat them; then ten more come (story.js) and he is taken
 };
 // Struck down: the fall he is thrown back in (he lands on his back at `land` seconds of the clip) and the kip up that
 // brings him to his feet (he lies still until `from`). Both are played faster than they were made.
@@ -125,7 +131,7 @@ export class Fight {
       clips: { idle: 'sword_idle', walk: 'sword_walk', run: 'sword_run', attack: 'sword_slash', hit: 'sword_hit', death: 'knockback' } }));
     this.all = [...this.guards, this.boss];
     this.stick = { x: 0, y: 0 };      // the thumb stick: x to his right on the screen, y toward the player
-    this.s = 1; this.focus = new THREE.Vector3(); this.active = false; this.over = null; this.result = null; this.lives = LIVES; this.freeze = 0; this.left = 0; this.hz = HZ;
+    this.s = 1; this.focus = new THREE.Vector3(); this.active = false; this.over = null; this.result = null; this.lives = this.full = LIVES; this.mercy = false; this.freeze = 0; this.left = 0; this.hz = HZ;
     this.falls = 0; this.cineAt = 3; this.cine = null;      // how often he has been struck down, the fall that will be held next, and the view of it while it is held
   }
 
@@ -136,7 +142,7 @@ export class Fight {
   begin(mid, plan = PLANS.court, scale = 1) {
     this.s = scale; this.hz = HZ * (scale > 1 ? 1.5 : 1);      // grown, they need a longer floor: a blow throws him further
     const hero = this.hero, p = hero.root.position;
-    this.cz = -mid; this.plan = plan; this.active = true; this.over = null; this.result = null; this.overT = 0; this.lives = LIVES; this.freeze = 0; this.falls = 0; this.cineAt = plan === PLANS.gate ? 1 : 3; this.cine = null;      // against Lankini the very first fall is the one that is held: it opens the game
+    this.cz = -mid; this.plan = plan; this.active = true; this.over = null; this.result = null; this.overT = 0; this.full = plan[0].lives || LIVES; this.lives = this.full; this.mercy = !!plan[0].mercy; this.freeze = 0; this.falls = 0; this.cineAt = plan === PLANS.gate ? 1 : 3; this.cine = null;      // against Lankini the very first fall is the one that is held: it opens the game
     this.t = 0; this.wave = 0; this.nextT = 0; this.used = 0;
     this.h = { act: null, t: 0, len: 0, strikeAt: 0, struck: false, heavy: false, combo: 0, comboT: 0, queued: false, safe: 0, dodgeCd: 0, vx: 0, vz: 0, fx: 0, fz: -1, reach: 0, dmg: 1, slam: false, down: 0, up: 0, epic: false, roared: false };
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.floor = 0;
@@ -272,7 +278,7 @@ export class Fight {
     // Lankini is not driven back by a great blow: she takes it and comes on. Only when enough of them have told on her is she stopped for a moment, where she stands.
     // (Sid: "even when i strike lankini the stroke is not hit and she does not react": she took six blows without a sign. Now every
     // blow that lands rocks her where she stands, and a full row of three makes her reel.)
-    if (g.k.boss && g.hp > 0) { g.poise += dmg; if (g.poise < 4 || g.st === 'windup') { g.vx = nx * 1.2; g.vz = nz * 1.2; this.flinch(g, nx, nz, heavy); return; } g.poise = 0; }
+    if (g.k.boss && g.hp > 0) { g.poise += dmg; if (g.poise < 3 || g.st === 'windup') { g.vx = nx * 1.2; g.vz = nz * 1.2; this.flinch(g, nx, nz, heavy); return; } g.poise = 0; }
     // a light blow does not stop a sword that is already falling, nor one of the firm ones at any time: get clear, or land the great blow
     if (!heavy && g.hp > 0 && (clash || g.k.firm)) { g.vx = nx * 1.5; g.vz = nz * 1.5; this.flinch(g, nx, nz, false); return; }
     g.t = 0; g.struck = false; g.second = false;
@@ -412,8 +418,8 @@ export class Fight {
     const alive = this.all.filter(g => g.root.visible && g.st !== 'dead' && g.st !== 'idle');
     if (this.nextT > 0) { this.nextT -= dt; if (this.nextT <= 0) this.send(); }
     this.cool -= dt;
-    const coming = alive.filter(g => g.token).length;
-    if (coming < this.rules.most && this.cool <= 0 && !this.over) {      // only so many come at him at a time; the others hold the ring
+    const coming = alive.filter(g => g.token).length, spared = this.mercy && this.lives <= 1;      // spared: on his last life in a fight that is not to be lost, nobody begins a blow
+    if (coming < this.rules.most && this.cool <= 0 && !this.over && !spared) {      // only so many come at him at a time; the others hold the ring
       const ready = alive.filter(g => g.st === 'ready');
       if (ready.length) {
         const g = ready.reduce((a, b) => Math.hypot(a.root.position.x - p.x, a.root.position.z - p.z) + Math.random() < Math.hypot(b.root.position.x - p.x, b.root.position.z - p.z) + Math.random() ? a : b);
@@ -430,7 +436,7 @@ export class Fight {
         g.turn(toHero, dt);
         if (g.t > 0.5) {      // on his feet again: often he answers at once, if no other is already coming
           g.st = 'ready'; g.t = 0;
-          if (coming < this.rules.most && !this.over && d < near + 1.2 && Math.random() < (k.boss ? 1 : 0.3)) { g.st = 'approach'; g.token = true; g.second = false; }
+          if (coming < this.rules.most && !this.over && !spared && this.cool <= (k.boss ? 0 : 9) && d < near + 1.2 && Math.random() < (k.boss ? 1 : 0.3)) { g.st = 'approach'; g.token = true; g.second = false; }
         }
       } else if (g.st === 'enter' || g.st === 'ready') {
         if (k.boss) {      // Lankini keeps no distance and gives no ground: between her blows she comes on at a walk
