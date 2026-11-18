@@ -419,7 +419,7 @@ export class World {
         const further = k % 2 === 0, lit = (s < 0) === further ? 1 : -1;
         const o = this.part(b.geo[lit]);
         o.position.set(s * FRONT, 0, z); o.rotation.y = face; g.add(o);
-        chunk.buildings.push({ x: s * (FRONT + 1.5), z: g.position.z + z, lz: z, h: b.height - 1, lit: false });
+        chunk.buildings.push({ x: s * (FRONT + 1.5), z: g.position.z + z, lz: z, h: b.height - 1, lit: false, mesh: o, front: s * FRONT });
         if (statue) { const st = this.spawn('rakshasa-statue'); st.position.set(s * (FRONT + 0.25), 0.16, z); st.rotation.y = face; g.add(st); }
         if (k === stall && !statue) { const st = this.spawn('market-stall'); st.position.set(s * (ROAD + 1.15), 0.14, z); st.rotation.y = face; g.add(st); }
       }

@@ -294,6 +294,28 @@ function card(id, secs = 4.2) {
 // A cut through black, for going from one place of the story to another.
 function fade(then) { ui.fade.classList.add('on'); setTimeout(() => { then(); setTimeout(() => ui.fade.classList.remove('on'), 260); }, 460); }
 
+// Grown, his arms and his mace reach the house fronts on either side: whatever he touches breaks. The front he comes
+// level with bursts at the height of his arm and the house goes down behind it; nothing of him passes through a wall
+// that still stands. (Sid, 18 Nov: "when he grows and burns Lanka his hands go through buildings; whatever he touches,
+// break it: physics need to be there.")
+const crumbling = [];
+function brush(dt) {
+  const k = hero.root.scale.x, p = hero.root.position;
+  if (k >= 3 && hero.root.visible) {
+    const reach = 1.3 * k, still = state.mode === 'scene', ahead = still ? reach : 2 + state.speed * 0.12, back = still ? reach : 1 + reach * 0.5;
+    for (const c of world.chunks.values()) for (const b of c.buildings) {
+      if (b.down || !b.mesh || b.z < p.z - ahead || b.z > p.z + back || Math.abs(b.front - p.x) > reach) continue;
+      b.down = true; crumbling.push({ b, t: 0, y: b.mesh.position.y, x: b.mesh.position.x, s: Math.sign(b.front) });
+      const y = groundAt(b.z);
+      debris.burst(b.front, y + Math.min(b.h, 1.2 * k), b.z, 9, 0.5, 7 + k, Math.sign(b.front) * 2, -state.speed * 0.4);
+      fight.sparks.floor = y; fight.sparks.burst({ x: b.front, y: y + Math.min(b.h, 1.3 * k), z: b.z }, 8, [1, 0.6, 0.2], 8, 0, -1);
+      state.shake = Math.max(state.shake, 0.22); sound.fx('smash', { gap: 0.22, rate: 0.85 }); state.burned++;
+    }
+  }
+  for (let i = crumbling.length - 1; i >= 0; i--) { const f = crumbling[i]; f.t += dt; const u = Math.min(1, f.t / 0.55), e = u * u * (3 - 2 * u), m = f.b.mesh;
+    m.scale.y = 1 - 0.62 * e; m.position.x = f.x + f.s * 1.1 * e; if (u >= 1) crumbling.splice(i, 1); }
+}
+
 // Set alight, nothing in his road stands: what he meets flies to pieces, and fire is left where it stood.
 function shatter(o, chunk) {
   const k = hero.root.scale.x, y = groundAt(o.z);
@@ -719,6 +741,7 @@ function frame(now) {
   const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
   hero.update(fighting && fight.frozen ? 0 : dt, speed, state.mode === 'run' || falling, groundAt);
   world.shotOn = !!state.shot; world.sceneOn = state.mode === 'scene' || director.active; world.update(dt, hero.root.position.z);
+  if (state.fire || crumbling.length) brush(dt);
   for (const f of state.falling) { f.t += dt; f.mesh.rotation.z = f.dir * Math.min(1.35, f.t * 7); f.mesh.position.y = -Math.min(0.5, f.t * 1.2); }
   if (state.shake > 0) state.shake = Math.max(0, state.shake - real * 1.6);
 
