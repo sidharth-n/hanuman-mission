@@ -14,7 +14,7 @@ import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen, fightControls } from './input.js';
 import { createSound } from './sound.js';
-import { createScores, reckon, flag, seal } from './scores.js';
+import { createScores, reckon, flag, seal, NAMES, earned } from './scores.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
@@ -31,7 +31,7 @@ const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d120
 const SKY_LIGHT = new THREE.Color(0x7f95d8), LAMP_LIGHT = new THREE.Color(0xd9a25e), FIRE_LIGHT = new THREE.Color(0xff9a5a), MOON_LIGHT = new THREE.Color(0xb4c4ff), tint = new THREE.Color();
 
 const $ = id => document.getElementById(id);
-const ui = { board: $('board'), loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
+const ui = { board: $('board'), cardView: $('cardView'), loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
   hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant'),
   pad: $('pad'), strike: $('strike'), dodge: $('dodge'), card: $('card'), fade: $('fade') };
 // what the player chose last time, kept on the device
@@ -144,7 +144,7 @@ async function load() {
     name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
     // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
     sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
-    finish: () => { credits(-1); tally.done = true; scores.mark(SECTIONS.length - 1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('shareLine').hidden = $('share').hidden = false; } });
+    finish: () => { credits(-1); tally.done = true; scores.mark(SECTIONS.length - 1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('seeCard').hidden = false; } });
   lanka = createLanka(scene, world.flameTex); debris = new Debris(scene);
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
@@ -165,7 +165,7 @@ async function load() {
 
 // One full-screen layer at a time: 'loading' | 'menu' | 'panel' | 'result', or none while running.
 function screen(name) {
-  for (const k of ['loading', 'menu', 'panel', 'result', 'board']) ui[k].hidden = k !== name;
+  for (const k of ['loading', 'menu', 'panel', 'result', 'board', 'cardView']) ui[k].hidden = k !== name;
   const inRun = state.mode === 'run' || state.mode === 'paused' || state.mode === 'fight';
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
   const inFight = inRun && fight && fight.active;      // the fight's own controls
@@ -260,15 +260,27 @@ function showPlace(a) {
   line.firstElementChild.textContent = '#' + me.rank;
   line.lastElementChild.innerHTML = `in the world today<small>${me.next ? `${num(me.next.gap)} more to pass ${esc(me.next.name)}` : me.total > 1 ? 'No one is ahead of you' : 'The first on the board today'}</small>`;
   const mine = { name: me.name, title: me.title, score: me.score, cc: a.cc };
-  $('mini').innerHTML = rows.slice(0, 3).map((r, i) => rowHTML(r, i + 1, me.rank === i + 1)).join('') + (me.rank > 3 ? (me.rank > 4 ? '<div class="gap">· · ·</div>' : '') + rowHTML(mine, me.rank, true) : '');
+  // the head of the board and his own row: three rows when he is among the first three, else the first, a gap and his own
+  $('mini').innerHTML = me.rank <= 3 ? rows.slice(0, 3).map((r, i) => rowHTML(r, i + 1, me.rank === i + 1)).join('') : rowHTML(rows[0], 1, false) + (me.rank > 2 ? '<div class="gap">· · ·</div>' : '') + rowHTML(mine, me.rank, true);
   $('mini').hidden = false;
 }
 function tallyUp() {
   if (!tally.done) tally.falls++;
   tally.far = Math.max(tally.far, tally.done ? END_AT : state.dist);
   const stats = { lamps: state.gold, dist: Math.round(tally.far), won: tally.won.size, falls: tally.falls, done: tally.done };
-  $('total').dataset.v = 0; $('rankLine').hidden = $('mini').hidden = true; showTally(reckon(stats));
-  tally.send = () => scores.submit({ ...stats, name: $('name').value.trim() || 'Vanara', title: 'Hanuman' }).then(a => { if (ui.result.hidden) return; showTally(a); showPlace(a); }).catch(() => {});
+  const local = reckon(stats); let title = 'Hanuman';
+  if (tally.done) {      // a run told to its end earns one of Hanuman's twelve names, a new one if it has earned any he does not have, and a card that bears it
+    if (!tally.counted) { tally.counted = true; store.set('finishes', +store.get('finishes', 0) + 1); }
+    let have; try { have = new Set(JSON.parse(store.get('names', '[]'))); } catch { have = new Set(); }
+    const can = earned({ ...stats, sec: SECTIONS.length - 1, score: local.score }, { finishes: +store.get('finishes', 0), shared: +store.get('shared', 0) });
+    title = can.find(n => !have.has(n)) || can[0]; have.add(title); store.set('names', JSON.stringify([...have]));
+    tally.card = { name: $('name').value.trim() || 'Vanara', title, meaning: NAMES.find(n => n[0] === title)[1], score: local.score, lamps: stats.lamps, rank: 0, no: 0, names: have.size };
+    store.set('card', JSON.stringify(tally.card));
+  }
+  $('total').dataset.v = 0; $('rankLine').hidden = $('mini').hidden = true; showTally(local);
+  tally.send = () => scores.submit({ ...stats, name: $('name').value.trim() || 'Vanara', title }).then(a => {
+    if (tally.card) { Object.assign(tally.card, { name: a.name, score: a.score, lamps: a.lamps, rank: (a.me && a.me.today && a.me.today.rank) || 0, no: a.card || 0 }); store.set('card', JSON.stringify(tally.card)); }
+    if (ui.result.hidden) return; showTally(a); showPlace(a); }).catch(() => {});
   tally.send();
 }
 
@@ -286,8 +298,25 @@ function drawBoard() {
     return `<div class="pl p${i + 1}${r && mine(r) ? ' me' : ''}"><div class="medal">${seal(r ? r.name + r.score : 'empty' + i, metal[i])}<b>${i + 1}</b></div><div class="name">${r ? flag(r.cc) + ' ' + esc(r.name) : '&nbsp;'}</div><div class="ttl">${r ? esc(r.title || '') : 'not yet taken'}</div><div class="plinth">${r ? num(r.score) : '—'}</div></div>`; }).join('');
   $('ranks').innerHTML = b.rows.slice(3).map((r, i) => rowHTML(r, i + 4, mine(r))).join('') || `<div class="gap">${b.rows.length ? 'The ranks below are open.' : 'No one has run yet. Be the first.'}</div>`;
   $('standing').textContent = b.total ? `${num(b.total)} ${b.total === 1 ? 'player is' : 'players are'} on this board` : '';
-  $('mine').hidden = false;
+  $('mine').hidden = false; $('myCard').hidden = !lastCard();
   $('mine').innerHTML = me ? `<b>#${me.rank}</b><p>Your best ${lb.tab === 'today' ? 'today' : 'of all time'}<small>${me.next ? `${num(me.next.gap)} more to pass ${esc(me.next.name)}` : 'No one is ahead of you'}</small></p><em>${num(me.score)}</em>` : `<p>You are not on this board yet<small>Finish a run from the gate to take a place</small></p>`;
+}
+// The card of a finished run: drawn when asked for (its code and its art are fetched then), shown, and handed to the phone's own
+// share sheet as a picture with a line and the game's address; where a picture cannot be shared it is saved and the line copied.
+const lastCard = () => { if (tally.card) return tally.card; try { return JSON.parse(store.get('card', 'null')); } catch { return null; } };
+async function openCard(from) {
+  const d = lastCard(); if (!d) return;
+  lb.cardFrom = from; lb.blob = null; $('gotName').textContent = d.title; $('gotWhy').textContent = d.meaning;
+  $('dots').innerHTML = NAMES.map((_, i) => `<i class="${i < d.names ? 'on' : ''}"></i>`).join(''); $('gotCount').textContent = `${d.names} of Hanuman's 12 names collected`;
+  $('cardImg').removeAttribute('src'); screen('cardView');
+  try { const { drawCard } = await import('./card.js'), c = await drawCard(d); $('cardImg').src = c.toDataURL('image/jpeg', 0.9); c.toBlob(b => { lb.blob = b; }, 'image/jpeg', 0.9); } catch { $('gotCount').textContent = 'The card could not be drawn just now.'; }
+}
+function shareCard() {
+  const blob = lb.blob, b = $('shareCard'), said = t => { b.textContent = t; setTimeout(() => { b.textContent = 'Share my card'; }, 2400); }; if (!blob) return said('One moment');
+  const d = lastCard() || {}, text = `I burned Lanka in Hanuman Mission with ${num(d.score || 0)} points. Can you beat me? ${SHARE.url}`, file = new File([blob], 'hanuman-mission-card.jpg', { type: 'image/jpeg' });
+  store.set('shared', +store.get('shared', 0) + 1);
+  if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: SHARE.title, text }).catch(() => {});
+  else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {}); said('Saved. Line copied'); }
 }
 function openBoard(from) {
   lb.from = from; lb.data = null; drawBoard(); screen('board');
@@ -301,7 +330,7 @@ function result(title, thirdLabel, third) {
   // caught beyond the first stretch: the next run takes up from the start of the place he had reached
   if (state.dist >= END_AT) { state.from = 0; state.kept = null; }
   $('shareLine').hidden = $('share').hidden = true;      // offered only when the tale is told to its end
-  ui.card.hidden = true;
+  ui.card.hidden = true; $('seeCard').hidden = true;
   $('again').textContent = state.retry ? 'Fight again' : state.from > 0 ? 'Continue' : 'Run again'; $('fromLine').textContent = state.retry ? 'Straight back to the fight' : state.from > 0 ? `From ${SECTIONS[state.from].name}` : ''; $('fromLine').hidden = !state.retry && state.from === 0;
   state.mode = 'ready'; sound.stop(); screen('result'); tallyUp();
 }
@@ -310,7 +339,7 @@ function result(title, thirdLabel, third) {
 function start(from = 0, fresh = false, straight = false) {
   if (typeof from !== 'number') from = 0;
   state.retry = null; teach(null); nudge(null);
-  if (from === 0) { tally.won.clear(); tally.falls = 0; tally.done = false; tally.far = 0; scores.begin(); }      // a run begun at the gate is a new run on the board: it asks for its ticket
+  if (from === 0) { tally.won.clear(); tally.falls = 0; tally.done = false; tally.far = 0; tally.counted = false; tally.card = null; scores.begin(); }      // a run begun at the gate is a new run on the board: it asks for its ticket
   if (fresh || from === 0) lesson.known.clear();      // a game begun from the title or from the gate is taught again: each arrow once
   story.reset(fresh); if (director.active) director.skipQuiet(); unask(); credits(-1); $('intro').hidden = true; state.thin = null; state.dusk = 0; state.held = null; ui.fade.classList.remove('on'); ui.card.hidden = true;
   const sec = SECTIONS[from], kept = from > 0 && state.kept ? state.kept : { gold: 0, meter: 0, wind: 1 };      // a new run begins with the wind in hand
@@ -882,6 +911,7 @@ const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap')
 if (!phone) { document.body.classList.add('keys'); $('howLine').innerHTML = `${cap('←', '→')} change lane &nbsp; ${cap('↑')} leap &nbsp; ${cap('↓')} slide`; }
 $('controls').innerHTML = '<h3>Controls</h3>' + CONTROLS.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
 { const el = $('name'); el.value = store.get('name', ''); el.addEventListener('change', () => { el.value = el.value.trim().slice(0, 12); store.set('name', el.value); if (tally.send && !ui.result.hidden) tally.send(); }); }      // the name he gives is kept, and changed on the board at once
+press('seeCard', () => openCard('result')); press('myCard', () => openCard('board')); press('shareCard', shareCard); press('cardBack', () => screen(lb.cardFrom || 'menu'));
 press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('result')); press('boardBack', () => screen(lb.from));
 for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
 press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);

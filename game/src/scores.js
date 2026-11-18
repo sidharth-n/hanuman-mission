@@ -16,7 +16,8 @@ export function createScores(store) {
   // the places reached are told one after another, in order; one that did not get through is told again before the next
   const flush = () => busy = (busy || Promise.resolve()).then(async () => {
     const mine = run; if (!mine || !mine.sig) return;
-    while (run === mine && mine.sent < mine.sec) { await post('mark', { run: mine.run, sig: mine.sig, sec: mine.sent + 1 }); mine.sent++; }
+    // the service answers the place the run stands at: only that is counted as told (a place it would not yet take is told again later)
+    while (run === mine && mine.sent < mine.sec) { const a = await post('mark', { run: mine.run, sig: mine.sig, sec: mine.sent + 1 }); if (!(a.sec > mine.sent)) break; mine.sent = a.sec; }
   }).catch(() => {});
   return {
     pid,
@@ -24,7 +25,8 @@ export function createScores(store) {
     begin() { const mine = run = { sec: 0, sent: 0 }; post('run', { pid }).then(t => { if (run === mine) { mine.run = t.run; mine.sig = t.sig; flush(); } }).catch(() => {}); },
     mark(sec) { if (run && sec > run.sec) { run.sec = sec; flush(); } },
     async submit(stats) { const mine = run; if (!mine || !mine.sig) throw new Error('no ticket'); await flush(); return post('score', { run: mine.run, sig: mine.sig, ...stats }); },
-    board() { return fetch('/api/board?pid=' + encodeURIComponent(pid)).then(r => r.ok ? r.json() : Promise.reject(new Error('scores ' + r.status))); },
+    // the board is the same for everyone; his own places are asked for apart (his id is his own: never in an address)
+    board() { return Promise.all([fetch('/api/board').then(r => r.ok ? r.json() : Promise.reject(new Error('scores ' + r.status))), post('me', { pid }).catch(() => null)]).then(([b, me]) => ({ ...b, me })); },
   };
 }
 // A seal drawn from a seed (a name and a score): two rings of petals, no two alike. Returns the SVG as text.
@@ -38,3 +40,12 @@ export function seal(seed, c) {
   }
   return `<svg viewBox="-100 -100 200 200" aria-hidden="true">${out}</svg>`;
 }
+export const NAMES = [      // the twelve names of Hanuman (Dwadasha Nama), each with its meaning
+  ['Hanuman', 'Of the mighty jaw'], ['Anjanisuta', 'Son of Anjana'], ['Vayuputra', 'Son of the wind'], ['Mahabala', 'Of great strength'], ['Rameshta', 'Dear to Rama'],
+  ['Phalgunasakha', 'Friend of Arjuna'], ['Pingaksha', 'The tawny-eyed'], ['Amitavikrama', 'Of boundless valour'], ['Udadhikramana', 'Who leapt the ocean'],
+  ['Sitashokavinashana', "Who ended Sita's sorrow"], ['Lakshmanapranadata', 'Who gave Lakshmana his life again'], ['Dashagrivadarpaha', "Who broke the ten-headed one's pride"]];
+// Which names a run has earned, the rarest first: s the run's numbers (lamps, won, falls, done, sec, score), h what is kept of earlier runs.
+export const earned = (s, h) => [
+  ['Dashagrivadarpaha', s.done && s.falls === 0 && s.won >= 3], ['Amitavikrama', s.score >= 9000], ['Mahabala', s.won >= 3], ['Lakshmanapranadata', s.done && s.falls > 0],
+  ['Pingaksha', s.done && h.finishes >= 2], ['Phalgunasakha', h.shared > 0], ['Rameshta', s.lamps >= 300], ['Udadhikramana', s.done], ['Sitashokavinashana', s.done || s.sec >= 7],
+  ['Vayuputra', s.sec >= 2 && s.falls === 0], ['Anjanisuta', s.sec >= 1], ['Hanuman', true]].filter(x => x[1]).map(x => x[0]);

@@ -359,3 +359,15 @@ body.keys .controls { gap: 6px 40px; }
   .standing { font-size: 18px; } #boardBack { align-self: stretch; }
 }
 .brow span, .mine p, .tally span, .rankline p { text-align: left; }
+
+/* The card of a finished run, shown before it is shared. */
+.cwrap { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: auto; }
+.got { margin: 0; text-align: center; } .got span { display: block; font: 700 12px/1 var(--head); letter-spacing: .26em; text-transform: uppercase; color: var(--quiet); }
+.got b { display: block; margin-top: 6px; font: 900 26px/1 var(--head); letter-spacing: .08em; color: var(--gold-light); text-shadow: 0 2px 10px #000; } .got i { display: block; margin-top: 4px; font: italic 500 18px/1.1 var(--text); color: var(--ink); }
+#cardImg { height: min(50vh, 480px); aspect-ratio: 4 / 5; border-radius: 10px; box-shadow: 0 14px 40px #000, 0 0 0 1px var(--gold-deep), 0 0 34px rgba(232, 180, 76, .3); transform: rotate(-1.5deg); background: #120e0b; }
+.dots { display: flex; gap: 6px; margin-top: 8px; } .dots i { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--gold-deep); } .dots i.on { background: radial-gradient(#fff3c9, #e8b44c 60%, #b07a24); box-shadow: 0 0 6px #e8b44c; }
+@media (max-height: 560px) { #cardImg { height: 42vh; } .got i, #gotCount, .dots { display: none; } }
+@media (min-width: 900px) and (min-height: 600px) { #cardImg { height: min(58vh, 640px); } }
+.links { display: flex; gap: 18px; justify-content: center; pointer-events: auto; }
+#result { gap: 8px; } #result .logo.small { margin: 0; }
+.tally div { padding: 3px 2px; } #result { gap: 6px; }

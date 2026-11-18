@@ -155,14 +155,23 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
   </div>
   <p class="hint" id="fromLine" hidden></p>
   <p class="hint" id="shareLine" hidden>Liked it? Share it with your friends.</p>
-  <div class="acts"><button id="share" class="plaque" hidden>Share</button><button id="again" class="plaque">Run again</button><button id="home" class="plaque quiet">Home</button></div>
-  <button id="seeBoard" class="link">Leaderboard</button>
+  <div class="acts"><button id="seeCard" class="plaque" hidden>See your card</button><button id="share" class="plaque" hidden>Share</button><button id="again" class="plaque">Run again</button></div>
+  <div class="links"><button id="seeBoard" class="link">Leaderboard</button><button id="home" class="link">Home</button></div>
+</section>
+
+<section id="cardView" class="veil dim" hidden>
+  <div class="cwrap">
+    <p class="got"><span>You have earned the name</span><b id="gotName"></b><i id="gotWhy"></i></p>
+    <img id="cardImg" alt="Your card">
+    <div class="dots" id="dots"></div><p class="hint" id="gotCount"></p>
+    <div class="acts"><button id="shareCard" class="plaque">Share my card</button><button id="cardBack" class="plaque quiet">Back</button></div>
+  </div>
 </section>
 
 <section id="board" class="veil dim" hidden>
   <div class="bwrap">
     <div class="bhead"><div><h2 class="logo small">Leaderboard</h2><p id="closes" class="closes"></p></div><div class="tabs" id="tabs"><button data-v="today" class="on">Today</button><button data-v="all">All time</button></div></div>
-    <div class="bleft"><div class="podium" id="podium"></div><p class="standing" id="standing"></p><div class="mine" id="mine"></div><button id="boardBack" class="plaque">Back</button></div>
+    <div class="bleft"><div class="podium" id="podium"></div><p class="standing" id="standing"></p><div class="mine" id="mine"></div><button id="myCard" class="link" hidden>My card</button><button id="boardBack" class="plaque">Back</button></div>
     <div class="board" id="ranks"></div>
   </div>
 </section>
