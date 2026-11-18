@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import * as palace from './palace.js';
 import { Builder } from './build.js';
 import { tree, treeMaterials } from './trees.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { HALL, greatHall, plinth } from './court.js';
 
 const L = palace.LEN;
@@ -106,10 +107,14 @@ export function grove(world, chunk, c, r) {
   const here = c.n === SITA.n;
   // old Ashoka trees along both sides, close enough that their canopies meet over the path, and a second row behind
   // them that closes the grove in; never two alike in kind, size or turn
+  // (all the trees of a stretch are drawn as two things, wood and leaf, not two for every tree: forty draws a stretch came to four hundred a frame on a phone)
+  const woods = [], greens = [], _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _e = new THREE.Euler();
   const plant = (kind, x, z, turn, size) => {
-    const t = new THREE.Group(), wood = new THREE.Mesh(kind.wood, k.wood), green = new THREE.Mesh(kind.green, k.green);
-    green.userData.soft = true; t.add(wood, green); t.position.set(x, 0, z); t.rotation.y = turn; t.scale.setScalar(size); g.add(t);
+    _m.compose(new THREE.Vector3(x, 0, z), _q.setFromEuler(_e.set(0, turn, 0)), new THREE.Vector3(size, size, size));
+    woods.push(kind.wood.clone().applyMatrix4(_m)); greens.push(kind.green.clone().applyMatrix4(_m));
   };
+  const planted = () => { if (!woods.length) return; const wood = new THREE.Mesh(mergeGeometries(woods), k.wood), green = new THREE.Mesh(mergeGeometries(greens), k.green);
+    green.userData.soft = true; g.add(wood, green); for (const x of woods) x.dispose(); for (const x of greens) x.dispose(); woods.length = greens.length = 0; };
   for (const s of [-1, 1]) {
     for (let j = 0; j < 3; j++) {
       const x = s * (7.0 + r() * 1.5), z = -4 - j * 8 + (r() - 0.5) * 2, kind = k.trees[Math.floor(r() * k.trees.length)], turn = r() * 6.3, size = 0.92 + r() * 0.22;
@@ -158,6 +163,7 @@ export function grove(world, chunk, c, r) {
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(a, 3)); const lamps = new THREE.Points(geo, k.lampMat); lamps.frustumCulled = false; g.add(lamps); chunk.fx.push({ type: 'flicker', obj: lamps });
     for (let i = 0; i < 9; i++) { const t = (i + 0.5) / 9 * 6.283, l = new THREE.Sprite(k.lotusMat); l.position.set(SITA.x + Math.cos(t) * 2.2, 0.3, SITA.z + Math.sin(t) * 2.2); l.scale.setScalar(0.34); g.add(l); }
   }
+  planted();
 }
 
 // The round platform under the great tree: two low steps of carved stone, the upper one her floor.

@@ -414,7 +414,6 @@ function won() { unrout(); story.ending(); }      // the last scene; it ends in 
 
 function rules(dt) {
   state.speed = Math.min(MAX_SPEED, state.speed + ACCEL * dt);
-  if (!state.fire && !state.dash && world.kindAt(hero.root.position.z) === 'grove') state.speed = Math.max(7.2, state.speed - 9 * dt);      // in the grove he goes softly: the place is to be seen
   if (state.ramp) { state.speed = Math.min(state.ramp, state.speed + 5 * dt); if (state.speed >= state.ramp) state.ramp = 0; }      // back up to pace after the fight
   if (state.dash) { state.ramp = 0; state.speed = Math.min(state.dash, Math.max(state.speed, 7.2) + 6 * dt); }      // the story has him run flat out (from the grove fight, to where he is brought down)
   if (state.danger > 0) state.danger -= dt;
@@ -716,7 +715,7 @@ function frame(now) {
   if (falling) { state.fallT -= dt; if (state.fallT <= 0) result(LINES.fell, 'Best'); }
   const speed = falling ? 2.4 : state.speed * (1 - state.slow * 0.45) * (state.fire ? 1.15 : 1) * (state.flight > 0 ? 1.3 : 1);
   hero.update(fighting && fight.frozen ? 0 : dt, speed, state.mode === 'run' || falling, groundAt);
-  world.shotOn = !!state.shot; world.update(dt, hero.root.position.z);
+  world.shotOn = !!state.shot; world.sceneOn = state.mode === 'scene' || director.active; world.update(dt, hero.root.position.z);
   for (const f of state.falling) { f.t += dt; f.mesh.rotation.z = f.dir * Math.min(1.35, f.t * 7); f.mesh.position.y = -Math.min(0.5, f.t * 1.2); }
   if (state.shake > 0) state.shake = Math.max(0, state.shake - real * 1.6);
 

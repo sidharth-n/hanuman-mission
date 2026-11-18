@@ -53,8 +53,8 @@ const DOOR_EVERY = 5, ROLL = { vz: 5, from: 27 };
 export const LANKINI_AT = 106, LANKINI_MID = 111;      // where Lankini stops him, a good run inside the gate (she is seen standing in the road from far off), and the middle of the floor they fight on
 const FIGHT_N = 3;      // the stretch of the palace court where the guards make their stand
 function placeRows() {
-  // the speed the road is measured by: what he will have reached, except in the grove, where he goes at a walk among the trees
-  const pace = d => (planAt(Math.floor(d / CHUNK)).kind === 'grove' ? 8.2 : speedAt(d));
+  // the speed the road is measured by: what he will have reached (in the grove too: he keeps his pace among the trees)
+  const pace = d => speedAt(d);
   const rows = [], r = rng(977);
   const fixed = [];
   PLAN.forEach((c, i) => {
@@ -612,6 +612,9 @@ export class World {
     for (let i = at - this.behind; i <= at + AHEAD; i++) if (!this.chunks.has(i)) this.chunks.set(i, this.take(i));
     for (const i of this.keep) if (!this.chunks.has(i)) this.chunks.set(i, this.take(i));
     for (const [i, c] of this.chunks) if ((i < at - this.behind || i > at + AHEAD) && !this.keep.has(i)) { this.drop(c); this.chunks.delete(i); }
+    // A stretch kept standing for the story (the grove, for a cut back to Sita) is drawn only when it is near or a scene
+    // is playing: on the run through the grove its far end, 150 m off in the mist, was a third of every frame's work.
+    for (const [i, c] of this.chunks) c.group.visible = this.sceneOn || (i >= at - this.behind - 1 && i <= at + AHEAD);
     this.twinkle[0].opacity = 0.55 + Math.sin(this.time * 2.3) * 0.35; this.twinkle[1].opacity = 0.55 + Math.sin(this.time * 1.7 + 2) * 0.35;
 
     const near = [];
@@ -619,8 +622,9 @@ export class World {
       if (c.fx) places.animate(c, this.time, heroZ, this.shotOn);
       for (const f of c.flames) { const s = 1.7 + Math.sin(this.time * 11 + f.userData.seed) * 0.22 + Math.sin(this.time * 23 + f.userData.seed * 3) * 0.12; const b = f.userData.base; f.scale.set(s * b, s * 1.25 * b, 1); }
       for (const a of c.live) if (a.t <= 1) this.animate(c, a, dt, heroZ);
-      for (const w of c.winds) if (!w.got) { w.mesh.material.rotation = this.time * 2.2; w.mesh.position.y = w.floor + 1.35 + Math.sin(this.time * 2 + w.z) * 0.12; }
-      for (const k of c.coins) if (!k.got) k.mesh.position.y = k.floor + k.y + Math.sin(this.time * 3 + k.z) * 0.07;
+      for (const w of c.winds) if (!w.got) { w.mesh.visible = !this.sceneOn;      // (the ring of wind is a thing of the run: in a scene it is not there. Sid: "behind Sita in that scene, not needed there")
+        w.mesh.material.rotation = this.time * 2.2; w.mesh.position.y = w.floor + 1.35 + Math.sin(this.time * 2 + w.z) * 0.12; }
+      for (const k of c.coins) if (!k.got) k.mesh.visible = !this.sceneOn, k.mesh.position.y = k.floor + k.y + Math.sin(this.time * 3 + k.z) * 0.07;
       for (const b of c.braziers) if (b.z < heroZ + 4 && b.z > heroZ - 30) near.push(b);
       const bell = c.bell;
       if (bell) {

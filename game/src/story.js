@@ -534,7 +534,7 @@ export function createStory(g) {
       if (snare && snare.t < 0 && !fire && d >= snare.at - 17) {      // thrown from far ahead, from the dark under the palace wall
         const p = hero.root.position; snare.t = 0; snare.from = [p.x > 0 ? -2.6 : 2.6, g.groundAt(p.z - 40) + 2.4, p.z - 46]; bola.visible = true; g.sound.fx('wing', { rate: 1.7 });
       }
-      if (!done.present && !done.grove && !fire && d >= GROVE_AT - 12 && d < FIRE_AT) present();      // they are there under the great tree before he comes
+      if (!done.present && !done.grove && !fire && d >= Math.max(GROVE_AT - 12, -sitaAt.z - 72) && d < FIRE_AT) present();      // they are there under the great tree before he comes
       if (!done.grove && !fire && d >= GROVE_AT + HIDE.n * CHUNK - HIDE.z - 10 && d < FIRE_AT) { grove(); return true; }      // ten metres short of the tree he will hide behind
       return false;
     },
