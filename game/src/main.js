@@ -311,11 +311,12 @@ async function openCard(from) {
   $('cardImg').removeAttribute('src'); screen('cardView');
   try { const { drawCard } = await import('./card.js'), c = await drawCard(d); $('cardImg').src = c.toDataURL('image/jpeg', 0.9); c.toBlob(b => { lb.blob = b; }, 'image/jpeg', 0.9); } catch { $('gotCount').textContent = 'The card could not be drawn just now.'; }
 }
-// The twelve names: every card there is to earn, those he holds in their colours and the others dark with the way to each.
+// The twelve names: every card there is to earn, those he holds clear and the others in their colours but blurred past knowing, under a lock, with the way to each.
+const LOCK = '<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5V7.4a4.5 4.5 0 0 1 9 0v3.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><rect x="4.6" y="10.2" width="14.8" height="10.8" rx="2.3" fill="currentColor"/><circle cx="12" cy="15.4" r="1.7" fill="#1a1208"/></svg>';
 function openNames(from) {
   lb.namesFrom = from; let have; try { have = new Set(JSON.parse(store.get('names', '[]'))); } catch { have = new Set(); }
   $('nlead').textContent = `You hold ${have.size} of 12. Each time you burn Lanka you earn one more: the rarest your run deserved.`;
-  $('ngrid').innerHTML = NAMES.map(([n, m]) => `<div class="nm${have.has(n) ? ' on' : ''}"><img src="ui/brand/cards/thumb/${n}.jpg" alt=""><p><b>${n}</b><i>${have.has(n) ? m : HOW[n]}</i></p><em>${have.has(n) ? 'Yours' : ''}</em></div>`).join('');
+  $('ngrid').innerHTML = NAMES.map(([n, m]) => `<div class="nm${have.has(n) ? ' on' : ''}"><span class="pic"><img src="ui/brand/cards/thumb/${n}.jpg" alt="">${have.has(n) ? '' : LOCK}</span><p><b>${n}</b><i>${have.has(n) ? m : HOW[n]}</i></p><em>${have.has(n) ? 'Yours' : ''}</em></div>`).join('');
   screen('names');
 }
 function shareCard() {
