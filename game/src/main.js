@@ -73,6 +73,7 @@ let queued = null;      // a leap asked for a moment before he could make it: ma
 let stick = null;       // the fight's thumb stick
 
 let fixed = null;      // [width, height] when recording at an exact size
+let film = null;       // ?debug&film: the stage for filming (film.js), never fetched in play
 function resize() {
   const w = fixed ? fixed[0] : window.innerWidth, h = fixed ? fixed[1] : window.innerHeight;
   renderer.setSize(w, h, false);
@@ -768,7 +769,8 @@ function frame(now) {
   tint.setRGB(1 - state.blaze * 0.25, 1 - state.blaze * 0.7, 1 - state.blaze * 0.82).multiplyScalar(1 - state.inside); if (state.dusk) tint.multiplyScalar(0.22); if (world.pano) tint.multiplyScalar(world.panoDim);      // (a panorama made for a bright screen is taken down to the game's night)
   world.skyMat.color.copy(tint);
   placeCamera(real, false);
-  if (state.held) renderHeld(state.held); else renderer.render(scene, camera);
+  if (film) film.frame();
+  if (state.held) renderHeld(state.held); else if (film) film.render(); else renderer.render(scene, camera);
   if (debug) audit();
 
   if (running || fighting) {
@@ -939,3 +941,4 @@ function audit() {
 }
 if (debug || import.meta.env.DEV) window.__game = { blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
+if (debug && query.has('film')) import('./film.js').then(m => { film = m.createFilm({ renderer, scene, camera, hemi, moon, state, hero: () => hero, world: () => world }); window.__game.film = film; });
