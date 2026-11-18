@@ -526,8 +526,10 @@ function rules(dt) {
       if (state.wind < 1 && !flying) { state.wind = Math.min(1, state.wind + 1 / WINDS_FOR_FLIGHT); if (state.wind >= 1) say(LINES.wind, 2.4); }
     }
     for (const k of c.coins) {
-      // in flight the lamps below come up to him
-      if (k.got || Math.abs(k.z - p.z) > 0.8 || Math.abs(k.x - p.x) > reach * (flying ? 1.5 : 1) || (!flying && Math.abs(k.y - (hero.y + 1)) > 1.3 * hero.root.scale.x)) continue;
+      // a lamp is his when he passes it in its lane, however high it hangs and however high he is (a leap begun early or late left
+      // one of a row behind); the road covered in this frame counts as passed, so a slow frame skips none; in flight the lamps below come up to him
+      const dz = k.z - p.z;
+      if (k.got || dz < -0.8 || dz > 0.8 + pace * dt || Math.abs(k.x - p.x) > reach * (flying ? 1.5 : 1)) continue;
       k.got = true; k.mesh.visible = false; state.gold++;
       const t = performance.now(); state.chain = t - (state.lampT || 0) < 600 ? (state.chain || 0) + 1 : 0; state.lampT = t;
       if (state.chain % 4 === 0) sound.fx('lamp', { gap: 0.15 });      // a soft tick for the first of a row and every fourth after it, never a stream
