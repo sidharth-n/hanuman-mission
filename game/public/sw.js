@@ -7,7 +7,7 @@ self.addEventListener('activate', e => e.waitUntil(
   caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
 self.addEventListener('fetch', e => {
   const req = e.request;
-  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
+  if (req.method !== 'GET' || new URL(req.url).origin !== location.origin || new URL(req.url).pathname.startsWith('/api/')) return;      // the scores are always asked of the network
   if (req.headers.has('range') || /\.(mp3|ogg|m4a)($|\?)/.test(req.url)) return;      // sound goes straight to the network: a phone asks for it in pieces
   const heavy = /\/(assets|ui)\/.*\.(glb|jpg|png|webp|woff2)($|\?)/.test(req.url);
   e.respondWith(caches.open(CACHE).then(async cache => {

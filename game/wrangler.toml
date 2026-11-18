@@ -1,0 +1,15 @@
+# Cloudflare Pages: the game is the built folder; functions/ holds the small scores service (/api/*), which keeps its rows in D1.
+name = "hanuman-mission"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-11-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "hanuman-scores"
+database_id = "312b2d53-4cd1-4e76-aa2c-80dca42455cb"
+
+# the beta keeps its own scores, so trial runs never reach the public board
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "hanuman-scores-beta"
+database_id = "947e0da6-0fc4-468c-88f9-191cf24a4c3e"
