@@ -71,10 +71,10 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
   <div class="count"><span id="dist">0</span><small>m</small></div>
   <div id="meter" aria-label="Strength"><img src="ui/mace.jpg" alt=""><div class="track"><i></i></div></div>
   <div class="count"><img src="ui/lamp.jpg" alt=""><span id="gold">0</span></div>
-  <button id="pause" class="medal" aria-label="Pause"><img src="ui/pause.jpg" alt=""></button>
+  <button id="pause" class="medal" aria-label="Pause"><img src="ui/pause.jpg" alt=""><kbd>Esc</kbd></button>
 </div>
-<button id="fly" class="medal power" hidden aria-label="Fly"><img src="ui/wings.jpg" alt=""><i class="ring"></i><b class="tag">Fly</b></button>
-<button id="giant" class="medal power" hidden aria-label="Smash"><img src="ui/giant.jpg" alt=""><i class="ring"></i><b class="tag">Smash</b></button>
+<button id="fly" class="medal power" hidden aria-label="Fly"><img src="ui/wings.jpg" alt=""><i class="ring"></i><b class="tag">Fly</b><kbd>F</kbd></button>
+<button id="giant" class="medal power" hidden aria-label="Smash"><img src="ui/giant.jpg" alt=""><i class="ring"></i><b class="tag">Smash</b><kbd>G</kbd></button>
 <div id="pad" hidden><i></i></div>
 <button id="jump" class="medal act" hidden aria-label="Jump"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 9 L39 27 H30 V39 H18 V27 H9 Z"/></svg><b class="tag">Jump</b></button>
 <button id="dodge" class="medal act" hidden aria-label="Dodge"><img src="ui/shield.jpg" alt=""><b class="tag">Dodge</b></button>
@@ -82,6 +82,7 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
 <div id="alert" hidden></div>
 <div id="teach" hidden><i></i><b></b></div>
 <div id="tip" hidden></div>
+<div id="keys" hidden></div>
 <div id="card" hidden><b></b><p></p></div>
 <div id="ask" hidden><p>Lankini is too big to fight.<br>Grow to her size?</p><button id="askYes" class="plaque">Yes</button></div>
 <div id="drama" hidden><i class="bar"></i><i class="bar low"></i><div class="say"><b id="who"></b><p id="line"></p></div><button id="skip">Skip</button></div>
@@ -119,7 +120,7 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
   <div class="group">
     <button id="go" class="plaque">Play</button>
     <button id="openSettings" class="plaque quiet">Settings</button>
-    <p class="hint">Swipe left or right to change lane, up to jump, down to slide</p>
+    <p class="hint" id="howLine">Swipe left or right to change lane, up to jump, down to slide</p>
   </div>
 </section>
 
@@ -132,6 +133,7 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
     <div class="row"><img src="ui/speaker.jpg" alt=""><span>Vibration</span><button class="switch" id="vib" role="switch" aria-label="Vibration"></button></div>
     <div class="row help"><img src="ui/giant.jpg" alt=""><p>Lamps fill the mace. When it is full, press Smash to break through whatever is in the way.</p></div>
     <div class="row help"><img src="ui/wings.jpg" alt=""><p>A gust of wind charges the wings. Press Fly to soar over everything.</p></div>
+    <div class="controls" id="controls"></div>
     <div class="acts"><button id="resume" class="plaque">Resume</button><button id="quit" class="plaque quiet">Quit</button></div>
   </div>
 </section>

@@ -23,7 +23,7 @@ export function listen(target, on) {
 
 // The fight's controls, laid out the way action games on a phone lay them out: a thumb stick on the left that comes to
 // wherever the thumb lands; strike, dodge and jump under the right thumb. On a keyboard, as games there have it: WASD or the
-// arrows to move, Space to jump, J (or F, Enter, or the mouse) to strike, Shift (or K) to dodge, E (or Q) for the great blow.
+// arrows to move, Space to jump, J (or F, Enter, or the mouse) to strike, Shift (or K) to dodge, G (or E, Q) for the great blow.
 // live(): whether a fight is on. Returns the stick: x to the right of the screen, y toward the player, each -1..1.
 export function fightControls(pad, { live, attack, dodge, jump, special }) {
   const stick = { x: 0, y: 0 }, knob = pad.firstElementChild, R = 46, held = new Set();
@@ -51,7 +51,7 @@ export function fightControls(pad, { live, attack, dodge, jump, special }) {
     else if (!e.repeat && k === ' ') { jump(); e.preventDefault(); }
     else if (!e.repeat && (k === 'j' || k === 'f' || k === 'Enter')) { attack(); e.preventDefault(); }
     else if (!e.repeat && (k === 'Shift' || k === 'k')) { dodge(); e.preventDefault(); }
-    else if (!e.repeat && (k === 'e' || k === 'q')) { special(); e.preventDefault(); }
+    else if (!e.repeat && (k === 'e' || k === 'q' || k === 'g')) { special(); e.preventDefault(); }
   });
   window.addEventListener('keyup', e => { const k = e.key.length === 1 ? e.key.toLowerCase() : e.key; if (MOVE[k]) { held.delete(MOVE[k]); keys(); } });
   stick.release = () => { held.clear(); drop(); };

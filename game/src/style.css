@@ -274,3 +274,28 @@ body.fighting #giant { right: calc(32px + var(--right)); bottom: calc(160px + va
 body.fighting #tip { right: calc(18px + var(--right)); bottom: calc(232px + var(--bottom)); }
 @keyframes tipBob { from { transform: translateY(0); } to { transform: translateY(-7px); } }
 @media (max-width: 560px) { #tip { bottom: calc(92px + var(--bottom)); } #teach i { width: 72px; height: 72px; } }
+
+/* With a keyboard (body.keys): the key of each button on a small cap at its shoulder, the keys of the moment in a line low on the
+   screen, and the whole list in the settings. On a phone no cap is drawn. */
+kbd { display: inline-block; min-width: 1.5em; padding: 3px 6px 2px; margin: 0 2px; font: 700 12px/1.1 var(--head); letter-spacing: .04em; text-align: center; color: var(--gold-light);
+  background: rgba(20, 14, 8, .9); border: 1px solid var(--gold-deep); border-bottom-width: 2px; border-radius: 4px; }
+.medal kbd { display: none; position: absolute; right: -10px; top: -9px; margin: 0; pointer-events: none; white-space: nowrap; z-index: 1; filter: none; }
+body.keys .medal kbd { display: block; }
+body.keys .act kbd, body.keys.fighting .power kbd { display: none; }      /* in a fight the line low on the screen names the keys: caps on the crowded buttons would cover their names */
+#hud .medal kbd { right: -6px; top: auto; bottom: -12px; }
+#keys { position: fixed; left: 50%; bottom: calc(14px + var(--bottom)); transform: translateX(-50%); display: flex; gap: 18px; padding: 7px 14px; pointer-events: none; z-index: 4; white-space: nowrap;
+  font: 700 12px/1 var(--head); letter-spacing: .12em; text-transform: uppercase; color: var(--quiet); background: rgba(12, 8, 4, .55); border: 1px solid rgba(160, 120, 50, .35); border-radius: 6px; }
+#keys[hidden] { display: none; }
+#keys span { display: flex; align-items: center; gap: 4px; }
+.hint kbd { vertical-align: 1px; }
+.controls { margin: 6px 0 2px; padding-top: 8px; border-top: 1px solid rgba(160, 120, 50, .35); display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; }
+.controls h3 { grid-column: 1 / -1; margin: 0 0 2px; font: 700 14px/1 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+.controls div { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 26px; }
+.controls span { font: 500 14px/1.2 var(--text); color: var(--quiet); white-space: nowrap; }
+.controls b { font: 600 14px/1.2 var(--text); color: var(--ink); text-align: right; }
+body:not(.keys) .controls { grid-template-columns: 1fr; }
+body:not(.keys) .controls span { white-space: normal; color: var(--ink); font-weight: 600; }
+body:not(.keys) .controls b { color: var(--quiet); font-weight: 500; max-width: 60%; }
+@media (max-height: 520px) { body:not(.keys) .controls { display: none; } }
+body.keys #panel .tablet { width: min(660px, 100%); max-height: calc(100vh - 20px); overflow-y: auto; }
+body.keys .controls { gap: 6px 40px; }

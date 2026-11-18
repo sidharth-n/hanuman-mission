@@ -36,6 +36,14 @@ const ui = { loading: $('loading'), menu: $('menu'), panel: $('panel'), result: 
 // what the player chose last time, kept on the device
 const store = { get(k, d) { try { return localStorage.getItem('hm.' + k) ?? d; } catch { return d; } }, set(k, v) { try { localStorage.setItem('hm.' + k, v); } catch { /* private mode */ } } };
 const phone = window.matchMedia('(pointer: coarse)').matches;
+// With a keyboard the keys are shown, as games on a computer show them: on each button, in a line low on the screen, and listed in the settings.
+const cap = (...k) => k.map(x => `<kbd>${x}</kbd>`).join('');
+const KEYS_RUN = `<span>${cap('←', '→')} Lane</span><span>${cap('↑')} Leap</span><span>${cap('↓')} Slide</span>`;
+const KEYS_FIGHT = `<span>${cap('W', 'A', 'S', 'D')} Move</span><span>${cap('J')} Strike</span><span>${cap('Shift')} Dodge</span><span>${cap('Space')} Jump</span><span>${cap('G')} Smash</span>`;
+const CONTROLS = phone
+  ? [['Swipe left or right', 'Change lane'], ['Swipe up', 'Leap'], ['Swipe down', 'Slide'], ['In a fight', 'Left thumb moves him; Strike, Dodge and Jump under the right']]
+  : [[cap('←', '→'), 'Change lane'], [cap('W', 'A', 'S', 'D'), 'Move in a fight'], [cap('↑') + ' or ' + cap('Space'), 'Leap'], [cap('J') + ' or click', 'Strike'], [cap('↓'), 'Slide'], [cap('Shift'), 'Dodge'],
+    [cap('F'), 'Fly'], [cap('Space'), 'Jump in a fight'], [cap('G'), 'Smash'], [cap('Esc'), 'Pause']];
 // Smooth: plainer shading and fewer pixels, the default on a phone. Rich: full shading, the default on a computer.
 const settings = { gfx: store.get('gfx', phone ? 'smooth' : 'rich'), vib: store.get('vib', 'on') === 'on' };
 const sharpest = () => Math.min(window.devicePixelRatio || 1, settings.gfx === 'rich' ? (phone ? 1.75 : 2) : 1.25);
@@ -161,6 +169,7 @@ function screen(name) {
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
   const inFight = inRun && fight && fight.active;      // the fight's own controls
   ui.pad.hidden = ui.strike.hidden = ui.dodge.hidden = $('jump').hidden = !inFight; document.body.classList.toggle('fighting', !!inFight);
+  if (!phone) { $('keys').hidden = !inRun || state.mode === 'paused'; $('keys').innerHTML = inFight ? KEYS_FIGHT : KEYS_RUN; }      // with a keyboard: the keys of the moment, low on the screen
   if (!inRun) ui.alert.hidden = true;
 }
 
@@ -813,6 +822,8 @@ function press2(id, fn) {
   el.classList.remove('hit', 'no'); void el.offsetWidth; el.classList.add(ok ? 'hit' : 'no'); if (ok) buzz([30, 30, 60]);
 }
 const press = (id, fn) => $(id).addEventListener('click', e => { sound.fx('tap'); fn(e); });
+if (!phone) { document.body.classList.add('keys'); $('howLine').innerHTML = `${cap('←', '→')} change lane &nbsp; ${cap('↑')} leap &nbsp; ${cap('↓')} slide`; }
+$('controls').innerHTML = '<h3>Controls</h3>' + CONTROLS.map(([k, v]) => `<div><span>${k}</span><b>${v}</b></div>`).join('');
 press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
