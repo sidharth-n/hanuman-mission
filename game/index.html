@@ -156,22 +156,31 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
   <p class="hint" id="fromLine" hidden></p>
   <p class="hint" id="shareLine" hidden>Liked it? Share it with your friends.</p>
   <div class="acts"><button id="seeCard" class="plaque" hidden>See your card</button><button id="share" class="plaque" hidden>Share</button><button id="again" class="plaque">Run again</button></div>
-  <div class="links"><button id="seeBoard" class="link">Leaderboard</button><button id="home" class="link">Home</button></div>
+  <div class="links"><button id="seeBoard" class="link">Leaderboard</button><button id="resNames" class="link">Twelve names</button><button id="home" class="link">Home</button></div>
 </section>
 
 <section id="cardView" class="veil dim" hidden>
   <div class="cwrap">
     <p class="got"><span id="gotWho">You are now</span><b id="gotName"></b><i id="gotWhy"></i></p>
     <img id="cardImg" alt="Your card">
-    <div class="dots" id="dots"></div><p class="hint" id="gotCount"></p>
+    <div class="dots" id="dots"></div><p class="hint" id="gotCount"></p><button id="seeNames" class="link">See all twelve</button>
     <div class="acts"><button id="shareCard" class="plaque">Share my card</button><button id="cardBack" class="plaque quiet">Back</button></div>
+  </div>
+</section>
+
+<section id="names" class="veil dim" hidden>
+  <div class="nwrap">
+    <h2 class="logo small">The twelve names</h2>
+    <p class="nlead" id="nlead"></p>
+    <div class="ngrid" id="ngrid"></div>
+    <button id="namesBack" class="plaque">Back</button>
   </div>
 </section>
 
 <section id="board" class="veil dim" hidden>
   <div class="bwrap">
     <div class="bhead"><div><h2 class="logo small">Leaderboard</h2><p id="closes" class="closes"></p></div><div class="tabs" id="tabs"><button data-v="today" class="on">Today</button><button data-v="all">All time</button></div></div>
-    <div class="bleft"><div class="podium" id="podium"></div><p class="standing" id="standing"></p><div class="mine" id="mine"></div><button id="myCard" class="link" hidden>My card</button><button id="boardBack" class="plaque">Back</button></div>
+    <div class="bleft"><div class="podium" id="podium"></div><p class="standing" id="standing"></p><div class="mine" id="mine"></div><button id="myCard" class="link" hidden>My card</button><button id="boardNames" class="link">The twelve names</button><button id="boardBack" class="plaque">Back</button></div>
     <div class="board" id="ranks"></div>
   </div>
 </section>

@@ -44,6 +44,11 @@ export const NAMES = [      // the twelve names of Hanuman (Dwadasha Nama), each
   ['Hanuman', 'Of the mighty jaw'], ['Anjanisuta', 'Son of Anjana'], ['Vayuputra', 'Son of the wind'], ['Mahabala', 'Of great strength'], ['Rameshta', 'Dear to Rama'],
   ['Phalgunasakha', 'Friend of Arjuna'], ['Pingaksha', 'The tawny-eyed'], ['Amitavikrama', 'Of boundless valour'], ['Udadhikramana', 'Who leapt the ocean'],
   ['Sitashokavinashana', "Who ended Sita's sorrow"], ['Lakshmanapranadata', 'Who gave Lakshmana his life again'], ['Dashagrivadarpaha', "Who broke the ten-headed one's pride"]];
+// What a player is told about earning each name (the screen of the twelve names). Every run told to its end earns one name he
+// does not hold yet, the rarest that run deserved (the order of `earned` below).
+export const HOW = { Hanuman: 'Burn Lanka', Anjanisuta: 'Burn Lanka once more', Vayuputra: 'Burn Lanka without falling', Mahabala: 'Win three fights in one run', Rameshta: 'Gather 300 lamps in one run',
+  Phalgunasakha: 'Share a card, then burn Lanka again', Pingaksha: 'Burn Lanka a second time', Amitavikrama: 'Score 9,000 or more', Udadhikramana: 'Cross the sea and burn Lanka',
+  Sitashokavinashana: "Bring Rama's ring to Sita and burn Lanka", Lakshmanapranadata: 'Fall, rise, and still burn Lanka', Dashagrivadarpaha: 'Burn Lanka without a single fall, every fight won' };
 // Which names a run has earned, the rarest first: s the run's numbers (lamps, won, falls, done, sec, score), h what is kept of earlier runs.
 export const earned = (s, h) => [
   ['Dashagrivadarpaha', s.done && s.falls === 0 && s.won >= 3], ['Amitavikrama', s.score >= 9000], ['Mahabala', s.won >= 3], ['Lakshmanapranadata', s.done && s.falls > 0],

@@ -14,7 +14,7 @@ import LINES from './lines.json';
 import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen, fightControls } from './input.js';
 import { createSound } from './sound.js';
-import { createScores, reckon, flag, seal, NAMES, earned } from './scores.js';
+import { createScores, reckon, flag, seal, NAMES, HOW, earned } from './scores.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
@@ -31,7 +31,7 @@ const INDOORS = new THREE.Color(0x0d0804), FOG_INDOORS = new THREE.Color(0x1d120
 const SKY_LIGHT = new THREE.Color(0x7f95d8), LAMP_LIGHT = new THREE.Color(0xd9a25e), FIRE_LIGHT = new THREE.Color(0xff9a5a), MOON_LIGHT = new THREE.Color(0xb4c4ff), tint = new THREE.Color();
 
 const $ = id => document.getElementById(id);
-const ui = { board: $('board'), cardView: $('cardView'), loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
+const ui = { board: $('board'), cardView: $('cardView'), names: $('names'), loading: $('loading'), menu: $('menu'), panel: $('panel'), result: $('result'), fill: $('bar').firstElementChild, loadLine: $('loadLine'),
   hud: $('hud'), dist: $('dist'), gold: $('gold'), meter: $('meter'), fill2: $('meter').querySelector('i'), alert: $('alert'), fps: $('fps'), fly: $('fly'), giant: $('giant'),
   pad: $('pad'), strike: $('strike'), dodge: $('dodge'), card: $('card'), fade: $('fade') };
 // what the player chose last time, kept on the device
@@ -165,7 +165,7 @@ async function load() {
 
 // One full-screen layer at a time: 'loading' | 'menu' | 'panel' | 'result', or none while running.
 function screen(name) {
-  for (const k of ['loading', 'menu', 'panel', 'result', 'board', 'cardView']) ui[k].hidden = k !== name;
+  for (const k of ['loading', 'menu', 'panel', 'result', 'board', 'cardView', 'names']) ui[k].hidden = k !== name;
   const inRun = state.mode === 'run' || state.mode === 'paused' || state.mode === 'fight';
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
   const inFight = inRun && fight && fight.active;      // the fight's own controls
@@ -310,6 +310,13 @@ async function openCard(from) {
   $('dots').innerHTML = NAMES.map((_, i) => `<i class="${i < d.names ? 'on' : ''}"></i>`).join(''); $('gotCount').textContent = `${d.names} of Hanuman's 12 names collected`;
   $('cardImg').removeAttribute('src'); screen('cardView');
   try { const { drawCard } = await import('./card.js'), c = await drawCard(d); $('cardImg').src = c.toDataURL('image/jpeg', 0.9); c.toBlob(b => { lb.blob = b; }, 'image/jpeg', 0.9); } catch { $('gotCount').textContent = 'The card could not be drawn just now.'; }
+}
+// The twelve names: every card there is to earn, those he holds in their colours and the others dark with the way to each.
+function openNames(from) {
+  lb.namesFrom = from; let have; try { have = new Set(JSON.parse(store.get('names', '[]'))); } catch { have = new Set(); }
+  $('nlead').textContent = `You hold ${have.size} of 12. Each time you burn Lanka you earn one more: the rarest your run deserved.`;
+  $('ngrid').innerHTML = NAMES.map(([n, m]) => `<div class="nm${have.has(n) ? ' on' : ''}"><img src="ui/brand/cards/thumb/${n}.jpg" alt=""><p><b>${n}</b><i>${have.has(n) ? m : HOW[n]}</i></p><em>${have.has(n) ? 'Yours' : ''}</em></div>`).join('');
+  screen('names');
 }
 function shareCard() {
   const blob = lb.blob, b = $('shareCard'), said = t => { b.textContent = t; setTimeout(() => { b.textContent = 'Share my card'; }, 2400); }; if (!blob) return said('One moment');
@@ -915,6 +922,7 @@ $('controls').innerHTML = '<h3>Controls</h3>' + CONTROLS.map(([k, v]) => `<div><
 { const el = $('name'); el.value = store.get('name', ''); el.addEventListener('change', () => { el.value = el.value.trim().slice(0, 12); store.set('name', el.value); if (tally.send && !ui.result.hidden) tally.send(); }); }      // the name he gives is kept, and changed on the board at once
 press('seeCard', () => openCard('result')); press('myCard', () => openCard('board')); press('shareCard', shareCard); press('cardBack', () => screen(lb.cardFrom || 'menu'));
 press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('result')); press('boardBack', () => screen(lb.from));
+press('seeNames', () => openNames('cardView')); press('boardNames', () => openNames('board')); press('resNames', () => openNames('result')); press('namesBack', () => screen(lb.namesFrom || 'menu'));
 for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
 press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
