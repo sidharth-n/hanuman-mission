@@ -13,11 +13,14 @@ const INTRO = 5.6;      // seconds of chant at the head of run.mp3: the loop com
 const LEVEL = { chant: 1, leap: 0.5, slide: 0.6, lamp: 0.24, wind: 0.6, bell: 0.9, hit: 0.9, splash: 0.9, wing: 0.7, power: 0.75, smash: 0.8, fire: 0.8, tap: 0.4,
   fireball: 0.55, spikes: 0.55, beam: 0.9, stone: 0.8, bridge: 0.8, blaze: 0.4,
   step1: 1, step2: 1, step3: 1, step4: 1, breath1: 0.42, breath2: 0.42, breath3: 0.42 };      // his feet and his breath on the way in: small sounds
+// A blow, a body going down, steel on steel and a swing each have several recordings, so that no two in a row sound alike.
+Object.assign(LEVEL, { hit2: 0.88, hit3: 1.2, hit4: 1.2, hit5: 0.65, fall1: 1.1, fall2: 0.85, fall3: 1.15, clash1: 0.8, clash2: 0.6, clash3: 0.45, swing1: 0.5, swing2: 0.28, swing3: 0.42 });
+const KINDS = { hit: ['hit', 'hit2', 'hit3', 'hit4', 'hit5'], fall: ['fall1', 'fall2', 'fall3'], clash: ['clash1', 'clash2', 'clash3'], swing: ['swing1', 'swing2', 'swing3'] };
 
 export function createSound(store) {
   let on = store.get('sound', 'on') === 'on', trackError = '', noSong = false, woke = false;      // noSong: the song of the run is not in this build (it is on the maker's own machine only)
   const AC = window.AudioContext || window.webkitAudioContext;
-  const ctx = AC ? new AC() : null, out = ctx ? ctx.createGain() : null, buffers = {}, last = {};
+  const ctx = AC ? new AC() : null, out = ctx ? ctx.createGain() : null, buffers = {}, last = {}, was = {};
   let voice = null;      // the chant while it sounds
   let resting = false, fading = null;      // the song is for the run only: in a scene or a fight it has faded away and waits
   let burn = null;       // the city burning, on a loop
@@ -197,7 +200,10 @@ export function createSound(store) {
     fx(name, { rate = 1, delay = 0, gap = 0.05 } = {}) {
       const now = performance.now();
       if (now - (last[name] || 0) < gap * 1000) return;
-      last[name] = now; fire(name, rate, delay);
+      last[name] = now;
+      const kind = KINDS[name], have = kind ? kind.filter(n => buffers[n]) : null; let pick = name;      // one of its recordings, never the one heard last
+      if (have && have.length) { do pick = have[Math.floor(Math.random() * have.length)]; while (have.length > 1 && pick === was[name]); was[name] = pick; }
+      fire(pick, rate, delay);
     },
   };
 }

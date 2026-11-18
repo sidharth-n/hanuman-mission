@@ -18,3 +18,16 @@ fireball.mp3: "JM_FX_Fireball 02.wav" by Julien Matthey, https://freesound.org/p
 stone.mp3: "Boulder Push" by IDLauncher, https://freesound.org/people/IDLauncher/sounds/513236
 bridge.mp3: "Wood Creak Single V6" by Rudmer_Rotteveel, https://freesound.org/people/Rudmer_Rotteveel/sounds/506661 + "Chain rattling" by georgesavic, https://freesound.org/people/georgesavic/sounds/593458
 blaze.mp3: "Fire_Loop.wav" by ReadeOnly, https://freesound.org/people/ReadeOnly/sounds/186924
+hit2.mp3: "PUNCH-BOXING-03.wav" by newagesoup, https://freesound.org/people/newagesoup/sounds/348242
+hit3.mp3: "Fist Punch or kick" by rcroller, https://freesound.org/people/rcroller/sounds/424144
+hit4.mp3: "Dull Decompression Punch Impact Explodes 96kHz" by qubodup, https://freesound.org/people/qubodup/sounds/71274
+hit5.mp3: "Punch (3)" by johnfolker, https://freesound.org/people/johnfolker/sounds/269231
+fall1.mp3: "Body fall_01.wav" by deleted_user_2104797, https://freesound.org/people/deleted_user_2104797/sounds/346695
+fall2.mp3: "Body fall_02.wav" by deleted_user_2104797, https://freesound.org/people/deleted_user_2104797/sounds/346694
+fall3.mp3: "Body fall_03.wav" by deleted_user_2104797, https://freesound.org/people/deleted_user_2104797/sounds/346693
+clash1.mp3: "Sword Clash" by loudernoises, https://freesound.org/people/loudernoises/sounds/334169
+clash2.mp3: "Metal Clang" by jashstudios, https://freesound.org/people/jashstudios/sounds/184343
+clash3.mp3: "Sword Impact" by TheBuilder15, https://freesound.org/people/TheBuilder15/sounds/434896
+swing1.mp3: "Fast Sword Swing Sound" by qubodup, https://freesound.org/people/qubodup/sounds/60004
+swing2.mp3: "swosh swinging sword 37.flac" by qubodup, https://freesound.org/people/qubodup/sounds/60024
+swing3.mp3: "Clean fast Swoosh.aiff" by Danjocross, https://freesound.org/people/Danjocross/sounds/507466

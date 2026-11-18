@@ -257,7 +257,7 @@ export class Fight {
     h.heavy = h.combo === 3; h.act = 'attack'; h.t = 0; h.struck = false; h.queued = false;
     if (h.heavy) { hero.play('great_sword_slash', { once: true, from: 0.45, speed: 1.25, fade: 0.06 }); h.strikeAt = 0.22; h.len = 0.62; h.reach = 2.45 * S; h.dmg = 2; }      // the third blow of a row is the great one
     else { hero.play('mutant_punch', { once: true, from: 0.1, speed: 1.3, fade: 0.05 }); h.strikeAt = 0.15; h.len = 0.4; h.reach = 2.0 * S; h.dmg = 1; }
-    this.sound.fx('slide', { rate: h.heavy ? 1.5 : 2.1, gap: 0.04 }); if (h.heavy) this.sound.hit('surge1');      // the great swing is heard coming
+    this.sound.fx('swing', { rate: h.heavy ? 0.85 : 1.15, gap: 0.04 }); if (h.heavy) this.sound.hit('surge1');      // the great swing is heard coming
     return true;
   }
 
@@ -317,13 +317,14 @@ export class Fight {
     _a.set(gp.x - nx * 0.45, gp.y + high, gp.z - nz * 0.45);
     // a guard standing ready sometimes turns the first blow of a row aside on his sword: sparks, no hurt, and he is driven back a step
     if (!heavy && !g.lux && g.st === 'ready' && this.h.combo === 1 && Math.random() < 0.25) {
-      this.sparks.burst(_a, 30, WHITE, 8, -nx, -nz, 0.7); this.flare(_a, WHITE, 1.7 * (this.s || 1), 0.2); this.sound.fx('tap', { rate: 1.6, gap: 0.03 });
+      this.sparks.burst(_a, 30, WHITE, 8, -nx, -nz, 0.7); this.flare(_a, WHITE, 1.7 * (this.s || 1), 0.2); this.sound.fx('clash', { gap: 0.03 });
       g.vx = nx * 3.5; g.vz = nz * 3.5; g.play(g.clips.hit, { once: true, from: 0.1, speed: 2.2, fade: 0.05 }); g.st = 'hurt'; g.t = 0.25;
       return;
     }
     const K = this.s || 1;      // mace on steel throws the most and the whitest; a blow that lands on a body is gold
     this.sparks.burst(_a, heavy ? 46 : clash ? 44 : 24, clash ? WHITE : GOLD, (heavy ? 10.5 : clash ? 9.5 : 6.5) * (0.6 + 0.4 * K), nx, nz, clash ? 0.7 : heavy ? 0.4 : 0.25);
     this.flare(_a, clash ? WHITE : GOLD, (heavy ? 2.5 : clash ? 2.3 : 1.35) * K, clash || heavy ? 0.24 : 0.17);      // the star is the whole light of a blow: no soft glow under it
+    if (clash) this.sound.fx('clash', { gap: 0.03 });      // mace on steel is heard as steel
     g.hp -= dmg; g.showHp();
     // Lankini is not driven back by a great blow: she takes it and comes on. Only when enough of them have told on her is she stopped for a moment, where she stands.
     // (Sid: "even when i strike lankini the stroke is not hit and she does not react": she took six blows without a sign. Now every
@@ -335,7 +336,7 @@ export class Fight {
     if (g.token) { g.token = false; this.cool = this.rules.rest + Math.random() * 0.4; }
     const push = (heavy ? 9 : 5) * (g.k.boss ? 0.12 : g.k.firm ? 0.45 : 1) * this.s; g.vx = nx * push; g.vz = nz * push;
     if (g.hp <= 0) {
-      g.st = 'dead'; g.play(g.clips.death, { once: true, fade: 0.08, speed: 1.15 });
+      g.st = 'dead'; g.play(g.clips.death, { once: true, fade: 0.08, speed: 1.15 }); this.sound.fx('fall', { delay: 0.55, gap: 0.08 });      // and he is heard coming down
       if (--this.left === 0) {
         if (this.wave < this.plan.length) this.nextT = 1.4;      // a breath, and the next wave is on him
         else { this.over = 'won'; this.overT = 1.9; this.slowMotion(1.3, 0.28); }      // the last one of all falls slowly
@@ -440,7 +441,7 @@ export class Fight {
       if (h.act === 'hurt') {
         if (!h.down && h.t * FALL.speed >= FALL.land) {      // he comes down on his back
           h.down = h.t;
-          _a.set(p.x, p.y + 0.15, p.z); this.sparks.burst(_a, 18, WHITE, 5 * S); this.shake(0.4); this.buzz(40); this.sound.fx('stone', { rate: 1.3, gap: 0.1 });
+          _a.set(p.x, p.y + 0.15, p.z); this.sparks.burst(_a, 18, WHITE, 5 * S); this.shake(0.4); this.buzz(40); this.sound.fx('fall', { rate: 0.9, gap: 0.1 });
         }
         if (h.down && !h.up && h.t >= h.down + (h.epic ? 0.75 : 0.22)) {      // a moment on the ground, and he springs to his feet
           const speed = h.epic ? KIP.slow : KIP.speed; h.up = h.t; h.len = h.t + (KIP.end - KIP.from) / speed - 0.06 + (h.epic ? 1.2 : 0);
@@ -526,7 +527,7 @@ export class Fight {
         else if (g.t < TELL && d > body) { gp.x += Math.sin(g.yaw) * 3.4 * S * dt; gp.z += Math.cos(g.yaw) * 3.4 * S * dt; }      // and steps into it, never through him
         if (TRAILS && g.t > TELL - 0.16 && g.t < TELL + 0.14) { g.swordEnds(_a, _b); g.trail.add(_a, _b); }
         if (!g.struck && g.t >= TELL) {
-          g.struck = true; this.sound.fx('slide', { rate: k.boss ? 1.1 : 1.7, gap: 0.04 });
+          g.struck = true; this.sound.fx('swing', { rate: k.boss ? 0.75 : 1, gap: 0.04 });
           const fx = Math.sin(g.yaw), fz = Math.cos(g.yaw), hx = p.x - gp.x, hz = p.z - gp.z, hd = Math.max(0.01, Math.hypot(hx, hz));
           if (hd < k.reach && (hx * fx + hz * fz) / hd > 0.42) this.hitHero(g);
           else if (k.boss) { _a.set(gp.x + fx * 3.8, gp.y + 0.2, gp.z + fz * 3.8); this.sparks.burst(_a, 22, WHITE, 7); this.shake(0.3); }      // her sword comes down on the stone
