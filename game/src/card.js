@@ -3,13 +3,13 @@
 // place on today's board, the lamps, how many of the twelve names are collected, the card's number, and the game's address.
 // Fetched only when a card is shown. Letters are spaced by hand: not every phone spaces letters on a canvas.
 import { seal } from './scores.js';
-export const SITE = 'hanuman-mission.pages.dev';
+export const SITE = 'hanumanmission.com';      // the address printed on the card (Sid, 19 Nov: the .com on the card; the link sent with it stays the playable one until the domain is joined)
 const img = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
 export async function drawCard(d) {
   const W = 1080, H = 1350, c = document.createElement('canvas'), x = c.getContext('2d'); c.width = W; c.height = H;
   const HEAD = 'Cinzel, "Trajan Pro", Georgia, serif', TEXT = '"Cormorant Garamond", Georgia, serif', GL = '#fbe7ae', G = '#e8b44c', GD = '#b07a24', INK = '#f3e9d8', QUIET = '#b9a98d';
   await Promise.all([document.fonts.load(`900 40px ${HEAD}`), document.fonts.load(`700 40px ${HEAD}`), document.fonts.load(`500 40px ${TEXT}`), document.fonts.load(`italic 500 40px ${TEXT}`)]).catch(() => {});
-  const [art, sl] = await Promise.all([img('ui/brand/card-art.jpg').catch(() => null),
+  const [art, sl] = await Promise.all([img(`ui/brand/cards/${d.title}.jpg`).catch(() => img('ui/brand/card-art.jpg')).catch(() => null),      // each name has its own picture of him
     img('data:image/svg+xml;utf8,' + encodeURIComponent(seal(d.name + '-' + d.score + '-' + d.lamps, G).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" '))).catch(() => null)]);
   const rr = (X, Y, w, h, r) => { x.beginPath(); x.roundRect ? x.roundRect(X, Y, w, h, r) : x.rect(X, Y, w, h); };
   // letters set apart by hand; align: 'left' | 'center' | 'right'
@@ -25,19 +25,19 @@ export async function drawCard(d) {
   if (art) x.drawImage(art, AX, AY, AW, AH); else { x.fillStyle = '#1b2248'; x.fillRect(AX, AY, AW, AH); }
   const sh = x.createLinearGradient(0, AY, 0, AY + AH); sh.addColorStop(0.52, 'rgba(12,8,5,0)'); sh.addColorStop(0.92, 'rgba(12,8,5,.92)'); x.fillStyle = sh; x.fillRect(AX, AY, AW, AH); x.restore();
   x.lineWidth = 2; x.strokeStyle = GD; rr(AX, AY, AW, AH, 14); x.stroke();
-  x.fillStyle = QUIET; x.font = `700 22px ${HEAD}`; spaced('THE NAME EARNED', W / 2, 690, 8.8, 'center');
+  const who = (d.name || 'Vanara').toUpperCase() + ' IS NOW', hs = fit(who, `700 #px ${HEAD}`, 30, 860, 0.3); x.save(); x.shadowColor = 'rgba(0,0,0,.9)'; x.shadowBlur = 12; x.fillStyle = INK; x.font = `700 ${hs}px ${HEAD}`; spaced(who, W / 2, 688, hs * 0.3, 'center'); x.restore();
   const title = d.title.toUpperCase(), ts = fit(title, `900 #px ${HEAD}`, 92, 880, 0.08); x.font = `900 ${ts}px ${HEAD}`;
   const gold = x.createLinearGradient(0, 778 - ts, 0, 782); gold.addColorStop(0, '#fff3c9'); gold.addColorStop(0.45, G); gold.addColorStop(1, GD);
   x.save(); x.shadowColor = 'rgba(0,0,0,.85)'; x.shadowBlur = 18; x.shadowOffsetY = 6; x.fillStyle = gold; spaced(title, W / 2, 776, ts * 0.08, 'center'); x.restore();
   x.fillStyle = INK; x.font = `italic 500 ${fit(d.meaning, `italic 500 #px ${TEXT}`, 40, 880)}px ${TEXT}`; x.textAlign = 'center'; x.fillText(d.meaning, W / 2, 830);
   // who carries it, beside the seal of this run
   if (sl) x.drawImage(sl, 78, 896, 150, 150);
-  x.fillStyle = QUIET; x.font = `700 18px ${HEAD}`; spaced('CARRIED BY', 254, 944, 5.4);
-  const who = (d.name || 'Vanara').toUpperCase(), ws = fit(who, `900 #px ${HEAD}`, 78, 740, 0.06); x.fillStyle = INK; x.font = `900 ${ws}px ${HEAD}`; spaced(who, 254, 1022, ws * 0.06);
+  x.fillStyle = QUIET; x.font = `700 20px ${HEAD}`; spaced('I BURNED LANKA', 254, 946, 6);
+  const dare = 'CAN YOU BEAT ME?', ws = fit(dare, `900 #px ${HEAD}`, 62, 740, 0.05); x.fillStyle = INK; x.font = `900 ${ws}px ${HEAD}`; spaced(dare, 254, 1016, ws * 0.05);
   // the numbers of the run
   x.strokeStyle = 'rgba(232,180,76,.35)'; x.lineWidth = 1; x.beginPath(); x.moveTo(84, 1072); x.lineTo(996, 1072); x.stroke();
   [['SCORE', Math.round(d.score).toLocaleString('en-US')], ['RANK TODAY', d.rank ? '#' + d.rank : '–'], ['LAMPS', String(d.lamps)], ['NAMES', d.names + ' / 12']].forEach(([k, v], i) => {
     const X = [84, 330, 600, 820][i]; x.fillStyle = QUIET; x.font = `700 17px ${HEAD}`; spaced(k, X, 1114, 3.7); x.fillStyle = GL; x.font = `700 46px ${HEAD}`; x.textAlign = 'left'; x.fillText(v, X, 1170); });
-  x.fillStyle = QUIET; x.font = `700 24px ${HEAD}`; spaced('CAN YOU BEAT ME?', 84, 1284, 3.8); x.fillStyle = GL; spaced(SITE.toUpperCase(), 996, 1284, 2.4, 'right');
+  x.fillStyle = QUIET; x.font = `700 24px ${HEAD}`; spaced(d.date || '', 84, 1284, 3.8); x.fillStyle = GL; spaced(SITE.toUpperCase(), 996, 1284, 2.4, 'right');
   return c;
 }

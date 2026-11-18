@@ -274,7 +274,7 @@ function tallyUp() {
     let have; try { have = new Set(JSON.parse(store.get('names', '[]'))); } catch { have = new Set(); }
     const can = earned({ ...stats, sec: SECTIONS.length - 1, score: local.score }, { finishes: +store.get('finishes', 0), shared: +store.get('shared', 0) });
     title = can.find(n => !have.has(n)) || can[0]; have.add(title); store.set('names', JSON.stringify([...have]));
-    tally.card = { name: $('name').value.trim() || 'Vanara', title, meaning: NAMES.find(n => n[0] === title)[1], score: local.score, lamps: stats.lamps, rank: 0, no: 0, names: have.size };
+    tally.card = { name: $('name').value.trim() || 'Vanara', title, meaning: NAMES.find(n => n[0] === title)[1], score: local.score, lamps: stats.lamps, rank: 0, no: 0, names: have.size, date: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).toUpperCase() };
     store.set('card', JSON.stringify(tally.card));
   }
   $('total').dataset.v = 0; $('rankLine').hidden = $('mini').hidden = true; showTally(local);
@@ -306,15 +306,17 @@ function drawBoard() {
 const lastCard = () => { if (tally.card) return tally.card; try { return JSON.parse(store.get('card', 'null')); } catch { return null; } };
 async function openCard(from) {
   const d = lastCard(); if (!d) return;
-  lb.cardFrom = from; lb.blob = null; $('gotName').textContent = d.title; $('gotWhy').textContent = d.meaning;
+  lb.cardFrom = from; lb.blob = null; $('gotWho').textContent = `${d.name || 'Vanara'} is now`; $('gotName').textContent = d.title; $('gotWhy').textContent = d.meaning;
   $('dots').innerHTML = NAMES.map((_, i) => `<i class="${i < d.names ? 'on' : ''}"></i>`).join(''); $('gotCount').textContent = `${d.names} of Hanuman's 12 names collected`;
   $('cardImg').removeAttribute('src'); screen('cardView');
   try { const { drawCard } = await import('./card.js'), c = await drawCard(d); $('cardImg').src = c.toDataURL('image/jpeg', 0.9); c.toBlob(b => { lb.blob = b; }, 'image/jpeg', 0.9); } catch { $('gotCount').textContent = 'The card could not be drawn just now.'; }
 }
 function shareCard() {
   const blob = lb.blob, b = $('shareCard'), said = t => { b.textContent = t; setTimeout(() => { b.textContent = 'Share my card'; }, 2400); }; if (!blob) return said('One moment');
-  const d = lastCard() || {}, text = `I burned Lanka in Hanuman Mission with ${num(d.score || 0)} points. Can you beat me? ${SHARE.url}`, file = new File([blob], 'hanuman-mission-card.jpg', { type: 'image/jpeg' });
+  const d = lastCard() || {}, text = `I am now ${d.title || 'Hanuman'} in Hanuman Mission. I burned Lanka with ${num(d.score || 0)} points${d.rank ? `, #${d.rank} in the world today` : ''}. Can you beat me? Play here: ${SHARE.url}`, file = new File([blob], 'hanuman-mission-card.jpg', { type: 'image/jpeg' });
   store.set('shared', +store.get('shared', 0) + 1);
+  // the line with the link goes with the picture; some apps keep only the picture, so the line is also copied, to be pasted with it
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => { $('gotCount').textContent = 'The message with the link is copied. Paste it with the card if the app left it out.'; }, () => {});
   if (navigator.canShare && navigator.canShare({ files: [file] })) navigator.share({ files: [file], title: SHARE.title, text }).catch(() => {});
   else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {}); said('Saved. Line copied'); }
 }
