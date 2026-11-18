@@ -5,7 +5,7 @@
 // place on today's board, the lamps, how many of the twelve names are collected, the card's number, and the game's address.
 // Fetched only when a card is shown. Letters are spaced by hand: not every phone spaces letters on a canvas.
 import { seal } from './scores.js';
-export const SITE = 'hanumanmission.com';      // the address printed on the card (Sid, 19 Nov: the .com on the card; the link sent with it stays the playable one until the domain is joined)
+export const SITE = 'hanumanmission.com';      // the address printed on the card (Sid, 19 Nov: the .com on the card; the link sent with it is the same address since the domain was joined)
 const img = src => new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = src; });
 export async function drawCard(d) {
   const W = 1080, H = 1350, c = document.createElement('canvas'), x = c.getContext('2d'); c.width = W; c.height = H;

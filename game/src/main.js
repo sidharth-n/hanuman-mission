@@ -77,7 +77,7 @@ const state = { mode: 'loading', speed: 0, dist: 0, gold: 0, danger: 0, slow: 0,
   sec: 0, from: 0, inside: 0, garden: 0, alarm: false, fallT: 0, kept: null };      // section he is in, section a new run starts from, how far indoors 0..1                           // flight charge 0..1, seconds of flight left, seconds nothing can hit him                 // strength meter 0..1, seconds of giant left, how grown he is 0..1
 let hero, world, tailFire, tailLight, aura, fight, director, story, lanka, debris;
 const rout = { next: 0 };      // the fire run: where the next knot of guards will stand in his road
-const SHARE = { title: 'Hanuman Mission', url: 'https://hanuman-mission.pages.dev/' };      // what the Share button hands to the phone's own share sheet
+const SHARE = { title: 'Hanuman Mission', url: 'https://hanumanmission.com/' };      // what the Share button hands to the phone's own share sheet
 let queued = null;      // a leap asked for a moment before he could make it: made as soon as he can
 let stick = null;       // the fight's thumb stick
 
