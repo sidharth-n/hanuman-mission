@@ -114,7 +114,7 @@ async function load() {
   world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); sound.fx('bell', { gap: 4 }); };
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
-  fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, lankini: models.lankini, sound, buzz, groundAt, more: what => { say(STORY.alerts[what], 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
+  fight = new Fight({ scene, camera, hero, gltf: models.guard, sword: models['guard-sword'].scene, lankini: models.lankini, sound, buzz, groundAt, more: what => { say(STORY.alerts[what], 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()),
     jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
 

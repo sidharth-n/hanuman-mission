@@ -37,57 +37,90 @@ function dotTexture() {
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
 }
 
-// Sparks: bright points with a short streak behind each, thrown out from a blow, falling and dying in half a second.
+// The star of light where metal meets metal: a white-hot heart, four long rays and four short between them.
+function flareTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'); g.translate(128, 128);
+  const r = g.createRadialGradient(0, 0, 0, 0, 0, 128);
+  r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.07, 'rgba(255,252,240,.95)'); r.addColorStop(0.18, 'rgba(255,226,160,.34)'); r.addColorStop(0.45, 'rgba(255,186,90,.07)'); r.addColorStop(1, 'rgba(255,170,70,0)');
+  g.fillStyle = r; g.fillRect(-128, -128, 256, 256); g.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 8; i++) {
+    const L = i % 2 ? 58 : 126, w = i % 2 ? 2.4 : 3.6, l = g.createLinearGradient(0, 0, L, 0);
+    l.addColorStop(0, 'rgba(255,255,255,.95)'); l.addColorStop(0.3, 'rgba(255,238,196,.5)'); l.addColorStop(1, 'rgba(255,200,120,0)');
+    g.save(); g.rotate(i * Math.PI / 4); g.fillStyle = l; g.beginPath(); g.moveTo(0, -w); g.lineTo(L, 0); g.lineTo(0, w); g.closePath(); g.fill(); g.restore();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+function shockTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 128;
+  const g = c.getContext('2d'), r = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  r.addColorStop(0, 'rgba(255,255,255,0)'); r.addColorStop(0.78, 'rgba(255,240,200,0)'); r.addColorStop(0.9, 'rgba(255,244,214,.9)'); r.addColorStop(1, 'rgba(255,220,150,0)');
+  g.fillStyle = r; g.fillRect(0, 0, 128, 128);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+}
+
+// Sparks: thin blades of hot light thrown out from a blow, each lying along the way it flies with a bright point at its head,
+// falling, skipping once on the stone and dying in half a second.
 class Sparks {
-  constructor(scene, tex, n = 200) {
-    this.n = n; this.next = 0; this.floor = 0;
+  constructor(scene, tex, n = 220) {
+    this.n = n; this.next = 0; this.floor = 0; this.k = 1;      // k: the size of those who fight (2 when he stands at Lankini's height)
     this.pos = new Float32Array(n * 3); this.col = new Float32Array(n * 3); this.vel = new Float32Array(n * 3); this.tone = new Float32Array(n * 3);
-    this.life = new Float32Array(n); this.span = new Float32Array(n);
-    this.lpos = new Float32Array(n * 6); this.lcol = new Float32Array(n * 6);
+    this.life = new Float32Array(n); this.span = new Float32Array(n); this.wide = new Float32Array(n);
+    this.bpos = new Float32Array(n * 12); this.bcol = new Float32Array(n * 12);
     const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(this.pos, 3)); pg.setAttribute('color', new THREE.BufferAttribute(this.col, 3));
-    const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(this.lpos, 3)); lg.setAttribute('color', new THREE.BufferAttribute(this.lcol, 3));
+    const bg = new THREE.BufferGeometry(), idx = []; for (let i = 0; i < n; i++) { const a = i * 4; idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2); }
+    bg.setIndex(idx); bg.setAttribute('position', new THREE.BufferAttribute(this.bpos, 3)); bg.setAttribute('color', new THREE.BufferAttribute(this.bcol, 3));
     const common = { vertexColors: true, blending: THREE.AdditiveBlending, depthWrite: false, transparent: true, fog: false };
-    this.points = new THREE.Points(pg, new THREE.PointsMaterial({ ...common, size: 0.17, map: tex, sizeAttenuation: true }));
-    this.lines = new THREE.LineSegments(lg, new THREE.LineBasicMaterial(common));
-    this.points.frustumCulled = this.lines.frustumCulled = false; this.points.visible = this.lines.visible = false;
-    scene.add(this.points, this.lines); this.busy = 0;
+    this.points = new THREE.Points(pg, new THREE.PointsMaterial({ ...common, size: 0.075, map: tex, sizeAttenuation: true }));
+    this.blades = new THREE.Mesh(bg, new THREE.MeshBasicMaterial({ ...common, side: THREE.DoubleSide }));
+    this.points.frustumCulled = this.blades.frustumCulled = false; this.points.visible = this.blades.visible = false;
+    scene.add(this.points, this.blades); this.busy = 0;
   }
-  // at: where; count: how many; tone: [r, g, b]; speed: metres a second; (nx, nz): the way the blow was going
-  burst(at, count, tone, speed, nx = 0, nz = 0) {
+  // at: where; count: how many; tone: [r, g, b]; speed: metres a second; (nx, nz): the way the blow was going; hot: 0..1, how many of them are white
+  burst(at, count, tone, speed, nx = 0, nz = 0, hot = 0.25) {
+    const K = this.k; this.points.material.size = 0.075 * K;
     for (let i = 0; i < count; i++) {
-      const k = this.next++ % this.n, a = Math.random() * Math.PI * 2, u = Math.random() * 2 - 1, r = Math.sqrt(1 - u * u), v = speed * (0.3 + Math.random());
+      const k = this.next++ % this.n, a = Math.random() * Math.PI * 2, u = Math.random() * 2 - 1, r = Math.sqrt(1 - u * u), v = speed * (0.35 + Math.random() * 1.25);
       this.pos[k * 3] = at.x; this.pos[k * 3 + 1] = at.y; this.pos[k * 3 + 2] = at.z;
-      this.vel[k * 3] = Math.cos(a) * r * v + nx * speed * 0.55; this.vel[k * 3 + 1] = u * v + 2.4; this.vel[k * 3 + 2] = Math.sin(a) * r * v + nz * speed * 0.55;
-      const w = 0.65 + Math.random() * 0.6; this.tone[k * 3] = tone[0] * w; this.tone[k * 3 + 1] = tone[1] * w; this.tone[k * 3 + 2] = tone[2] * w;
-      this.life[k] = this.span[k] = 0.2 + Math.random() * 0.34;
+      this.vel[k * 3] = Math.cos(a) * r * v + nx * speed * 0.55; this.vel[k * 3 + 1] = u * v + 2.4 * K; this.vel[k * 3 + 2] = Math.sin(a) * r * v + nz * speed * 0.55;
+      const white = Math.random() < hot, w = 0.7 + Math.random() * 0.7;
+      this.tone[k * 3] = (white ? 1 : tone[0]) * w; this.tone[k * 3 + 1] = (white ? 0.96 : tone[1]) * w; this.tone[k * 3 + 2] = (white ? 0.86 : tone[2]) * w;
+      this.life[k] = this.span[k] = 0.2 + Math.random() * 0.42; this.wide[k] = (0.011 + Math.random() * 0.016) * K;
     }
-    this.busy = 0.7; this.points.visible = this.lines.visible = true;
+    this.busy = 0.8; this.points.visible = this.blades.visible = true;
   }
-  update(dt) {
+  // eye: where the camera stands (each blade is turned to face it)
+  update(dt, eye) {
     if (this.busy <= 0) return;
     this.busy -= dt;
-    const { pos, vel, col, tone, life, span, lpos, lcol } = this;
+    const { pos, vel, col, tone, life, span, wide, bpos, bcol } = this, ex = eye ? eye.x : 0, ey = eye ? eye.y : 50, ez = eye ? eye.z : 0;
     for (let k = 0; k < this.n; k++) {
-      const j = k * 3, m = k * 6;
+      const j = k * 3, m = k * 12;
       if (life[k] > 0) {
         life[k] -= dt; vel[j + 1] -= 15 * dt;
         pos[j] += vel[j] * dt; pos[j + 1] += vel[j + 1] * dt; pos[j + 2] += vel[j + 2] * dt;
         if (pos[j + 1] < this.floor + 0.03) { pos[j + 1] = this.floor + 0.03; vel[j + 1] *= -0.38; vel[j] *= 0.6; vel[j + 2] *= 0.6; }      // they skip once on the stone
         const f = Math.max(0, life[k] / span[k]), g = f * f;
         col[j] = tone[j] * g; col[j + 1] = tone[j + 1] * g; col[j + 2] = tone[j + 2] * g;
-      } else col[j] = col[j + 1] = col[j + 2] = 0;
-      lpos[m] = pos[j]; lpos[m + 1] = pos[j + 1]; lpos[m + 2] = pos[j + 2];
-      lpos[m + 3] = pos[j] - vel[j] * 0.035; lpos[m + 4] = pos[j + 1] - vel[j + 1] * 0.035; lpos[m + 5] = pos[j + 2] - vel[j + 2] * 0.035;
-      lcol[m] = col[j]; lcol[m + 1] = col[j + 1]; lcol[m + 2] = col[j + 2]; lcol[m + 3] = lcol[m + 4] = lcol[m + 5] = 0;
+        // the blade: from the head back along the way it came, as long as it is fast; its width lies across the line of sight
+        const vx = vel[j], vy = vel[j + 1], vz = vel[j + 2], tail = 0.05 * (0.4 + 0.6 * f), bx = pos[j] - vx * tail, by = pos[j + 1] - vy * tail, bz = pos[j + 2] - vz * tail;
+        const dx = pos[j] - ex, dy = pos[j + 1] - ey, dz = pos[j + 2] - ez; let sx = vy * dz - vz * dy, sy = vz * dx - vx * dz, sz = vx * dy - vy * dx; const sl = Math.hypot(sx, sy, sz) || 1, w = wide[k] * (0.5 + 0.5 * f) / sl; sx *= w; sy *= w; sz *= w;
+        bpos[m] = pos[j] + sx; bpos[m + 1] = pos[j + 1] + sy; bpos[m + 2] = pos[j + 2] + sz; bpos[m + 3] = pos[j] - sx; bpos[m + 4] = pos[j + 1] - sy; bpos[m + 5] = pos[j + 2] - sz;
+        bpos[m + 6] = bx + sx * 0.15; bpos[m + 7] = by + sy * 0.15; bpos[m + 8] = bz + sz * 0.15; bpos[m + 9] = bx - sx * 0.15; bpos[m + 10] = by - sy * 0.15; bpos[m + 11] = bz - sz * 0.15;
+        bcol[m] = bcol[m + 3] = col[j]; bcol[m + 1] = bcol[m + 4] = col[j + 1]; bcol[m + 2] = bcol[m + 5] = col[j + 2];
+        for (let q = 6; q < 12; q++) bcol[m + q] = 0;
+      } else { col[j] = col[j + 1] = col[j + 2] = 0; for (let q = 0; q < 12; q++) { bcol[m + q] = 0; bpos[m + q] = 0; } }
     }
-    for (const o of [this.points, this.lines]) { o.geometry.attributes.position.needsUpdate = true; o.geometry.attributes.color.needsUpdate = true; }
-    if (this.busy <= 0) this.points.visible = this.lines.visible = false;
+    for (const o of [this.points, this.blades]) { o.geometry.attributes.position.needsUpdate = true; o.geometry.attributes.color.needsUpdate = true; }
+    if (this.busy <= 0) this.points.visible = this.blades.visible = false;
   }
 }
 
-// The bright ribbon a swing leaves behind it: the last few places the weapon was, fading as they age.
+// The arc a swing leaves behind it: a thin blade of light along the far end of the weapon, white at its leading edge and gone in a
+// tenth of a second (Sid, 18 Nov: "not like these yellow lines passing": it was a wide pale fan the whole length of the weapon).
 class Trail {
-  constructor(scene, tone, n = 18, keep = 0.17) {
+  constructor(scene, tone, n = 18, keep = 0.11, part = 0.3) {
+    this.part = part;      // how much of the weapon's length, from its tip, leaves the arc
     this.n = n; this.keep = keep; this.tone = tone; this.pts = [];
     this.pos = new Float32Array(n * 6); this.col = new Float32Array(n * 6);
     const g = new THREE.BufferGeometry(), idx = [];
@@ -96,7 +129,7 @@ class Trail {
     this.mesh = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ vertexColors: true, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, side: THREE.DoubleSide, fog: false }));
     this.mesh.frustumCulled = false; this.mesh.visible = false; scene.add(this.mesh);
   }
-  add(tip, base) { this.pts.unshift([tip.x, tip.y, tip.z, base.x, base.y, base.z, 0]); if (this.pts.length > this.n) this.pts.pop(); }
+  add(tip, base) { const u = this.part; this.pts.unshift([tip.x, tip.y, tip.z, tip.x + (base.x - tip.x) * u, tip.y + (base.y - tip.y) * u, tip.z + (base.z - tip.z) * u, 0]); if (this.pts.length > this.n) this.pts.pop(); }
   clear() { this.pts.length = 0; this.mesh.visible = false; }
   update(dt) {
     const p = this.pts;
@@ -104,9 +137,9 @@ class Trail {
     while (p.length && p[p.length - 1][6] > this.keep) p.pop();
     this.mesh.visible = p.length > 1; if (!this.mesh.visible) return;
     for (let i = 0; i < p.length; i++) {
-      const q = p[i], j = i * 6, f = (1 - q[6] / this.keep) ** 2;
+      const q = p[i], j = i * 6, f = (1 - q[6] / this.keep) ** 2, hot = Math.max(0, 1 - q[6] / (this.keep * 0.35));      // hot: the newest stretch is white
       for (let k = 0; k < 6; k++) this.pos[j + k] = q[k];
-      this.col[j] = this.tone[0] * f; this.col[j + 1] = this.tone[1] * f; this.col[j + 2] = this.tone[2] * f;
+      this.col[j] = (this.tone[0] + hot * 0.5) * f; this.col[j + 1] = (this.tone[1] + hot * 0.5) * f; this.col[j + 2] = (this.tone[2] + hot * 0.55) * f;
       this.col[j + 3] = this.tone[0] * f * 0.12; this.col[j + 4] = this.tone[1] * f * 0.12; this.col[j + 5] = this.tone[2] * f * 0.12;
     }
     this.mesh.geometry.setDrawRange(0, (p.length - 1) * 6);
@@ -121,6 +154,9 @@ export class Fight {
     const tex = dotTexture();
     this.sparks = new Sparks(this.scene, tex);
     this.flashes = [0, 1, 2, 3].map(() => { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true })); s.visible = false; s.userData = { t: 0, secs: 1, size: 1 }; this.scene.add(s); return s; });
+    // where metal meets metal: a star of light that leaps out and is gone, and a thin ring running out from it (both face the eye)
+    { const star = flareTexture(), ring = shockTexture(), lit = { blending: THREE.AdditiveBlending, depthWrite: false, depthTest: false, fog: false, transparent: true };
+      this.flares = [0, 1, 2].map(() => { const f = new THREE.Sprite(new THREE.SpriteMaterial({ ...lit, map: star })), r = new THREE.Sprite(new THREE.SpriteMaterial({ ...lit, map: ring })); f.visible = r.visible = false; f.userData = { t: 0, secs: 1, size: 1, ring: r }; this.scene.add(f, r); return f; }); }
     this.heroTrail = new Trail(this.scene, [1, 0.72, 0.28]);
     // the ring of light that runs out over the ground from the mace's great blow
     this.ring = new THREE.Mesh(new THREE.RingGeometry(0.86, 1, 56).rotateX(-Math.PI / 2), new THREE.MeshBasicMaterial({ color: 0xffc860, blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, side: THREE.DoubleSide }));
@@ -151,7 +187,7 @@ export class Fight {
     this.t = 0; this.wave = 0; this.nextT = 0; this.used = 0;
     this.h = { act: null, t: 0, len: 0, strikeAt: 0, struck: false, heavy: false, combo: 0, comboT: 0, queued: false, safe: 0, dodgeCd: 0, vx: 0, vz: 0, fx: 0, fz: -1, reach: 0, dmg: 1, slam: false, down: 0, up: 0, epic: false, roared: false };
     hero.free = true; hero.pace = 0; hero.slide = 0; hero.busy = 0; hero.floor = 0;
-    this.sparks.floor = this.groundAt(this.cz);
+    this.sparks.floor = this.groundAt(this.cz); this.sparks.k = this.s || 1;
     for (const g of this.guards) g.reset();
     if (!plan.some(w => w.foes.includes('lankini'))) this.boss.reset();
     this.send();
@@ -193,6 +229,13 @@ export class Fight {
   flash(at, tone, size, secs = 0.12) {
     const s = this.flashes.find(f => !f.visible) || this.flashes[0];
     s.position.copy(at); s.material.color.setRGB(tone[0], tone[1], tone[2]); s.userData.t = 0; s.userData.secs = secs; s.userData.size = size; s.visible = true; s.scale.setScalar(size * 0.6);
+  }
+
+  // The star of light of a blow that meets steel or strikes home. size: metres across at its fullest.
+  flare(at, tone, size, secs = 0.2) {
+    const f = this.flares.find(x => !x.visible) || this.flares[0], u = f.userData, r = u.ring;
+    f.position.copy(at); r.position.copy(at); f.material.color.setRGB(tone[0], tone[1], tone[2]); r.material.color.setRGB(tone[0], tone[1], tone[2]);
+    u.t = 0; u.secs = secs; u.size = size; f.material.rotation = Math.random() * Math.PI; f.visible = r.visible = true; f.scale.setScalar(size * 0.5); r.scale.setScalar(size * 0.2); f.material.opacity = r.material.opacity = 1;
   }
 
   // ── what the player does ──
@@ -273,12 +316,14 @@ export class Fight {
     _a.set(gp.x - nx * 0.45, gp.y + high, gp.z - nz * 0.45);
     // a guard standing ready sometimes turns the first blow of a row aside on his sword: sparks, no hurt, and he is driven back a step
     if (!heavy && !g.lux && g.st === 'ready' && this.h.combo === 1 && Math.random() < 0.25) {
-      this.sparks.burst(_a, 26, WHITE, 7.5, -nx, -nz); this.flash(_a, WHITE, 1.5); this.sound.fx('tap', { rate: 1.6, gap: 0.03 });
+      this.sparks.burst(_a, 30, WHITE, 8, -nx, -nz, 0.7); this.flare(_a, WHITE, 1.7 * (this.s || 1), 0.2); this.flash(_a, WHITE, 0.8); this.sound.fx('tap', { rate: 1.6, gap: 0.03 });
       g.vx = nx * 3.5; g.vz = nz * 3.5; g.play(g.clips.hit, { once: true, from: 0.1, speed: 2.2, fade: 0.05 }); g.st = 'hurt'; g.t = 0.25;
       return;
     }
-    this.sparks.burst(_a, heavy ? 36 : clash ? 30 : 20, clash ? WHITE : GOLD, heavy ? 9.5 : 6.5, nx, nz);
-    this.flash(_a, clash ? WHITE : GOLD, heavy ? 2.6 : 1.7);
+    const K = this.s || 1;      // mace on steel throws the most and the whitest; a blow that lands on a body is gold
+    this.sparks.burst(_a, heavy ? 46 : clash ? 44 : 24, clash ? WHITE : GOLD, (heavy ? 10.5 : clash ? 9.5 : 6.5) * (0.6 + 0.4 * K), nx, nz, clash ? 0.7 : heavy ? 0.4 : 0.25);
+    this.flare(_a, clash ? WHITE : GOLD, (heavy ? 2.5 : clash ? 2.3 : 1.35) * K, clash || heavy ? 0.24 : 0.17);
+    this.flash(_a, clash ? WHITE : GOLD, (heavy ? 1.4 : 0.9) * K, 0.1);
     g.hp -= dmg; g.showHp();
     // Lankini is not driven back by a great blow: she takes it and comes on. Only when enough of them have told on her is she stopped for a moment, where she stands.
     // (Sid: "even when i strike lankini the stroke is not hit and she does not react": she took six blows without a sign. Now every
@@ -511,7 +556,10 @@ export class Fight {
 
   // Sparks, flashes, trails and the fighters' own movement: these run on whenever anything of the fight is in view.
   tick(dt, real) {
-    this.sparks.update(real); this.heroTrail.update(real);
+    this.sparks.update(real, this.camera && this.camera.position); this.heroTrail.update(real);
+    for (const f of this.flares) { if (!f.visible) continue; const u = f.userData, r = u.ring; u.t += real; const k = u.t / u.secs; if (k >= 1) { f.visible = r.visible = false; continue; }
+      const up = Math.min(1, k * 7), out = 1 - k; f.scale.setScalar(u.size * (0.5 + 0.5 * up) * (0.55 + 0.45 * out)); f.material.opacity = out * out; f.material.rotation += real * 1.2;
+      r.scale.setScalar(u.size * (0.2 + 1.1 * Math.sqrt(k))); r.material.opacity = 0.75 * out * out; }
     for (const s of this.flashes) { if (!s.visible) continue; const u = s.userData; u.t += real; const k = u.t / u.secs; if (k >= 1) { s.visible = false; continue; } s.scale.setScalar(u.size * (0.6 + 0.6 * k)); s.material.opacity = 1 - k * k; }
     const hold = this.freeze > 0 ? 0 : dt;
     for (const g of this.all) {
