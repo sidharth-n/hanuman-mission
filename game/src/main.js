@@ -113,7 +113,10 @@ async function load() {
   world.onBell = () => { if (state.mode !== 'run') return; state.alarm = true; say(LINES.bell, 2.8); buzz([40, 50, 40, 50, 40]); sound.fx('bell', { gap: 4 }); };
   world.onSound = name => { if (state.mode === 'run') sound.fx(name, { gap: 0.3 }); };      // what the road throws at him
   hero = new Hero(models.hanuman); scene.add(hero.root); hero.attachMace(models.gada.scene);
-  ui.lives.innerHTML = '<img src="ui/lotus.jpg" alt="">'.repeat(LIVES);
+  // his health in a fight: a named bar under the top row, as each of those he fights has one over his head. One notch a life
+  // (a brute's blow takes two); a pale trail shows what the last blow took before it drains away.
+  ui.lives.innerHTML = '<span class="heart"><svg viewBox="0 0 48 48" aria-hidden="true"><path d="M24 39 C9 28 7 21 7 16.5 C7 11.5 11 8 15.5 8 C19 8 22 10 24 13.5 C26 10 29 8 32.5 8 C37 8 41 11.5 41 16.5 C41 21 39 28 24 39 Z"/></svg></span><div class="who"><b>Hanuman</b><div class="track"><i class="trail"></i><i class="fill"></i>' + Array.from({ length: LIVES - 1 }, (_, i) => `<s style="left:${(i + 1) * 100 / LIVES}%"></s>`).join('') + '</div></div>';
+  ui.lives.setAttribute('role', 'meter'); ui.lives.setAttribute('aria-label', 'Hanuman\'s health'); ui.lives.setAttribute('aria-valuemin', 0); ui.lives.setAttribute('aria-valuemax', LIVES);
   fight = new Fight({ scene, hero, gltf: models.guard, sword: models['guard-sword'].scene, lankini: models.lankini, sound, buzz, groundAt, more: what => { say(STORY.alerts[what], 2.4); sound.fx('bell', { rate: 0.8, gap: 1 }); buzz([40, 60, 40]); }, shake: v => { state.shake = Math.max(state.shake, v); }, slowMotion });
   stick = fightControls(ui.pad, { live: () => state.mode === 'fight', attack: () => tap('strike', () => fight.attack()), dodge: () => tap('dodge', () => fight.dodge()),
     jump: () => tap('jump', () => fight.jump()), special: () => press2('giant', usePower) }); fight.stick = stick;
@@ -778,7 +781,10 @@ function frame(now) {
     paint('gRing', Math.round(giant * 50), v => ui.giant.style.setProperty('--p', v / 50));
     paint('gState', state.giant > 0 ? 'active' : state.meter >= 1 && !state.fire ? 'ready' : '', v => { ui.giant.classList.toggle('ready', v === 'ready'); ui.giant.classList.toggle('active', v === 'active'); });
     paint('fRing', Math.round(fly * 50), v => ui.fly.style.setProperty('--p', v / 50));
-    if (fighting) paint('lives', fight.lives, v => [...ui.lives.children].forEach((el, i) => el.classList.toggle('lost', i >= v)));
+    if (fighting) paint('lives', fight.lives, v => { const el = ui.lives, was = +el.dataset.v;
+      el.style.setProperty('--hp', Math.max(0, v) / LIVES); el.dataset.v = v; el.setAttribute('aria-valuenow', Math.max(0, v));
+      el.classList.toggle('worn', v === 2); el.classList.toggle('low', v <= 1);      // amber with two lives left, red and beating on the last
+      if (v < was) { el.classList.remove('struck'); void el.offsetWidth; el.classList.add('struck'); } else el.classList.remove('struck'); });
     paint('fState', state.flight > 0 ? 'active' : state.wind >= 1 && !state.fire ? 'ready' : '', v => { ui.fly.classList.toggle('ready', v === 'ready'); ui.fly.classList.toggle('active', v === 'active'); });
   }
   if (state.alertT > 0) { state.alertT -= dt; if (state.alertT <= 0) ui.alert.hidden = true; }
