@@ -50,6 +50,7 @@ const PRONE = [
   ['RightUpLeg', 'RightLeg', [-0.03, -1, 0]], ['RightLeg', 'RightFoot', [0, -1, 0.03]], ['RightFoot', 'RightToeBase', [0, -1, -0.35]],
 ];
 const _jl = new THREE.Vector3(), _jf = new THREE.Vector3(), _jc = new THREE.Vector3(), _jq = new THREE.Quaternion(), _jw = new THREE.Quaternion(), _jp = new THREE.Quaternion();
+const _dm = new THREE.Matrix4(), _di = new THREE.Matrix4(), _ds = new THREE.Vector3();
 const STRIDE = 4.66;      // metres a second a planted foot passes under him in the run clip at its own pace, at his own size (measured in the game)
 const MACE_UP = new THREE.Vector3(-0.22, 0.5, 0.84);      // the mace lies back over his shoulder, head high behind him
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
@@ -123,7 +124,8 @@ export class Hero {
     hand.updateWorldMatrix(true, false);
     const unit = 1 / hand.getWorldScale(new THREE.Vector3()).x;          // the skeleton may be in other units than metres
     grip.scale.setScalar(unit); grip.position.set(0, 0.09 * unit, 0.03 * unit); grip.rotation.set(0, 0, -Math.PI / 2);      // hammer grip: head up when the forearm is level
-    hand.add(grip); this.mace = grip; this.maceUnit = unit; this.maceRest = grip.quaternion.clone();
+    hand.add(grip); this.mace = grip; this.maceUnit = unit; this.maceRest = grip.quaternion.clone(); this.maceAt = grip.position.clone();
+    this.maceR = Math.max(size.x, size.z) * 0.5 * length / size.y;      // half the breadth of its head: lying on the road, it lies that far above it
   }
 
   reset() {
@@ -221,6 +223,7 @@ export class Hero {
     this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();
     this.poseProne();
+    this.dropMace();
     this.join(dt);
     this.offer.update(dt);      // something held out in his open hand, in a scene
     this.joinEnd();
@@ -269,6 +272,20 @@ export class Hero {
     const u = Math.min(1, this.prone * 2.5); if (u < 0.01) return;      // his limbs are where they will be well before he lands
     const a = -this.model.rotation.x, c = Math.cos(a), s = Math.sin(a), w = u * u * (3 - 2 * u);
     for (const [bone, child, d] of this.pronePose) aim(bone, child, _t.set(d[0], d[1] * c + d[2] * s, -d[1] * s + d[2] * c), w);
+  }
+
+  // Thrown down on his face, he loses his mace: as he goes over it leaves his grip and comes to lie on the road by his hand,
+  // head forward and a little outward. Held in the hand of a body tipped flat, its head went down through the road.
+  dropMace() {
+    const m = this.mace; if (!m || !this.maceAt) return;
+    if (this.prone <= 0) { if (this.maceDown) { m.position.copy(this.maceAt); this.maceDown = false; } return; }
+    const hand = m.parent, k = Math.min(1, this.prone), w = k * k * (3 - 2 * k), yaw = this.root.rotation.y, size = this.root.scale.x;
+    hand.updateWorldMatrix(true, false); hand.getWorldPosition(_a);
+    _d.set(-Math.sin(yaw) * 0.94 + Math.cos(yaw) * 0.34, 0, -Math.cos(yaw) * 0.94 - Math.sin(yaw) * 0.34).normalize();      // ahead of him and a little out to his right
+    _a.addScaledVector(_d, -0.45 * size);      // drawn back along itself, the shaft beside his forearm: its head stays in an upright picture
+    _a.y = this.root.position.y + Math.max(0, this.floor) + (this.maceR + 0.015) * size;
+    _dm.compose(_a, _q.setFromUnitVectors(Y_AXIS, _d), _ds.setScalar(size)).premultiply(_di.copy(hand.matrixWorld).invert()).decompose(_a, _q, _ds);
+    m.position.copy(this.maceAt).lerp(_a, w); m.quaternion.slerp(_q, w); this.maceDown = true;
   }
 
   poseFlight() {

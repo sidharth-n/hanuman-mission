@@ -285,7 +285,7 @@ export function createStory(g) {
       hidShot(H, d, side),
       { ...shot(v(1.4, 2.3, H[1] + 5.5), v((H[0] + hx) / 2, 1.9, (H[1] + hz) / 2), { to: v(1.0, 2.0, H[1] + 3.5), lookTo: v(hx - 0.6, 1.2, hz), fov: 56 }), secs: 3.4, do: leap },      // from the path behind him: the tree, the leap, and her under the great tree beyond
       { ...onHeroBow, do: () => { landed(); hero.play('breathing_idle', { fade: 0.4 }); hero.bow(1); } },      // "Mother": he stands before her with joined hands
-      { ...onSita, do: () => { landed(); sita.play('sit_talk'); } },
+      { ...onSita, do: () => { landed(); sita.play('sit_talk'); hero.bow(0); } },      // while she answers (he is out of the picture) his hands come apart, so the ring is first seen in a hand already open
       { ...ringShot, do: () => { landed(); sita.play('sit'); hero.bow(0); offer(hero, ring, hand); } },      // the ring, lying in his open hand held out to her
       { ...onSita, do: () => { sita.play('sit_talk'); offer(sita, ring, hers); } },      // and now in hers: she holds it before her and looks at it
       { ...onHero, do: () => offer(null) },
