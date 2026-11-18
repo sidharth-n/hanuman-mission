@@ -144,7 +144,9 @@ for f in sorted(os.listdir(anim_dir)):
 # by as much as the source bone has turned from its true rest pose (read from that character's skinned file), and the
 # hips travel as the source's do, scaled to this character's height. Names: FALLS below.
 FALLS = {'Dying Flying Backward': 'fall_flying_back', 'Knocked Out Falling To Back': 'fall_knocked_out', 'Knocked Over And Falling To The Ground': 'fall_knocked_over',
-         'Getting Up From Back': 'rise_from_back', 'Getting Up From Being Knocked Down On The Ground': 'rise_knocked_down', 'Male Kip Up To Standing': 'rise_kip_up'}
+         'Getting Up From Back': 'rise_from_back', 'Getting Up From Being Knocked Down On The Ground': 'rise_knocked_down', 'Male Kip Up To Standing': 'rise_kip_up',
+         'Soccer Trip': 'trip_forward', 'Tripping Walk To Fall': 'trip_walk', 'Tripping Forward While Walking': 'trip_stumble', 'Falling Flat Impact': 'fall_flat',
+         'Getting Up From Stomach': 'rise_from_front', 'Getting Up From Lying Prone': 'rise_from_prone'}
 falls = next((x.split('=', 1)[1] for x in argv[6:] if x.startswith('falls=')), None)
 if falls:
     from mathutils import Vector

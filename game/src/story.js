@@ -74,7 +74,18 @@ export function createStory(g) {
   for (const o of [bola, cuff]) { o.visible = false; o.traverse(m => { m.userData.soft = true; }); }
   g.scene.add(bola); hero.root.add(cuff);
   let snare = null;      // { at: where along the route it takes him, t: how long it has been in the air (-1: not thrown yet), from, fall: { t, v, hit, rest } }
-  const unsnare = () => { snare = null; bola.visible = cuff.visible = false; hero.prone = 0; };
+  const unsnare = () => { snare = null; bola.visible = cuff.visible = false; hero.prone = 0; hero.fallen = 0; };
+  // The going over is a caught move when his file carries one (a man tripped as he goes: over, down on his face), and
+  // the hand-built one (hero.prone) when it does not. from: where in the clip his feet are taken; hit: where his body
+  // meets the road; rate: how fast it is played. ?fall=<clip> picks another of them, for comparing.
+  const TRIPS = { trip_stumble: { from: 0.74, hit: 1.5, rate: 1.2 }, trip_forward: { from: 0.04, hit: 0.66, rate: 1 } };
+  const tripClip = () => { const want = new URLSearchParams(location.search).get('fall'), name = TRIPS[want] && hero.actions[want] ? want : Object.keys(TRIPS).find(n => hero.actions[n]); return name ? { name, ...TRIPS[name] } : null; };
+  // The cords stay on his ankles wherever a move takes his feet: laid about his shins, between ankle and knee
+  const _a = new THREE.Vector3(), _k = new THREE.Vector3(), _up = new THREE.Vector3(0, 1, 0);
+  const cuffOn = () => { const b = hero.bones; if (!b.LeftFoot || !b.LeftLeg) return;
+    b.LeftFoot.getWorldPosition(_a).add(b.RightFoot.getWorldPosition(_k)).multiplyScalar(0.5); hero.root.worldToLocal(_a);
+    b.LeftLeg.getWorldPosition(_k).add(b.RightLeg.getWorldPosition(_up)).multiplyScalar(0.5); hero.root.worldToLocal(_k); _k.sub(_a).normalize();
+    cuff.position.copy(_a).addScaledVector(_k, 0.05); cuff.quaternion.setFromUnitVectors(_up.set(0, 1, 0), _k); };
   let trek = null, leapTo = null, turn = null;      // Hanuman moving by himself in a scene: along the ground from mark to mark, or through the air
   let G = 0;      // the height of the floor where the scene is played
 
@@ -318,17 +329,24 @@ export function createStory(g) {
   function trip() {
     const p = hero.root.position; g.grow(0, 0.15); g.hold(); G = g.groundAt(p.z);
     bola.visible = false; cuff.visible = true; cuff.position.set(0, 0.16, 0); cuff.rotation.set(0, 0, 0);
-    hero.play('falling_idle', { fade: 0.12 }); hero.y = hero.floor = 0; hero.vy = 0;
-    snare.fall = { t: 0, v: 10, hit: false, rest: false };
+    const clip = tripClip();
+    if (clip) hero.play(clip.name, { once: true, from: clip.from, speed: clip.rate, fade: 0.1 }); else hero.play('falling_idle', { fade: 0.12 });
+    hero.y = hero.floor = 0; hero.vy = 0;
+    snare.fall = { t: 0, v: 10, hit: false, rest: false, clip, k: 0 };
     g.sound.score('bound'); g.sound.fx('hit', { rate: 1.3 }); g.buzz(40);
     // seen from in front of him and low, close
     const x0 = p.x, z0 = p.z, side = x0 > 0.4 ? 1 : -1;
-    const ride = () => { const q = hero.root.position, k = hero.prone; return { at: [x0 - side * (1.7 + 0.9 * k), G + 0.85 - 0.2 * k, q.z - 4.4 + 1.9 * k], look: [q.x, G + 1.2 - 0.9 * k, q.z - 0.9 * k] }; };      // it goes with him, in front and to one side, and comes round and nearer as he lands: he fills the picture from the first frame to the last
-    director.play([{ secs: 2.8, cam: { at: ride().at, look: ride().look, fov: 40, ride } }], () => { if (snare && snare.fall) { snare.fall.rest = true; hero.prone = 1; cuff.rotation.x = -1.5; cuff.position.y = 0.28; } bound(false, true); });
+    const lie = clip ? 0 : 0.9;      // the hand-built fall goes over about his feet and lies ahead of them; a caught move falls about his middle
+    const ride = () => { const q = hero.root.position, k = clip ? (snare && snare.fall ? snare.fall.k : 1) : hero.prone; return { at: [x0 - side * (1.7 + 0.9 * k), G + 0.85 - 0.2 * k, q.z - 4.4 + (2.8 - lie) * k], look: [q.x, G + 1.2 - 0.9 * k, q.z - lie * k] }; };      // it goes with him, in front and to one side, and comes round and nearer as he lands: he fills the picture from the first frame to the last
+    director.play([{ secs: 2.8, cam: { at: ride().at, look: ride().look, fov: 40, ride } }], () => { if (snare && snare.fall) { const f = snare.fall; f.rest = true;
+      if (f.clip) { const a = hero.actions[f.clip.name]; a.timeScale = f.clip.rate; if (!a.paused) a.time = a.getClip().duration - 0.01; f.k = hero.fallen = 1; }      // tapped past before he lay still: he lies still
+      else { hero.prone = 1; cuff.rotation.x = -1.5; cuff.position.y = 0.28; } }
+      bound(false, true); });
   }
   function bound(taken, fallen = false) {
     if (!fallen) g.sound.score('bound');
-    g.hold(); const hp = hero.root.position, p = fallen ? { x: hp.x, z: hp.z - 0.95 } : { x: Math.max(-2, Math.min(2, hp.x)), z: hp.z }, base = -(GROVE_AT + HIDE.n * CHUNK);      // fallen, he lies ahead of his feet: the ring closes round the middle of him
+    const lying = fallen && snare && snare.fall && snare.fall.clip && hero.actions.rise_from_front ? snare.fall.clip : null;      // brought down by a caught move: he lies about his middle, and gets up by another
+    g.hold(); const hp = hero.root.position, p = fallen ? { x: hp.x, z: hp.z - (lying ? 0 : 0.95) } : { x: Math.max(-2, Math.min(2, hp.x)), z: hp.z }, base = -(GROVE_AT + HIDE.n * CHUNK);      // fallen, he lies ahead of his feet: the ring closes round the middle of him
     for (const e of fight.all) { e.reset(); e.trail.clear(); }
     if (!fallen) putHero(p.x, p.z, heroYaw(0, -1), 'great_sword_idle'); G = g.groundAt(p.z);
     const bind = () => { if (fallen) { unsnare(); putHero(p.x, p.z, heroYaw(0, -1), 'great_sword_idle'); }      // hauled to his feet, and bound
@@ -353,7 +371,7 @@ export function createStory(g) {
     director.play([
       { secs: 2.9, ...shot(v(p.x + 0.6, 5.4, p.z + 9), v(p.x, 1.0, p.z - 1), { to: v(p.x + 0.4, 4.6, p.z + 7.6), fov: 60 }), do: () => { if (!fallen) hero.play('great_sword_idle', { fade: 0.2 }); } },      // from above and behind: they pour in from both sides
       { secs: 3.0, cam: { round: { c: [p.x, G + 1.25, p.z], from: -0.52, to: 0.52, r: [6.8, 5.6], y: fallen ? [2.2, 2.8] : [0.3, 1.1] }, at: v(p.x, 1, p.z + 6), look: v(p.x, fallen ? 0.7 : 1.3, p.z), fov: 52 },      // (brought down, he is low among them: the view looks in over their shoulders)
-        do: () => { g.say(STORY.alerts.bound, 2.6); if (fallen) { hero.prone = 0; squat(p.x, p.z, heroYaw(0, -1)); } } },      // he has got as far as his heels, the cords still round his ankles, and goes no further      // carried across the road behind the ring as it closes (never out among the lanterns): swords levelled at him on every side
+        do: () => { g.say(STORY.alerts.bound, 2.6); if (lying) hero.play('rise_from_front', { once: true, from: 1.5, speed: 1.05, fade: 0.25 }); else if (fallen) { hero.prone = 0; squat(p.x, p.z, heroYaw(0, -1)); } } },      // he has got as far as his heels, the cords still round his ankles, and goes no further      // carried across the road behind the ring as it closes (never out among the lanterns): swords levelled at him on every side
       ...tied,
     ], () => g.fade(court));
   }
@@ -570,12 +588,15 @@ export function createStory(g) {
         if (u >= 1) trip();
       }
       if (snare && snare.fall && !snare.fall.rest) {      // over he goes: the going over is seen slowly, the slide at its own speed
-        const f = snare.fall, step = dt * (f.t < 0.08 ? 1 : f.t < 0.42 ? 0.3 : Math.min(1, 0.3 + (f.t - 0.42) * 3)), p = hero.root.position; f.t += step;
-        hero.prone = Math.min(1, Math.pow(f.t / 0.42, 2)); cuff.rotation.x = -hero.prone * 1.5; cuff.position.y = 0.16 + hero.prone * 0.12;
-        if (!f.hit && f.t >= 0.42) { f.hit = true; g.shake(0.8); g.buzz([60, 30, 160]); g.sound.fx('smash'); fight.sparks.floor = G; fight.sparks.burst({ x: p.x, y: G + 0.15, z: p.z - 1.2 }, 26, [0.75, 0.68, 0.55], 6, 0, -1); }
-        if (f.hit) f.v *= Math.exp(-step * 4.2);
-        p.z -= f.v * step; if (f.hit && f.v < 0.15) f.rest = true;
+        const f = snare.fall, c = f.clip, a = c && hero.actions[c.name], at = a ? a.time : 0, p = hero.root.position;
+        const step = dt * (c ? (at < c.hit - 0.4 ? 1 : at < c.hit ? 0.32 : Math.min(1, 0.32 + (at - c.hit) * 3)) : f.t < 0.08 ? 1 : f.t < 0.42 ? 0.3 : Math.min(1, 0.3 + (f.t - 0.42) * 3)); f.t += step;
+        if (c) { a.timeScale = c.rate * step / Math.max(dt, 1e-5); const u = Math.max(0, Math.min(1, (at - c.from) / (c.hit - c.from))); f.k = hero.fallen = u * u * (3 - 2 * u); }
+        else { hero.prone = Math.min(1, Math.pow(f.t / 0.42, 2)); cuff.rotation.x = -hero.prone * 1.5; cuff.position.y = 0.16 + hero.prone * 0.12; }
+        if (!f.hit && (c ? at >= c.hit : f.t >= 0.42)) { f.hit = true; g.shake(0.8); g.buzz([60, 30, 160]); g.sound.fx('smash'); fight.sparks.floor = G; fight.sparks.burst({ x: p.x, y: G + 0.15, z: p.z - (c ? 0.5 : 1.2) }, 26, [0.75, 0.68, 0.55], 6, 0, -1); }
+        f.v *= Math.exp(-step * (f.hit ? 4.2 : c ? 1.4 : 0));      // (a caught move is from a slower pace than his: he loses way as he goes over)
+        p.z -= f.v * step; if (f.hit && f.v < 0.15 && (!c || a.paused || at >= a.getClip().duration - 0.03)) f.rest = true;
       }
+      if (snare && snare.fall && snare.fall.clip && cuff.visible) cuffOn();
       if (clear) { const on = director.active && director.beats === clear.beats && director.i === clear.i; if (on !== clear.on) { clear.on = on; g.veil(!on); g.moonAt(on ? [16, 40, -36] : null); g.mist(on ? 0.008 : null); } if (!on) clear = null; }
       if (held) {      // the ring or the jewel lies in the open hand that holds it, a small light on it
         held.who.offer.hold(held.thing.position, palmUp); held.thing.quaternion.setFromUnitVectors(flat, palmUp);

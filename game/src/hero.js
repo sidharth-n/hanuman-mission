@@ -12,10 +12,17 @@ const X_AXIS = new THREE.Vector3(1, 0, 0), Y_AXIS = new THREE.Vector3(0, 1, 0), 
 // roar, a landing, a blow, a fall: with the hips held up and the knees bent his feet would leave the road) and pinned
 // only where the game itself lifts him: a leap, the hang he flies in, a climb.
 // The rig may stand along any axis: his height is whichever part of the hips' place is large when he stands.
-export function pinHips(clip, keepHeight) {
+// A clip that begins with him lying down cannot tell which way is up (its hips start near the ground), so the axis is
+// read once from all of a character's clips together (heightAxis) and handed in.
+export function heightAxis(clips) {
+  let H = 1, most = 0;
+  for (const c of clips) for (const t of c.tracks) if (/Hips\.position$/.test(t.name)) for (let k = 0; k < 3; k++) if (Math.abs(t.values[k]) > most) { most = Math.abs(t.values[k]); H = k; }
+  return H;
+}
+export function pinHips(clip, keepHeight, axis) {
   for (const t of clip.tracks) {
     if (!/Hips\.position$/.test(t.name)) continue;
-    const v = t.values, H = [0, 1, 2].reduce((a, b) => Math.abs(v[b]) > Math.abs(v[a]) ? b : a), sign = Math.sign(v[H]) || 1;
+    const v = t.values, H = axis !== undefined ? axis : [0, 1, 2].reduce((a, b) => Math.abs(v[b]) > Math.abs(v[a]) ? b : a), sign = Math.sign(v[H]) || 1;
     // find the part of the clip where the body is really off the ground (leap) or really down (slide),
     // so the game can play exactly that part while he is in the air or under a beam
     let lo = Infinity, hi = -Infinity;
@@ -78,8 +85,9 @@ export class Hero {
 
     this.mixer = new THREE.AnimationMixer(this.model);
     this.actions = {};
+    const up = heightAxis(gltf.animations);
     for (const clip of gltf.animations) {
-      pinHips(clip, !/jump|hang|climb/.test(clip.name));      // on the ground the hips go down with the knees; in a leap or in flight the game lifts him
+      pinHips(clip, !/jump|hang|climb/.test(clip.name), up);      // on the ground the hips go down with the knees; in a leap or in flight the game lifts him
       this.actions[clip.name] = this.mixer.clipAction(clip);
     }
     this.current = null;
