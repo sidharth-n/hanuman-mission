@@ -49,6 +49,7 @@ const PRONE = [
   ['LeftUpLeg', 'LeftLeg', [0.03, -1, 0]], ['LeftLeg', 'LeftFoot', [0, -1, 0.03]], ['LeftFoot', 'LeftToeBase', [0, -1, -0.35]],
   ['RightUpLeg', 'RightLeg', [-0.03, -1, 0]], ['RightLeg', 'RightFoot', [0, -1, 0.03]], ['RightFoot', 'RightToeBase', [0, -1, -0.35]],
 ];
+const _jl = new THREE.Vector3(), _jf = new THREE.Vector3(), _jc = new THREE.Vector3(), _jq = new THREE.Quaternion(), _jw = new THREE.Quaternion(), _jp = new THREE.Quaternion();
 const STRIDE = 4.66;      // metres a second a planted foot passes under him in the run clip at its own pace, at his own size (measured in the game)
 const MACE_UP = new THREE.Vector3(-0.22, 0.5, 0.84);      // the mace lies back over his shoulder, head high behind him
 const _a = new THREE.Vector3(), _b = new THREE.Vector3(), _d = new THREE.Vector3(), _t = new THREE.Vector3(), _q = new THREE.Quaternion(), _p = new THREE.Quaternion(), _w = new THREE.Quaternion();
@@ -95,6 +96,10 @@ export class Hero {
       for (const [f, k] of [['Index', 0.94], ['Middle', 1], ['Ring', 1.04], ['Pinky', 1.08]]) { const to = [1, 2, 3].map(n => this.bones[side + 'HandReal' + f + n]);
         if (to.every(Boolean)) this.fingers.push({ from, to, k, rest: to.map(b => b.quaternion.clone()), inv: to.map(b => b.quaternion.clone().invert()), was: from.map(b => b.quaternion.clone()) }); } }
     this.offer = new Reach(this.model, 'Right');
+    // his hands joined before his breast and his head bowed over them, as he stands before Sita: the left hand has a reach of its own
+    this.offerL = new Reach(this.model, 'Left'); this.pray = 0;
+    this.flat = Object.keys(this.bones).filter(n => /^(Left|Right)Hand(Index|Thumb)\d$/.test(n)).map(n => [this.bones[n], this.bones[n].quaternion.clone()]);      // his fingers as he was made, straight: joined hands are open hands
+    this.joined = { ahead: 0.2, apart: 0.03, up: -0.07, tip: 0.25, nod: [0.12, 0.24] };      // where the wrists meet from the middle of his chest (in his own size), how far the fingers lean ahead, and how far neck and head are bowed
     this.pronePose = PRONE.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], d]);
     this.prone = 0;      // 0 standing .. 1 flat on his face: the story throws him down (the capture)
     this.flightPose = FLIGHT.filter(([a, b]) => this.bones[a] && this.bones[b]).map(([a, b, d]) => [this.bones[a], this.bones[b], new THREE.Vector3(...d)]);
@@ -123,7 +128,7 @@ export class Hero {
 
   reset() {
     this.lane = 1; this.root.position.set(0, 0, 0); this.model.position.y = 0; this.root.rotation.y = 0; this.free = false; this.pace = 0;
-    if (this.offer) { this.offer.on = false; this.offer.w = 0; }
+    if (this.offer) { this.offer.on = false; this.offer.w = 0; this.offer.face = null; this.offerL.on = false; this.offerL.w = 0; this.pray = 0; }
     this.y = 0; this.vy = 0; this.slide = 0; this.busy = 0; this.time = 0; this.lean = 0; this.floor = 0; this.sink = 0; this.flying = false; this.fly = 0; this.prone = 0;
     this.model.rotation.x = 0; this.model.position.z = 0;
     this.root.scale.setScalar(1);
@@ -211,11 +216,41 @@ export class Hero {
 
     if (running && !this.free && !this.airborne && this.slide <= 0 && this.busy <= 0) this.play('fast_run', { speed: this.root.scale.x > 1.05 ? Math.min(0.75 + speed / 28, speed / (STRIDE * this.root.scale.x)) : 0.75 + speed / 28, fade: 0.14 });      // grown, his stride is longer: the legs turn only as fast as plants each foot on the ground it covers, never faster than his usual pace
     this.mixer.update(dt);
+    if (this.offerL.w > 0.002) { const w = this.offerL.w * this.offerL.w * (3 - 2 * this.offerL.w); for (const [bone, q] of this.flat) bone.quaternion.slerp(q, w); }
     this.curl();
     this.poseTail(this.free ? this.pace : running ? speed : 0);
     this.poseFlight();
     this.poseProne();
+    this.join(dt);
     this.offer.update(dt);      // something held out in his open hand, in a scene
+    this.joinEnd();
+  }
+
+  // He joins his hands and bows his head (on), or lets them go (off): the right hand's reach is then free again for a thing held out.
+  bow(on) { this.pray = on ? 1 : 0; if (!on) { this.offerL.on = false; if (this.offer.face) { this.offer.on = false; this.offer.face = null; } } }
+
+  // The joined hands, each frame after the clips: palm to palm before the middle of his chest, elbows down; which way is
+  // ahead of him is read from his shoulders, so it holds in a squat as it does standing. The head goes down as the hands come up.
+  join(dt) {
+    const b = this.bones, j = this.joined;
+    if (this.pray && b.Spine2 && b.LeftArm && b.RightArm) {
+      const k = this.root.scale.x;
+      b.LeftArm.getWorldPosition(_jl).sub(b.RightArm.getWorldPosition(_jc)); _jl.y = 0; _jl.normalize(); _jf.crossVectors(_jl, Y_AXIS);
+      b.Spine2.getWorldPosition(_jc); _jc.y += j.up * k; _jc.addScaledVector(_jf, j.ahead * k);
+      this.offer.to.copy(_jc).addScaledVector(_jl, -j.apart * k); this.offerL.to.copy(_jc).addScaledVector(_jl, j.apart * k);
+      this.offer.face = (this.offer.face || new THREE.Vector3()).copy(_jl); this.offerL.face = (this.offerL.face || new THREE.Vector3()).copy(_jl).negate();
+      this.offer.on = this.offerL.on = true;
+    }
+    this.offerL.update(dt);
+  }
+  // and when both wrists are there: the hands are stood up from the wrist, fingers to the sky and a little ahead, and the head goes down over them
+  joinEnd() {
+    const b = this.bones, j = this.joined, w = this.offerL.w * this.offerL.w * (3 - 2 * this.offerL.w);
+    if (w <= 0.002 || !b.Neck || !b.Head || !b.LeftArm || !b.RightArm) return;
+    b.LeftArm.getWorldPosition(_jl).sub(b.RightArm.getWorldPosition(_jc)); _jl.y = 0; _jl.normalize(); _jf.crossVectors(_jl, Y_AXIS);
+    _jc.copy(Y_AXIS).addScaledVector(_jf, j.tip);
+    for (const side of ['Left', 'Right']) { const hand = b[side + 'Hand'], finger = b[side + 'HandIndex1']; if (hand && finger) { hand.updateWorldMatrix(true, true); aim(hand, finger, _jc, w); } }
+    [b.Neck, b.Head].forEach((bone, i) => { bone.updateWorldMatrix(true, false); bone.getWorldQuaternion(_jw); bone.parent.getWorldQuaternion(_jp); bone.quaternion.copy(_jp.invert().multiply(_jw.premultiply(_jq.setFromAxisAngle(_jl, j.nod[i] * w)))); });
   }
 
   // Each finger closes as the old mitten's one chain does, joint for joint (the little finger a little more, the first a little

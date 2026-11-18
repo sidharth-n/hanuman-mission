@@ -266,7 +266,7 @@ export function createStory(g) {
     squat(H[0], H[1], heroYaw(d[0], d[1]));      // behind his tree, whatever was skipped; he comes to her with empty hands
     const eye = [T.x - d[0] * 4.3 + side[0] * 2.5, 2.0, T.z - d[1] * 4.3 + side[1] * 2.5];
     // out from hiding in one leap, down beside her, and a bow
-    const leap = () => { hero.sink = 0; leapTo = { x0: H[0], z0: H[1], x: hx, z: hz, t: 0, secs: 1.25, up: 3.4, then: () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.08 }); } }; hero.root.rotation.y = heroYaw(hx - H[0], hz - H[1]); const w = hero.actions.running_jump.getClip().userData; hero.play('running_jump', { once: true, from: Math.max(0, w.from - 0.06), speed: (w.to - w.from + 0.06) / 1.25, fade: 0.1 }); };
+    const leap = () => { hero.bow(0); hero.sink = 0; leapTo = { x0: H[0], z0: H[1], x: hx, z: hz, t: 0, secs: 1.25, up: 3.4, then: () => { putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'hard_landing'); hero.play('hard_landing', { once: true, fade: 0.08 }); } }; hero.root.rotation.y = heroYaw(hx - H[0], hz - H[1]); const w = hero.actions.running_jump.getClip().userData; hero.play('running_jump', { once: true, from: Math.max(0, w.from - 0.06), speed: (w.to - w.from + 0.06) / 1.25, fade: 0.1 }); };
     const landed = () => { if (leapTo || hero.root.position.x < hx - 1) { leapTo = null; putHero(hx, hz, heroYaw(sx - hx, sz - hz), 'breathing_idle'); } };      // there already, even if the leap was tapped past
     // where the hands go (the two sit and stand three paces apart, so each giving is seen close, on the hand that gives):
     // f: the way from him to her along the ground; r: toward his right hand
@@ -277,24 +277,25 @@ export function createStory(g) {
     const near = (p, df, dr, dy, look, fov) => shot([p[0] + f[0] * df + r[0] * dr, p[1] + dy, p[2] + f[1] * df + r[1] * dr], [p[0], p[1] + look, p[2]], { to: [p[0] + f[0] * df * 0.86 + r[0] * dr * 0.86, p[1] + dy * 0.92, p[2] + f[1] * df * 0.86 + r[1] * dr * 0.86], fov });
     const ringShot = near(hand, 0.66, 0.34, 0.26, 0.12, either(40, 30)), jewelShot = near(gives, -0.62, -0.3, 0.32, 0.1, either(40, 30)), keepShot = near(keeps, 0.7, 0.3, 0.24, 0.1, either(40, 30));
     const onHero = shot(v(hx + 1.44, 1.5, hz - 0.21), v(hx, 1.52, hz), { to: v(hx + 1.3, 1.5, hz - 0.3), fov: either(36, 27) });      // close on him as he speaks, the grove behind him: nothing of her seat in the picture (on a phone its back came up under the words)
+    const onHeroBow = shot(v(hx + 1.75, 1.42, hz - 0.26), v(hx, 1.34, hz), { to: v(hx + 1.6, 1.42, hz - 0.36), fov: either(40, 30) });      // a little wider and lower as he names himself: his joined hands stand clear above the words
     const onSita = shot(v(hx + 0.2, 1.3 + U, hz - 0.2), v(sx, 1.1 + U, sz + 0.2), { to: v(hx + 0.4, 1.25 + U, hz - 0.4), fov: 38, face: faceOf(sita) });
     const two = either(shot(v(sx - 3.2, 1.2, sz - 1.7), v(sx - 1.0, 1.1, sz + 1.2), { to: v(sx - 2.7, 1.25, sz - 2.1), fov: 46 }), shot(v(hx - 2.1, 1.9, hz + 0.9), v(sx - 0.5, 1.05, sz + 0.5), { to: v(hx - 1.8, 1.85, hz + 0.7), fov: 46 }));
     director.play(beats('grove_sita', [
       shot(v(...eye), v(sx, 1.2 + U, sz + 0.3), { to: v(eye[0] + d[0] * 1.2, 1.95, eye[2] + d[1] * 1.2), fov: 26, fovTo: 20 }),      // from his hiding place: she is alone now
       hidShot(H, d, side),
       { ...shot(v(1.4, 2.3, H[1] + 5.5), v((H[0] + hx) / 2, 1.9, (H[1] + hz) / 2), { to: v(1.0, 2.0, H[1] + 3.5), lookTo: v(hx - 0.6, 1.2, hz), fov: 56 }), secs: 3.4, do: leap },      // from the path behind him: the tree, the leap, and her under the great tree beyond
-      { ...onHero, do: () => { landed(); hero.play('breathing_idle', { fade: 0.4 }); } },
+      { ...onHeroBow, do: () => { landed(); hero.play('breathing_idle', { fade: 0.4 }); hero.bow(1); } },      // "Mother": he stands before her with joined hands
       { ...onSita, do: () => { landed(); sita.play('sit_talk'); } },
-      { ...ringShot, do: () => { landed(); sita.play('sit'); offer(hero, ring, hand); } },      // the ring, lying in his open hand held out to her
+      { ...ringShot, do: () => { landed(); sita.play('sit'); hero.bow(0); offer(hero, ring, hand); } },      // the ring, lying in his open hand held out to her
       { ...onSita, do: () => { sita.play('sit_talk'); offer(sita, ring, hers); } },      // and now in hers: she holds it before her and looks at it
       { ...onHero, do: () => offer(null) },
       { ...jewelShot, do: () => { landed(); sita.play('sit_talk'); offer(sita, jewel, gives); } },      // her jewel, held out to him
       { ...keepShot, do: () => { sita.play('sit'); offer(hero, jewel, keeps); } },      // and it lies in his hand as he gives his word
-      { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => { landed(); sita.play('sit_talk'); offer(null); } },
+      { ...shot(v(sx - 5.2, 2.4, sz + 5.4), v(sx - 0.8, 1.1, sz + 0.8), { to: v(sx - 6.4, 3.4, sz + 7.2), fov: 50 }), do: () => { landed(); sita.play('sit_talk'); offer(null); hero.bow(1); } },      // he takes his leave of her with joined hands
     ]), wreck);
   }
   function wreck() {
-    trek = null; leapTo = null; if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score('vow'); const z = -GROVE_MID - 7; offer(null); sita.play('sit');
+    trek = null; leapTo = null; hero.bow(0); if (hero.mace) hero.mace.visible = true; g.hold(); g.sound.score('vow'); const z = -GROVE_MID - 7; offer(null); sita.play('sit');
     putHero(0, z, heroYaw(0, 1), 'great_sword_idle');
     // His vow, and then his roar (Hans's timing): a cue rises under the two lines; he says the second and only then throws
     // his head back, a breath after its last word, so the roar does not bury what it is for; the fight begins on its tail.
