@@ -37,6 +37,15 @@ export function fit(camera, look, fov, aspect, points, most = 3.2) {
   return hi;
 }
 
+// Fingers posed by the game, not by the clips. A hand remade in Blender no longer fits the finger tracks its clips were
+// given (Sita's left hand bent like a claw as she spoke; Sid: "like zombie hands... make it smooth and natural"). Each
+// finger bone keeps the pose it was made in and is curled about its own knuckle line, toward the palm, by so many
+// degrees (first finger to little finger; knuckle, middle joint, tip): a hand at rest, a hand laid flat (joined in
+// prayer, or holding something out), a hand that points.
+const FINGERS = ['Index', 'Middle', 'Ring', 'Pinky'];
+const CURL = { relaxed: [[10, 16, 9], [14, 20, 11], [17, 24, 13], [20, 28, 15]], flat: [[0, 1, 0], [0, 1, 0], [0, 2, 0], [1, 2, 1]], point: [[0, 3, 2], [72, 84, 48], [76, 86, 50], [78, 88, 52]] };
+const _h1 = new THREE.Vector3(), _h2 = new THREE.Vector3(), _h3 = new THREE.Vector3(), _h4 = new THREE.Vector3(), _h5 = new THREE.Vector3(), _h6 = new THREE.Vector3(), _m0 = new THREE.Matrix4(), _m1 = new THREE.Matrix4(), _hq = new THREE.Quaternion(), _ht = new THREE.Quaternion();
+
 export class Actor {
   // height: how tall he or she stands in the world, in metres
   constructor(gltf, height) {
@@ -54,7 +63,25 @@ export class Actor {
     this.offer = new Reach(this.model, 'Right');
     // hands joined before the breast: 1 the head bowed over them (prayer), 2 the face lifted (thanks). The left hand has its own reach for it.
     this.offerL = new Reach(this.model, 'Left'); this.pray = 0;
+    // hand: how each hand's fingers are held ('relaxed', 'flat', 'point'; none: as the clip has them). clipHand: { clip: { Left: 'point' } } for one clip.
+    this.hand = { Left: null, Right: null }; this.clipHand = null; this.digits = {};
+    // pointAt: { to: a place in the world, clip: the clip it belongs to }: while that clip plays, his left arm is stretched toward the place (a clip's own gesture knows nothing of where anyone stands: Ravana's swept across his own row of heads)
+    this.aimL = new Reach(this.model, 'Left'); this.pointAt = null;
+    for (const side of ['Left', 'Right']) {
+      const B = n => this.model.getObjectByName('mixamorig' + side + 'Hand' + n), W = b => b.getWorldPosition(new THREE.Vector3()), Q = b => b.getWorldQuaternion(new THREE.Quaternion()), wrist = B('');
+      if (!wrist || !B('Index1') || !B('Middle1') || !B('Pinky1')) continue;
+      // the palm's side of the hand, from the hand's own shape: toward the knuckles crossed with little finger to first finger, turned over for the other hand
+      const palm = W(B('Middle1')).sub(W(wrist)).normalize().cross(W(B('Index1')).sub(W(B('Pinky1'))).normalize()).normalize(); if (side === 'Right') palm.negate();
+      const list = [];
+      FINGERS.forEach((f, fi) => { for (let j = 1; j <= 3; j++) { const b = B(f + j), next = B(f + (j + 1)), prev = B(f + (j - 1)); if (!b || !(next || prev)) continue;
+        const dir = (next ? W(next).sub(W(b)) : W(b).sub(W(prev))).normalize();
+        list.push({ bone: b, rest: b.quaternion.clone(), axis: dir.cross(palm).normalize().applyQuaternion(Q(b).invert()), f: fi, j: j - 1, now: 0 }); } });
+      this.digits[side] = { list, wrist, mid: B('Middle1'), palm: palm.clone().applyQuaternion(Q(wrist).invert()), live: false };
+    }
+    if (this.digits.Left) this.aimL.palm.copy(this.digits.Left.palm);      // (the palm's side from the hand's own shape: his arms were not rigged held out, palms down)
     this.chest = this.model.getObjectByName('mixamorigSpine2'); this.neck = this.model.getObjectByName('mixamorigNeck'); this.head = this.model.getObjectByName('mixamorigHead'); this.crown = this.model.getObjectByName('mixamorigHeadTop_End');
+    // neckKeep: how much of a clip's turning of neck and head is kept (1: all). Ravana's nine other heads are carried by his chest, so a head that turns far by itself goes into its neighbours.
+    this.neckKeep = 1; this.neckRest = [this.neck, this.head].map(b => b && b.quaternion.clone());
     this.knees = 0;      // seated, how far the knees are brought together (0 as animated, 1 touching): a long skirt tears when they sit apart
     const blob = new THREE.Mesh(new THREE.CircleGeometry(height * 0.32, 20), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.4, depthWrite: false }));
     blob.rotation.x = -Math.PI / 2; blob.position.y = 0.04; this.blob = blob; this.root.add(blob);
@@ -90,8 +117,12 @@ export class Actor {
       if (u >= 1) { this.moves = null; if (m.then !== null) this.root.rotation.y = m.then; this.play(m.after, { fade: 0.3 }); }
     }
     this.mixer.update(dt);
+    if (this.neckKeep < 1) [this.neck, this.head].forEach((b, i) => { if (b) b.quaternion.slerp(this.neckRest[i], 1 - this.neckKeep); });
     if (this.pray || this.offerL.w > 0.002) this.join(dt);
     this.offer.update(dt);      // something held out in an open hand
+    if (this.offerL.w > 0.002) this.palms();
+    if (this.pointAt || this.aimL.w > 0.002) this.points(dt);
+    this.fingers(dt);
     if (this.knees > 0 && this.name && this.name.startsWith('sit') && this.legs[0][0] && this.legs[1][0]) {
       const at = this.legs.map(l => l.map(b => b.getWorldPosition(new THREE.Vector3())));
       const mid = at[0][1].clone().add(at[1][1]).multiplyScalar(0.5);
@@ -119,6 +150,36 @@ Actor.prototype.join = function (dt) {
   if (on && this.neck && this.head) {      // the head is turned about the line through her ears: down over her hands, or up
     const by = this.pray === 1 ? [0.16, 0.34] : [-0.06, -0.16];
     [this.neck, this.head].forEach((bone, i) => { bone.updateWorldMatrix(true, false); bone.getWorldQuaternion(_w); bone.parent.getWorldQuaternion(_p); bone.quaternion.copy(_p.invert().multiply(_w.premultiply(_q.setFromAxisAngle(_lf, by[i])))); });
+  }
+};
+
+// Joined, each hand stands up from its wrist: fingers to the sky and a little forward, palm against palm (namaste).
+Actor.prototype.palms = function () {
+  const yaw = this.root.rotation.y; _fw.set(Math.sin(yaw), 0, Math.cos(yaw)); _lf.set(Math.cos(yaw), 0, -Math.sin(yaw));
+  for (const side of ['Left', 'Right']) {
+    const d = this.digits[side], w = Math.min(1, (side === 'Left' ? this.offerL : this.offer).w); if (!d || w < 0.002) continue;
+    d.wrist.updateWorldMatrix(true, false); d.mid.updateWorldMatrix(true, false); d.wrist.getWorldQuaternion(_w);
+    const d0 = d.mid.getWorldPosition(_h1).sub(d.wrist.getWorldPosition(_h2)).normalize(), p0 = _h3.copy(d.palm).applyQuaternion(_w); p0.addScaledVector(d0, -p0.dot(d0)).normalize();
+    const d1 = _h4.set(0, 1, 0).addScaledVector(_fw, 0.2).normalize(), p1 = _h5.copy(_lf).multiplyScalar(side === 'Right' ? 1 : -1); p1.addScaledVector(d1, -p1.dot(d1)).normalize();
+    _m0.makeBasis(d0, p0, _h6.crossVectors(d0, p0)); _m1.makeBasis(d1, p1, _h2.crossVectors(d1, p1)); _m1.multiply(_m0.transpose()); _hq.setFromRotationMatrix(_m1);
+    d.wrist.parent.getWorldQuaternion(_p); _ht.copy(_p).invert().multiply(_hq.multiply(_w)); d.wrist.quaternion.slerp(_ht, w);
+  }
+};
+Actor.prototype.points = function (dt) {
+  const r = this.aimL, d = this.digits.Left; if (!r.ok || !d) return;
+  const on = !!this.pointAt && this.name === this.pointAt.clip;
+  if (on) { r.arm.getWorldPosition(_h1); const len = r.fore.getWorldPosition(_h2).distanceTo(_h1) + r.hand.getWorldPosition(_h3).distanceTo(_h2);
+    _h4.copy(this.pointAt.to).sub(_h1).normalize(); this.aimDir = (this.aimDir || new THREE.Vector3()).copy(_h4); r.to.copy(_h1).addScaledVector(_h4, len * 0.93); r.face = (r.face || new THREE.Vector3()).set(0, -1, 0); }
+  r.on = on; r.update(dt);
+  if (this.aimDir && r.w > 0.002) { _ht.copy(d.wrist.quaternion); aim(d.wrist, d.mid, this.aimDir); d.wrist.quaternion.copy(_ht.slerp(d.wrist.quaternion, Math.min(1, r.w))); }      // the hand along the arm, toward what he points at
+};
+Actor.prototype.fingers = function (dt) {
+  for (const side of ['Left', 'Right']) {
+    const d = this.digits[side]; if (!d) continue;
+    const flat = this.pray > 0 || this.offerL.w > 0.5 || (side === 'Right' && this.offer.on && !this.offer.face), by = this.clipHand && this.clipHand[this.name];
+    const want = flat ? 'flat' : (by && by[side]) || this.hand[side]; if (!want) { d.live = false; continue; }
+    const C = CURL[want], k = d.live ? Math.min(1, dt * 8) : 1; d.live = true;
+    for (const g of d.list) { g.now += (C[g.f][g.j] - g.now) * k; g.bone.quaternion.copy(g.rest).multiply(_hq.setFromAxisAngle(g.axis, g.now * Math.PI / 180)); }
   }
 };
 

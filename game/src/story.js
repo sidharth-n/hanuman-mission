@@ -20,6 +20,7 @@ const GROVE_MID = GROVE_AT + (HIDE.n - 1) * CHUNK + 38;      // the floor the gr
 export function createStory(g) {
   const { hero, fight, director } = g;
   const sita = new Actor(g.models.sita, 1.72), ravana = new Actor(g.models.ravana, 2.75);
+  sita.hand.Left = sita.hand.Right = 'relaxed'; ravana.hand.Left = 'relaxed'; ravana.clipHand = { command: { Left: 'point' } }; ravana.neckKeep = 0.3;      // their remade hands are held by the game (scene.js): at rest, flat when joined or holding something out, and his pointing when he commands
   g.scene.add(sita.root, ravana.root);
   sita.knees = 0.8; sita.model.traverse(o => { if (o.isMesh) o.material.side = THREE.DoubleSide; });      // seated, the folds of her sari open: their inner side must show as cloth, not as holes
   const lankini = fight.boss, escort = [fight.guards[6], fight.guards[7]], wardens = [fight.guards[4], fight.guards[5]];      // the two who lead him, the two who stand by the throne
@@ -261,7 +262,7 @@ export function createStory(g) {
       { ...onSita, do: () => { ravana.play('idle'); sita.play('sit_talk'); } },
       { ...shot(v(sx - 1.5, 1.1 + U, sz + 1.0), v(sx, 1.05 + U, sz + 0.2), { to: v(sx - 1.2, 1.08 + U, sz + 0.8), fov: 36, face: faceOf(sita) }), do: () => sita.play('sit_talk') },
       { ...shot(v(sx + 1.5, 2.25, sz - 1.5), v(rx, 2.0, rz), { to: v(sx + 1.2, 2.2, sz - 1.2), fov: 48 }), do: () => { clear = { beats: director.beats, i: director.i, on: false }; } },      // over her head and the back of her seat. From here the lens looks through the shaft of moonlight that falls on her and across the mist on the grass, toward the moon: a white wash lay over him. For this one shot the veils are put out and the moon stands behind the camera
-      { ...onRavana, do: () => { sita.play('sit'); ravana.play('command', { once: true }); ravana.rise = 1.3; } },
+      { ...onRavana, do: () => { sita.play('sit'); ravana.pointAt = { to: sita.head.getWorldPosition(new THREE.Vector3()), clip: 'command' }; ravana.play('command', { once: true }); ravana.rise = 1.3; } },
       { ...watch({ fov: 34 }), do: () => { hid(); ravana.walk(out[0], out[1], 6.2); escort.forEach((e, i) => { e.root.rotation.y = yawTo(out[0] - rx, out[1] - rz); e.play('great_sword_walk'); e.leave = 1; e.go = [(out[0] - rx) / Math.hypot(out[0] - rx, out[1] - rz), (out[1] - rz) / Math.hypot(out[0] - rx, out[1] - rz)]; }); } },
       { ...onHim, do: hid },
     ]), meets);
@@ -469,7 +470,7 @@ export function createStory(g) {
         { ...shot(v(-2.3, 1.2, hz - 1.3), v(0, 1.6, hz - 0.4), { to: v(-2.0, 1.3, hz - 1.9), fov: 50 }) },
         { ...shot(v(-1.6, T + 1.9, tz + 4.4), v(0, T + 2.5, tz), { to: v(-1.2, T + 2.2, tz + 3.8), fov: 44 }), do: () => { ravana.play('sit_exit', { once: true }); ravana.rise = 1.1; ravana.root.position.y = G + T; ravana.root.position.z = tz + 1.5; } },
         // his order, seen from in front of him and a little below: the whole of him standing before his throne, the row of heads, the arm thrown out (Sid: "where he points his fingers and tells them to burn... the camera more to the front"; it had been taken from far behind Hanuman, and he was small)
-        { ...shot(v(-1.6, T + 1.25, tz + 5.9), v(either(0.15, 0.38), T + 1.42, tz + 1.5), { to: v(-1.15, T + 1.35, tz + 5.2), fov: either(40, 34) }), do: () => ravana.play('command', { once: true, fade: 0.2 }) },
+        { ...shot(v(-1.6, T + 1.25, tz + 5.9), v(either(0.15, 0.38), T + 1.42, tz + 1.5), { to: v(-1.15, T + 1.35, tz + 5.2), fov: either(40, 34) }), do: () => { ravana.rise = 0; ravana.pointAt = { to: new THREE.Vector3(0, G + 1.5, hz), clip: 'command' }; ravana.play('command', { once: true, fade: 0.2 }); } },
       ]),
       // Ravana's word is carried out before our eyes: a guard brings a burning brand round behind him and puts it to his tail
       { ...shot(v(-1.5, 0.8, hz + 3.5), v(0.35, 1.3, hz + 1.0), { to: v(-1.2, 0.85, hz + 3.0), fov: either(50, 40) }), secs: 3.4, do: kindle },
