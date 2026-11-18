@@ -74,8 +74,22 @@ async function ticket(env, b) {      // the row of a run whose ticket is true, o
   const row = await env.DB.prepare('SELECT * FROM runs WHERE id = ?').bind(b.run).first();
   return row && same(b.sig, await sign(env, row.id + '.' + row.pid + '.' + row.t0)) ? row : null;
 }
+// The story's film, given in pieces: a phone's own player asks for a film a part at a time and will not play one that comes
+// only whole, and the site's plain files are given only whole. The file itself is one of the site's own (assets/video/).
+async function film(request, env, url, name) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('', { status: 405 });
+  if (!/^prologue-(9x16|16x9)\.mp4$/.test(name)) return new Response('', { status: 404 });
+  const res = await env.ASSETS.fetch(new URL('/assets/video/' + name, url)); if (!res.ok) return new Response('', { status: 404 });
+  const buf = await res.arrayBuffer(), size = buf.byteLength, head = { 'content-type': 'video/mp4', 'accept-ranges': 'bytes', 'cache-control': 'public, max-age=3600' };
+  const m = /^bytes=(\d*)-(\d*)$/.exec(request.headers.get('range') || '');
+  if (!m || (m[1] === '' && m[2] === '')) return new Response(request.method === 'HEAD' ? null : buf, { headers: { ...head, 'content-length': String(size) } });
+  const start = m[1] === '' ? Math.max(0, size - +m[2]) : +m[1], end = m[1] === '' || m[2] === '' ? size - 1 : Math.min(+m[2], size - 1);      // "the last n", "from a", or "a to b"
+  if (start > end || start >= size) return new Response('', { status: 416, headers: { ...head, 'content-range': `bytes */${size}` } });
+  return new Response(request.method === 'HEAD' ? null : buf.slice(start, end + 1), { status: 206, headers: { ...head, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': String(end - start + 1) } });
+}
 export async function onRequest({ request, env, waitUntil }) {
   const url = new URL(request.url), path = url.pathname.replace(/^\/api\//, ''), now = Date.now(), db = env.DB;
+  if (path.startsWith('film/')) return film(request, env, url, path.slice(5));
   if (!db || !env.SCORE_KEY) return no('not set up', 503);
   try {
     if (request.method === 'GET' && path === 'board') {

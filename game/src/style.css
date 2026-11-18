@@ -369,6 +369,22 @@ body.keys .controls { gap: 6px 40px; }
 @media (max-height: 560px) { #cardImg { height: 42vh; } .got i, #gotCount, .dots { display: none; } }
 @media (min-width: 900px) and (min-height: 600px) { #cardImg { height: min(58vh, 640px); } }
 .links { display: flex; gap: 18px; justify-content: center; pointer-events: auto; }
+/* The story before the game: first a question in the middle of the screen over a darkened still of the film, then the film with black around it; Skip low on the right; a hair of gold along the foot while the game is made ready behind it */
+#film { position: fixed; inset: 0; z-index: 60; background: #000; opacity: 1; transition: opacity .6s ease; }
+#film.out { opacity: 0; pointer-events: none; }
+#film video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; transition: filter .5s ease; }
+#film.ask video { filter: brightness(.38) saturate(.9); }
+#filmAsk { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(360px, calc(100% - 36px)); padding: 30px 24px 28px; align-items: center; gap: 10px; text-align: center; pointer-events: auto; box-shadow: 0 24px 70px #000, 0 0 0 1px var(--gold-deep); }
+#filmAsk h2 { margin: 6px 0 0; } #filmAsk .caps { font-size: 12px; }
+#filmAsk .fnote { margin: 0 0 8px; font: italic 500 18px/1.25 var(--text); color: var(--ink); text-wrap: balance; }
+#filmAsk .plaque { min-width: 0; width: 100%; padding-left: 12px; padding-right: 12px; font-size: 17px; } #filmAsk .plaque.quiet { font-size: 14px; }
+#filmSkip { position: absolute; right: calc(14px + var(--right)); bottom: calc(max(14px, 4vh - 16px) + var(--bottom)); min-width: 68px; min-height: 44px; padding: 0 16px; display: flex; align-items: center; justify-content: center;
+  font: 700 12px/1 var(--head); letter-spacing: .16em; text-transform: uppercase; color: var(--gold-light); background: rgba(26, 22, 19, .72); border: 1px solid var(--gold-deep); border-radius: 4px; pointer-events: auto; }
+@media (orientation: portrait) { #filmSkip { bottom: calc(8px + var(--bottom)); right: calc(10px + var(--right)); min-height: 36px; } }      /* upright, the film's own words stand low: Skip keeps under them, in the corner */
+#filmLoad { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(232, 180, 76, .12); } #filmLoad i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold-light)); transition: width .4s ease; }
+#film [hidden] { display: none; }
+@media (prefers-reduced-motion: reduce) { #film, #film video { transition: none; } }
+
 /* The twelve names: a list on a phone (it fits without scrolling), tiles with the picture above on a wide screen */
 .nwrap { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: auto; }
 .nwrap .logo.small { margin: 0; }

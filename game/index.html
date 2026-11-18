@@ -111,6 +111,20 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
   <p class="caps" id="loadLine">Loading</p>
 </section>
 
+<!-- the story before the game: first a question in the middle of the screen (with its sound, or without), and only on the answer the film; Skip low on the right; the game is made ready behind it -->
+<section id="film" hidden>
+  <video id="filmV" playsinline webkit-playsinline disablepictureinpicture preload="none"></video>
+  <div id="filmAsk" class="tablet" hidden>
+    <p class="caps">Before you play</p>
+    <h2>The story</h2>
+    <p class="fnote">One minute: how Hanuman's mission began.</p>
+    <button id="filmLoud" class="plaque">Play with sound</button>
+    <button id="filmQuiet" class="plaque quiet">Play without sound</button>
+  </div>
+  <button id="filmSkip">Skip</button>
+  <div id="filmLoad"><i></i></div>
+</section>
+
 <section id="menu" class="veil" hidden>
   <div id="install" hidden><p id="installText"></p><button id="installGo" hidden>Install</button><button id="installNo" aria-label="Dismiss">&times;</button></div>
   <div class="group">
@@ -121,6 +135,7 @@ if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver
     <button id="go" class="plaque">Play</button>
     <button id="openBoard" class="plaque quiet">Leaderboard</button>
     <button id="openSettings" class="plaque quiet">Settings</button>
+    <button id="openStory" class="link">Watch the story</button>
     <p class="hint" id="howLine">Swipe left or right to change lane, up to jump, down to slide</p>
   </div>
 </section>

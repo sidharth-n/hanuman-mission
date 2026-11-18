@@ -50,7 +50,45 @@ const settings = { gfx: store.get('gfx', phone ? 'smooth' : 'rich'), vib: store.
 const sharpest = () => Math.min(window.devicePixelRatio || 1, settings.gfx === 'rich' ? (phone ? 1.75 : 2) : 1.25);
 const buzz = pattern => { if (settings.vib && navigator.vibrate) navigator.vibrate(pattern); };
 const sound = createSound(store);      // the song under the game and the chant over its big moments
+// The title has music of its own (Sid, 19 Nov: "when the user has not pressed start or leaderboard there should be a nice bgm"):
+// one of the game's own cues, begun when the title shows (heard from his first touch: a browser sounds nothing before one),
+// kept under the screens opened from the title, faded out when a run or the story's film begins.
+const titleMusic = () => { if (!tale.open) sound.score(sound.has('title') ? 'title' : 'night', { rise: 2.4 }); };
 const query = new URLSearchParams(location.search), debug = query.has('debug');
+// The story before the game: a short film with the teller's voice. A first visit is asked, in the middle of the screen, whether
+// to play it with its sound or without (Sid, 19 Nov: nothing plays by itself; the answer starts it), with a still of the film
+// dark behind the question and the game made ready behind it all. It can be left at any moment by Skip, low on the right; the
+// title has a button that shows it again. Its end, or Skip, leaves him at whatever is ready: the title, or the last of the loading.
+const tale = { el: $('film'), v: $('filmV'), open: false,
+  show(ask) {      // ask: the question first (a first visit); otherwise straight in with its sound (asked for from the title)
+    if (tale.open) return; tale.open = true; const v = tale.v, name = `prologue-${innerHeight > innerWidth ? '9x16' : '16x9'}`;      // the upright cut on an upright phone
+    tale.served = `/api/film/${name}.mp4`; tale.plain = `assets/video/${name}.mp4`;      // asked of the site's service, which gives it in pieces as a phone's player wants; the plain file stands behind it
+    if (tale.quiet) tale.quiet();      // the title's music gives way to it
+    v.removeAttribute('src'); v.poster = `assets/video/${name}.jpg`; tale.el.hidden = false; tale.el.classList.remove('out', 'on'); tale.el.classList.toggle('ask', !!ask); $('filmAsk').hidden = !ask;
+    if (!ask) tale.play(false);
+  },
+  play(silent) {      // always from a tap, so a browser lets it sound
+    const v = tale.v; $('filmAsk').hidden = true; tale.el.classList.remove('ask'); v.src = tale.served; v.muted = silent; v.volume = 1;
+    v.play().catch(e => { if (e && e.name === 'NotAllowedError' && tale.open && !tale.el.classList.contains('on')) { $('filmAsk').hidden = false; tale.el.classList.add('ask'); } });      // refused by the browser (never after a tap, by rights): the question again
+    clearTimeout(tale.wait); tale.wait = setTimeout(() => { if (tale.open && !tale.el.classList.contains('on')) tale.close(true); }, 15000);      // a film that has shown no picture in fifteen seconds is let go: the game is not held up by it
+  },
+  close(unseen) {
+    if (!tale.open) return; tale.open = false; clearTimeout(tale.wait); if (unseen !== true) store.set('story', 'seen'); tale.el.classList.add('out'); tale.v.pause();
+    setTimeout(() => { if (!tale.open) { tale.el.hidden = true; tale.v.removeAttribute('src'); tale.v.load(); } }, 650);      // faded away, then let go of
+    if (tale.after) tale.after();      // and the title has its music again
+  },
+  load(part) { $('filmLoad').firstElementChild.style.width = `${Math.round(part * 100)}%`; $('filmLoad').hidden = part >= 1; } };      // a hair of gold along the foot: how much of the game is ready
+tale.v.addEventListener('ended', () => tale.close()); tale.v.addEventListener('playing', () => tale.el.classList.add('on'));
+tale.v.addEventListener('error', () => {      // not to be had from the service (or no service, as on the maker's own machine): the plain file once; not to be had at all: left without a word
+  if (!tale.open || !tale.v.error || !tale.v.getAttribute('src')) return; if (!tale.v.src.endsWith(tale.plain)) { const silent = tale.v.muted; tale.v.src = tale.plain; tale.v.muted = silent; tale.v.play().catch(() => {}); } else tale.close(true); });
+$('filmSkip').addEventListener('click', () => tale.close()); $('filmLoud').addEventListener('click', () => tale.play(false)); $('filmQuiet').addEventListener('click', () => tale.play(true));
+for (const e of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click']) tale.el.addEventListener(e, ev => ev.stopPropagation());      // nothing under the film is touched through it
+window.addEventListener('keydown', e => {      // and no key reaches the game while it shows: Escape leaves it, Enter answers the question with sound (or leaves the film once it plays)
+  if (!tale.open) return; e.stopImmediatePropagation(); if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'Escape') { e.preventDefault(); tale.close(); } else if (e.key === 'Enter') { e.preventDefault(); if ($('filmAsk').hidden) tale.close(); else tale.play(false); }
+}, true);
+tale.quiet = () => sound.score(null, { fade: 0.8 }); tale.after = () => { if (state.mode === 'ready' && !ui.menu.hidden) titleMusic(); };
+if (query.has('story') || (store.get('story', '') !== 'seen' && !debug && !query.has('fight'))) tale.show(true);
 const explore = query.has('explore');      // ?explore: the whole route with nothing in his way, for looking round
 const GIANT = 1.8;      // how many times his own size he grows to meet Lankini (one of his powers, like flight)
 const startAt = debug || explore || query.has('fight') ? Math.max(0, SECTIONS.findIndex(s => s.id === (query.get('at') || (query.has('fight') ? 'court' : '')))) : 0;      // ?fight starts at the palace court, a short run from the guards      // &at=court starts a run at that section
@@ -66,6 +104,12 @@ scene.background = NIGHT.clone();
 scene.fog = new THREE.FogExp2(FOG_NIGHT.getHex(), 0.016);
 const pmrem = new THREE.PMREMGenerator(renderer);
 scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.2;
+// A phone may take its graphics memory away in the middle of a game and give it back. The renderer then draws everything again
+// from its sources (the models' pictures are plain images for that reason, see load()); but light that was itself drawn, the
+// room the models reflect, is gone with the memory and is made again here.
+renderer.domElement.addEventListener('webglcontextrestored', () => setTimeout(() => {
+  try { scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; } catch (err) { console.error(err); }
+}, 0));
 const hemi = new THREE.HemisphereLight(0x7f95d8, 0x241a12, 1.0); scene.add(hemi);
 const moon = new THREE.DirectionalLight(0xb4c4ff, 2.4); moon.position.set(-18, 40, 36); scene.add(moon);   // cool fill from behind the camera so his back reads
 const camera = new THREE.PerspectiveCamera(56, 1, 0.3, 700);
@@ -95,6 +139,15 @@ window.addEventListener('resize', resize); resize();
 THREE.DefaultLoadingManager.setURLModifier(u => (/^(blob:|data:)/.test(u) ? u : u + (u.includes('?') ? '&' : '?') + 'v=' + __STAMP__));
 
 async function load() {
+  // The pictures on the models are read as plain images, never as bitmaps kept by the graphics side of a phone: when an iPhone
+  // takes its graphics memory back in the middle of a game (it does, under pressure), such bitmaps come back empty and every
+  // model is drawn black from then on (Sid's phone, 19 Nov: Hanuman, the towers and the pots black after a fall, the road
+  // still right). A plain image can always be drawn again. The loader reads bitmaps only where the browser offers them, so
+  // for the length of the loading it is not offered.
+  const bitmaps = self.createImageBitmap; try { self.createImageBitmap = undefined; } catch { /* a browser that will not let go of it keeps it */ }
+  try { return await loadAll(); } finally { try { self.createImageBitmap = bitmaps; } catch { /* as above */ } }
+}
+async function loadAll() {
   const loader = new GLTFLoader(); let done = 0;
   const names = [...CAST, 'gada', 'guard-sword', ...KIT];
   const file = name => name === 'hanuman' && query.get('hero') === 'b' ? 'hanuman-b' : name;      // ?hero=b plays a second build of him, when one lies beside the first
@@ -115,7 +168,7 @@ async function load() {
   };
   const queue = []; let busy = 0;
   const turn = job => new Promise((yes, no) => { const run = () => { busy++; job().then(yes, no).finally(() => { busy--; const next = queue.shift(); if (next) next(); }); }; if (busy < 5) run(); else queue.push(run); });
-  const one = name => turn(() => again(u => loader.loadAsync(u(trial[name] ? `${trial[name]}.glb` : `assets/${CAST.includes(name) ? '' : 'world/'}${file(name)}.glb`)))).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; return [name, g]; });
+  const one = name => turn(() => again(u => loader.loadAsync(u(trial[name] ? `${trial[name]}.glb` : `assets/${CAST.includes(name) ? '' : 'world/'}${file(name)}.glb`)))).then(g => { done++; ui.fill.style.width = `${Math.round(done / names.length * 100)}%`; tale.load(done / names.length); return [name, g]; });
   const tl = new THREE.TextureLoader(), pic = at => again(u => tl.loadAsync(u(at)));
   const [models, city, glow, paving, sky] = await Promise.all([Promise.all(names.map(one)).then(Object.fromEntries),
     pic('assets/tex/city.jpg'), pic('assets/tex/city-glow.jpg'), pic('assets/tex/paving.jpg'), pic(debug && query.get('sky') ? query.get('sky') : 'assets/tex/sky.jpg')]);      // ?debug&sky=<picture>: another sky under trial (a whole panorama is laid once round)
@@ -160,12 +213,13 @@ async function load() {
   world.warm(renderer, camera);
   state.loadMs = Math.round(performance.now() - t0);
   if (document.fonts) await Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))]);      // lettering in place before the menu shows
-  state.mode = 'ready'; screen('menu');
+  state.mode = 'ready'; screen('menu'); tale.load(1);
 }
 
 // One full-screen layer at a time: 'loading' | 'menu' | 'panel' | 'result', or none while running.
 function screen(name) {
   for (const k of ['loading', 'menu', 'panel', 'result', 'board', 'cardView', 'names']) ui[k].hidden = k !== name;
+  if (name === 'menu' && state.mode !== 'paused') titleMusic();
   const inRun = state.mode === 'run' || state.mode === 'paused' || state.mode === 'fight';
   ui.hud.hidden = ui.fly.hidden = ui.giant.hidden = !inRun;
   const inFight = inRun && fight && fight.active;      // the fight's own controls
@@ -923,7 +977,7 @@ $('controls').innerHTML = '<h3>Controls</h3>' + CONTROLS.map(([k, v]) => `<div><
 { const el = $('name'); el.value = store.get('name', ''); el.addEventListener('change', () => { el.value = el.value.trim().slice(0, 12); store.set('name', el.value); if (tally.send && !ui.result.hidden) tally.send(); }); }      // the name he gives is kept, and changed on the board at once
 press('seeCard', () => openCard('result')); press('myCard', () => openCard('board')); press('shareCard', shareCard); press('cardBack', () => screen(lb.cardFrom || 'menu'));
 press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('result')); press('boardBack', () => screen(lb.from));
-press('seeNames', () => openNames('cardView')); press('boardNames', () => openNames('board')); press('resNames', () => openNames('result')); press('namesBack', () => screen(lb.namesFrom || 'menu'));
+press('openStory', () => tale.show(false)); press('seeNames', () => openNames('cardView')); press('boardNames', () => openNames('board')); press('resNames', () => openNames('result')); press('namesBack', () => screen(lb.namesFrom || 'menu'));
 for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
 press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
@@ -990,7 +1044,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js?v=' + __STAMP__);
   // once everything has loaded, hand the offline cache the exact files this visit used
   window.addEventListener('load', () => navigator.serviceWorker.ready.then(reg => setTimeout(() => {
-    const used = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && !/\.mp3($|\?)/.test(u));
+    const used = performance.getEntriesByType('resource').map(r => r.name).filter(u => u.startsWith(location.origin) && !/\.(mp3|mp4)($|\?)/.test(u));
     reg.active && reg.active.postMessage({ cache: [location.origin + location.pathname, ...new Set(used)] });
   }, 6000)));
 }
