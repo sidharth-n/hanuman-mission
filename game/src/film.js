@@ -9,7 +9,7 @@ import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js'
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
-export function createFilm({ renderer, scene, camera, hemi, moon, state, hero, world }) {
+export function createFilm({ renderer, scene, camera, hemi, moon, state, hero, world, director }) {
   renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const key = new THREE.DirectionalLight(0xffffff, 0), rim = new THREE.DirectionalLight(0xffffff, 0), fill = new THREE.PointLight(0xffffff, 0, 30, 1.6);
   key.castShadow = true; key.shadow.mapSize.set(4096, 4096); key.shadow.bias = -0.0004; key.shadow.normalBias = 0.03;
@@ -32,7 +32,8 @@ export function createFilm({ renderer, scene, camera, hemi, moon, state, hero, w
       const L = film.L, h = hero();
       if (!film.own) { state.slowT = 0; state.tscale = 1; state.shake = 0; state.held = null; }
       if (!L.winds && world()) for (const c of world().chunks.values()) if (c.winds) for (const w of c.winds) w.mesh.visible = false;      // the rings of wind are things of play, not of a film
-      if (L.subject) at.set(...L.subject); else if (h) { at.copy(h.root.position); at.y += h.y + 1.0 * h.root.scale.x; }
+      // in a scene of the story the lights stand round whoever the director is looking at
+      const d = director(); if (L.subject) at.set(...L.subject); else if (d && d.active && d.cam) at.copy(d.look); else if (h) { at.copy(h.root.position); at.y += h.y + 1.0 * h.root.scale.x; }
       key.color.set(L.keyColor); key.intensity = L.keyPower; key.position.copy(at).add(v.set(...L.key)); key.target.position.copy(at);
       const s = L.span, c = key.shadow.camera; if (c.right !== s) { c.left = -s; c.right = s; c.top = s; c.bottom = -s; c.near = 0.5; c.far = 80; c.updateProjectionMatrix(); }
       rim.color.set(L.rimColor); rim.intensity = L.rimPower; rim.position.copy(at).add(v.set(...L.rim)); rim.target.position.copy(at);
