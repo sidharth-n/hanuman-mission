@@ -57,6 +57,12 @@
 <link rel="preload" as="image" href="ui/brand/gada.webp">
 <link rel="preload" as="image" href="ui/brand/title.webp">
 <link rel="stylesheet" href="/src/style.css">
+<script>
+// The visit counter is added to the page by the host with the main address's key. On the beta address it is given the beta's own key, so each address is counted under its own name.
+if (location.hostname === 'beta.hanuman-mission.pages.dev') new MutationObserver((list, seen) => {
+  for (const m of list) for (const n of m.addedNodes) if (n.tagName === 'SCRIPT' && n.hasAttribute('data-cf-beacon')) { n.setAttribute('data-cf-beacon', '{"token": "f7be859e9707429a987c96acbc18f8c7"}'); seen.disconnect(); }
+}).observe(document.documentElement, { childList: true, subtree: true });
+</script>
 </head>
 <body>
 <canvas id="view"></canvas>
