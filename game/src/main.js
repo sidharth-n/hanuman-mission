@@ -214,7 +214,7 @@ async function loadAll() {
     name: (title, sub) => { const el = $('intro'); el.hidden = !title; if (title) { el.children[0].textContent = title; el.children[2].textContent = sub || ''; for (const c of el.children) { c.style.animation = 'none'; void c.offsetWidth; c.style.animation = ''; } } },
     // the last high shots: the whole city laid round the street, the air cleared so it is seen from far up
     sky: on => { if (on) { const z = hero.root.position.z; lanka.show(z, groundAt(z), { half: 36, front: 132, back: (world.behind + 1) * 24 + 12 }); state.thin = 0.0016; camera.far = 1500; } else { lanka.hide(); state.thin = null; camera.far = 700; } camera.updateProjectionMatrix(); },
-    finish: () => { credits(-1); tally.done = true; scores.mark(SECTIONS.length - 1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('seeCard').hidden = false; } });
+    finish: () => { credits(-1); tally.done = true; scores.mark(SECTIONS.length - 1); result('Lanka burns', 'Burned', state.burned); $('fromLine').textContent = STORY.cards.end; $('fromLine').hidden = false; $('seeCard').hidden = false; likeAsk.after(); } });
   lanka = createLanka(scene, world.flameTex); debris = new Debris(scene);
   tailFire = new THREE.Group(); tailFire.visible = false; scene.add(tailFire);
   for (const s of [0.8, 0.55, 0.35]) { const f = new THREE.Sprite(world.flameMat); f.userData.s = s; tailFire.add(f); }
@@ -997,6 +997,20 @@ press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('
 press('openStory', () => tale.show(false)); press('seeNames', () => openNames('cardView')); press('boardNames', () => openNames('board')); press('resNames', () => openNames('result')); press('namesBack', () => screen(lb.namesFrom || 'menu'));
 for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
 press('share', share); press('go', () => (nameAsk.need() ? nameAsk.show(() => start(startAt, true)) : start(startAt, true))); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+// After a run told to its end, once on a device and a moment after the score has landed: was it enjoyed? To those who say yes,
+// a request to like the hackathon post on X, which "Sure, will do" opens. Nothing in the game is given for it.
+const POST = 'https://x.com/sid_ai_dev/status/2123244769438777386';
+const likeAsk = { el: $('likeAsk'), timer: 0,
+  need: () => !store.get('asked', '') && (!debug || query.has('like')),
+  after() { clearTimeout(likeAsk.timer); if (likeAsk.need()) likeAsk.timer = setTimeout(likeAsk.show, 3200); },
+  show() { if (!likeAsk.need() || ui.result.hidden || !tally.done) return; $('likeQ').hidden = false; $('likeHelp').hidden = true; likeAsk.el.hidden = false; },
+  close(answer) { store.set('asked', answer); likeAsk.el.hidden = true; } };
+press('likeYes', () => { $('likeQ').hidden = true; $('likeHelp').hidden = false; });
+press('likeNo', () => likeAsk.close('no'));
+press('likeSkip', () => likeAsk.close('later'));
+press('likeGo', () => { likeAsk.close('yes'); const a = document.createElement('a'); a.href = POST; a.target = '_blank'; a.rel = 'noopener'; a.click(); });
+for (const e of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click']) likeAsk.el.addEventListener(e, ev => ev.stopPropagation());
+window.addEventListener('keydown', e => { if (!likeAsk.el.hidden) e.stopImmediatePropagation(); }, true);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
 function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }
@@ -1125,6 +1139,6 @@ function audit() {
   if (++audited % 6 === 0) for (const line of blocked()) add(line.replace(/ [\d.]+ m .*$/, ''));
   if (state.mode === 'scene' && audited % 3 === 0) { const who = lensIn(); if (who) add('the lens is inside ' + who); }
 }
-if (debug || import.meta.env.DEV) window.__game = { tally, scores, endRun: result, blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
+if (debug || import.meta.env.DEV) window.__game = { tally, scores, likeAsk, endRun: result, blocked, feet, faults, scene, get fight() { return fight; }, get story() { return story; }, get director() { return director; }, flyCam, sound, state, get hero() { return hero; }, get world() { return world; }, renderer, camera, start, sections: SECTIONS, groundAt, move: d => hero.move(d), shot, slowMotion, usePower, useFlight,
   size(w, h) { fixed = w ? [w, h] : null; renderer.setPixelRatio(w ? 1 : pixelRatio); resize(); } };
 if (debug && query.has('film')) import('./film.js').then(m => { film = m.createFilm({ renderer, scene, camera, hemi, moon, state, hero: () => hero, world: () => world, director: () => director }); window.__game.film = film; });

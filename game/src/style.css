@@ -392,6 +392,15 @@ body.keys .controls { gap: 6px 40px; }
 #nameAsk input:focus { border-color: var(--gold-light); } #nameAsk input::placeholder { color: var(--quiet); opacity: .8; }
 #nameAsk .plaque { min-width: 0; width: 100%; margin-top: 4px; padding-left: 12px; padding-right: 12px; font-size: 17px; } #nameAsk .plaque:disabled { opacity: .42; filter: saturate(.5); }
 @media (max-height: 480px) { #nameAsk { padding: 8px; } #nameAsk .tablet { padding: 16px 20px; gap: 6px; } #nameAsk .fnote { display: none; } #nameAsk input { padding: 8px; font-size: 18px; } }
+/* After a run told to its end, once on a device: was it enjoyed, and to those who say yes, a request to like the hackathon post. */
+#likeAsk { position: fixed; inset: 0; z-index: 61; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(5, 4, 3, .84); }
+#likeAsk .tablet { width: min(380px, 100%); padding: 30px 24px 26px; align-items: center; text-align: center; box-shadow: 0 24px 70px #000, 0 0 0 1px var(--gold-deep); }
+#likeAsk .tablet > div { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; }
+#likeAsk .caps { font-size: 12px; } #likeAsk h2 { margin: 6px 0 4px; font-size: 22px; line-height: 1.25; text-wrap: balance; }
+#likeAsk .fnote { margin: 4px 0 2px; font: 500 22px/1.32 var(--text); color: var(--ink); text-wrap: balance; }
+#likeAsk .acts { width: 100%; margin: 6px 0 0; flex-direction: column; gap: 10px; }
+#likeAsk .plaque { min-width: 0; width: 100%; padding-left: 12px; padding-right: 12px; font-size: 17px; } #likeAsk .plaque.quiet { font-size: 14px; }
+@media (max-height: 480px) { #likeAsk { padding: 8px; } #likeAsk .tablet { padding: 14px 20px; } #likeAsk .tablet > div { gap: 5px; } #likeAsk .fnote { font-size: 17px; line-height: 1.2; } #likeAsk .acts { flex-direction: row; } #likeAsk .plaque { padding-top: 8px; padding-bottom: 8px; font-size: 14px; } }
 @media (prefers-reduced-motion: reduce) { #film, #film video { transition: none; } }
 
 /* The twelve names: a list on a phone (it fits without scrolling), tiles with the picture above on a wide screen */
