@@ -112,7 +112,6 @@ simply not ranked.
 ## Credits
 
 Sound and music credits are listed in `game/public/assets/sfx/CREDITS.txt`, `game/public/assets/audio/score/CREDITS.txt`
-and `assets/sound/*/credits.txt`. The song and the chant heard during the run on the public site are not part of this
-repository.
+and `assets/sound/*/credits.txt`.
 
 The Ramayana is an ancient epic. The character designs, the models and the game are original work.
