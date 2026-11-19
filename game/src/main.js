@@ -87,7 +87,24 @@ window.addEventListener('keydown', e => {      // and no key reaches the game wh
   if (!tale.open) return; e.stopImmediatePropagation(); if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (e.key === 'Escape') { e.preventDefault(); tale.close(); } else if (e.key === 'Enter') { e.preventDefault(); if ($('filmAsk').hidden) tale.close(); else tale.play(false); }
 }, true);
-tale.quiet = () => sound.score(null, { fade: 0.8 }); tale.after = () => { if (state.mode === 'ready' && !ui.menu.hidden) titleMusic(); };
+// His name: asked once, in the middle of the screen, when the story has been shown (or left) on a first visit, and at Play should
+// it still be wanting. Kept on the device and sent with every run begun, so the board never has to call a player by a made-up name.
+const tidyName = v => String(v || '').normalize('NFKC').replace(/[^\p{L}\p{M}\p{N} ._-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 12).trim();
+const nameAsk = { el: $('nameAsk'), field: $('nameFirst'), go: $('nameGo'), then: null, given: '',
+  need: () => !nameAsk.given && !tidyName(store.get('name', '')) && (!debug || query.has('story') || query.has('name')),      // (the tests' own address goes straight to the game)
+  show(then) {      // then: what he was about to do when he was asked (Play)
+    nameAsk.then = then || null; if (!nameAsk.el.hidden) return; nameAsk.field.value = ''; nameAsk.go.disabled = true; nameAsk.el.hidden = false;
+    try { nameAsk.field.focus({ preventScroll: true }); } catch { /* he taps the field */ }
+  },
+  take() {
+    const v = tidyName(nameAsk.field.value); if (!v) return; nameAsk.given = v; store.set('name', v); $('name').value = v; nameAsk.field.blur(); nameAsk.el.hidden = true;
+    const then = nameAsk.then; nameAsk.then = null; if (then) then();
+  } };
+nameAsk.field.addEventListener('input', () => { nameAsk.go.disabled = !tidyName(nameAsk.field.value); });
+$('nameForm').addEventListener('submit', e => { e.preventDefault(); if (!tidyName(nameAsk.field.value)) return; sound.fx('tap'); nameAsk.take(); });
+for (const e of ['pointerdown', 'pointerup', 'touchstart', 'touchend', 'click']) nameAsk.el.addEventListener(e, ev => ev.stopPropagation());      // nothing under it is touched through it
+window.addEventListener('keydown', e => { if (!nameAsk.el.hidden) e.stopImmediatePropagation(); }, true);      // and no key reaches the game while he types (the letters still reach the field, and Enter the form)
+tale.quiet = () => sound.score(null, { fade: 0.8 }); tale.after = () => { if (state.mode === 'ready' && !ui.menu.hidden) titleMusic(); if (nameAsk.need()) nameAsk.show(); };
 if (query.has('story') || (store.get('story', '') !== 'seen' && !debug && !query.has('fight'))) tale.show(true);
 const explore = query.has('explore');      // ?explore: the whole route with nothing in his way, for looking round
 const GIANT = 1.8;      // how many times his own size he grows to meet Lankini (one of his powers, like flight)
@@ -979,7 +996,7 @@ press('seeCard', () => openCard('result')); press('myCard', () => openCard('boar
 press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('result')); press('boardBack', () => screen(lb.from));
 press('openStory', () => tale.show(false)); press('seeNames', () => openNames('cardView')); press('boardNames', () => openNames('board')); press('resNames', () => openNames('result')); press('namesBack', () => screen(lb.namesFrom || 'menu'));
 for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
-press('share', share); press('go', () => start(startAt, true)); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
+press('share', share); press('go', () => (nameAsk.need() ? nameAsk.show(() => start(startAt, true)) : start(startAt, true))); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
 for (const [id, fn] of [['giant', usePower], ['fly', useFlight]]) $(id).addEventListener('pointerdown', e => { e.preventDefault(); if (state.mode === 'run' || (state.mode === 'fight' && id === 'giant')) press2(id, fn); });
 // the fight's two buttons answer on touch down, with a pulse when the move is made
 function tap(id, fn) { const el = $(id), ok = fn(); if (ok) { el.classList.remove('hit'); void el.offsetWidth; el.classList.add('hit'); } return ok; }

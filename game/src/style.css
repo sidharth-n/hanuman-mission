@@ -383,6 +383,15 @@ body.keys .controls { gap: 6px 40px; }
 @media (orientation: portrait) { #filmSkip { bottom: calc(8px + var(--bottom)); right: calc(10px + var(--right)); min-height: 36px; } }      /* upright, the film's own words stand low: Skip keeps under them, in the corner */
 #filmLoad { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(232, 180, 76, .12); } #filmLoad i { display: block; width: 0; height: 100%; background: linear-gradient(90deg, var(--gold-deep), var(--gold-light)); transition: width .4s ease; }
 #film [hidden] { display: none; }
+/* His name, asked once in the middle of the screen: after the story on a first visit, or at Play if it is still wanting. */
+#nameAsk { position: fixed; inset: 0; z-index: 61; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(5, 4, 3, .84); }
+#nameAsk .tablet { width: min(360px, 100%); padding: 30px 24px 28px; align-items: center; gap: 10px; text-align: center; box-shadow: 0 24px 70px #000, 0 0 0 1px var(--gold-deep); }
+#nameAsk h2 { margin: 6px 0 0; } #nameAsk .caps { font-size: 12px; }
+#nameAsk .fnote { margin: 0 0 8px; font: italic 500 18px/1.25 var(--text); color: var(--ink); text-wrap: balance; }
+#nameAsk input { width: 100%; padding: 12px; text-align: center; font: 600 20px/1.1 var(--text); color: var(--ink); background: rgba(16, 12, 9, .85); border: 1px solid var(--gold-deep); border-radius: 6px; outline: none; user-select: text; -webkit-user-select: text; touch-action: none; }
+#nameAsk input:focus { border-color: var(--gold-light); } #nameAsk input::placeholder { color: var(--quiet); opacity: .8; }
+#nameAsk .plaque { min-width: 0; width: 100%; margin-top: 4px; padding-left: 12px; padding-right: 12px; font-size: 17px; } #nameAsk .plaque:disabled { opacity: .42; filter: saturate(.5); }
+@media (max-height: 480px) { #nameAsk { padding: 8px; } #nameAsk .tablet { padding: 16px 20px; gap: 6px; } #nameAsk .fnote { display: none; } #nameAsk input { padding: 8px; font-size: 18px; } }
 @media (prefers-reduced-motion: reduce) { #film, #film video { transition: none; } }
 
 /* The twelve names: a list on a phone (it fits without scrolling), tiles with the picture above on a wide screen */

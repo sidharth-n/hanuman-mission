@@ -22,7 +22,7 @@ export function createScores(store) {
   return {
     pid,
     get live() { return !!(run && run.sig); },
-    begin() { const mine = run = { sec: 0, sent: 0 }; post('run', { pid }).then(t => { if (run === mine) { mine.run = t.run; mine.sig = t.sig; flush(); } }).catch(() => {}); },
+    begin() { const mine = run = { sec: 0, sent: 0 }; post('run', { pid, name: store.get('name', '') }).then(t => { if (run === mine) { mine.run = t.run; mine.sig = t.sig; flush(); } }).catch(() => {}); },
     mark(sec) { if (run && sec > run.sec) { run.sec = sec; flush(); } },
     async submit(stats) { const mine = run; if (!mine || !mine.sig) throw new Error('no ticket'); await flush(); return post('score', { run: mine.run, sig: mine.sig, ...stats }); },
     // the board is the same for everyone; his own places are asked for apart (his id is his own: never in an address)

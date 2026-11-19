@@ -1,6 +1,6 @@
 // The scores service. The game never sends a score: it asks for a ticket when a run begins, tells the places it reaches, and at
 // the end sends what was gathered; the score is worked out here, each number held to what a run could truly hold.
-//   POST /api/run   { pid }                                   -> { run, sig }          a signed ticket for one run
+//   POST /api/run   { pid, name }                             -> { run, sig }          a signed ticket for one run (the name he gave before playing is kept with it)
 //   POST /api/mark  { run, sig, sec }                         -> { sec }               a place of the route reached (in order); answers the place the run stands at
 //   POST /api/score { run, sig, name, title, lamps, dist, won, falls, done } -> { score, lines, card, me, board }
 //   GET  /api/board                                           -> { now, day, closes, today, all }   the same for everyone, kept 15 s
@@ -112,7 +112,8 @@ export async function onRequest({ request, env, waitUntil }) {
       if (recent.results[0].c >= 15) return no('too many runs begun; wait a little', 429);
       if (players.results[0].c >= 40 && !known.results[0].c) return no('too many players from one place today', 429);
       const id = crypto.randomUUID();
-      await db.prepare('INSERT INTO runs (id, pid, t0, iph, cc) VALUES (?, ?, ?, ?, ?)').bind(id, b.pid, now, iph, cc).run();
+      const given = typeof b.name === 'string' && b.name.trim() ? clean(b.name) : null;      // the name he gave before playing: kept with the run from its first moment
+      await db.prepare('INSERT INTO runs (id, pid, t0, iph, cc, name) VALUES (?, ?, ?, ?, ?, ?)').bind(id, b.pid, now, iph, cc, given).run();
       return json({ run: id, sig: await sign(env, id + '.' + b.pid + '.' + now) });
     }
     const row = await ticket(env, b); if (!row) return no('no such run', 403);
@@ -124,7 +125,7 @@ export async function onRequest({ request, env, waitUntil }) {
       return json({ sec: Math.max(at, row.sec) });
     }
     if (path === 'score') {
-      const r = reckon(row, b, now), name = clean(b.name), title = TITLES.includes(b.title) ? b.title : TITLES[0], day = dayOf(now), land = row.cc || cc;
+      const r = reckon(row, b, now), name = clean((typeof b.name === 'string' && b.name.trim()) || row.name), title = TITLES.includes(b.title) ? b.title : TITLES[0], day = dayOf(now), land = row.cc || cc;
       if (!row.done && r.score > row.score) {      // a run told to its end stands as it ended; before that it only rises
         const u = await db.prepare('UPDATE runs SET ts = ?, score = ?, lamps = ?, dist = ?, won = ?, falls = ?, done = ?, name = ?, title = ? WHERE id = ? AND score < ? AND COALESCE(done, 0) = 0')
           .bind(now, r.score, r.lamps, r.dist, r.won, r.falls, r.done, name, title, row.id, r.score).run();
