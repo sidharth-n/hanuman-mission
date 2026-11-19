@@ -15,6 +15,7 @@ import { START_SPEED, MAX_SPEED, ACCEL, speedAt } from './pace.js';
 import { listen, fightControls } from './input.js';
 import { createSound } from './sound.js';
 import { createScores, reckon, flag, seal, NAMES, HOW, earned } from './scores.js';
+import { drawCard } from './card.js';
 import '@fontsource/cinzel/latin-700.css';
 import '@fontsource/cinzel/latin-900.css';
 import '@fontsource/cormorant-garamond/latin-500.css';
@@ -351,7 +352,7 @@ function tallyUp() {
   $('total').dataset.v = 0; $('rankLine').hidden = $('mini').hidden = true; showTally(local);
   tally.send = () => scores.submit({ ...stats, name: $('name').value.trim() || 'Vanara', title }).then(a => {
     if (tally.card) { Object.assign(tally.card, { name: a.name, score: a.score, lamps: a.lamps, rank: (a.me && a.me.today && a.me.today.rank) || 0, no: a.card || 0 }); store.set('card', JSON.stringify(tally.card)); }
-    if (ui.result.hidden) return; showTally(a); showPlace(a); }).catch(() => {});
+    if (ui.result.hidden) return; showTally(a); showPlace(a); if (tally.done) likeAsk.seen(); }).catch(() => {});
   tally.send();
 }
 
@@ -380,7 +381,12 @@ async function openCard(from) {
   lb.cardFrom = from; lb.blob = null; $('gotWho').textContent = `${d.name || 'Vanara'} is now`; $('gotName').textContent = d.title; $('gotWhy').textContent = d.meaning;
   $('dots').innerHTML = NAMES.map((_, i) => `<i class="${i < d.names ? 'on' : ''}"></i>`).join(''); $('gotCount').textContent = `${d.names} of Hanuman's 12 names collected`;
   $('cardImg').removeAttribute('src'); screen('cardView');
-  try { const { drawCard } = await import('./card.js'), c = await drawCard(d); $('cardImg').src = c.toDataURL('image/jpeg', 0.9); c.toBlob(b => { lb.blob = b; }, 'image/jpeg', 0.9); } catch { $('gotCount').textContent = 'The card could not be drawn just now.'; }
+  // drawn again if a picture of it did not arrive (a weak signal): three tries before saying so
+  for (let tries = 0; tries < 3; tries++) {
+    try { const c = await drawCard(d); $('cardImg').src = c.toDataURL('image/jpeg', 0.9); c.toBlob(b => { lb.blob = b; }, 'image/jpeg', 0.9); return; } catch { await new Promise(r => setTimeout(r, 1200)); }
+    if (ui.cardView.hidden) return;
+  }
+  $('gotCount').textContent = 'The card could not be drawn just now.';
 }
 // The twelve names: every card there is to earn, those he holds clear and the others in their colours but blurred past knowing, under a lock, with the way to each.
 const LOCK = '<svg class="lock" viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5V7.4a4.5 4.5 0 0 1 9 0v3.1" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"/><rect x="4.6" y="10.2" width="14.8" height="10.8" rx="2.3" fill="currentColor"/><circle cx="12" cy="15.4" r="1.7" fill="#1a1208"/></svg>';
@@ -997,13 +1003,18 @@ press('openBoard', () => openBoard('menu')); press('seeBoard', () => openBoard('
 press('openStory', () => tale.show(false)); press('seeNames', () => openNames('cardView')); press('boardNames', () => openNames('board')); press('resNames', () => openNames('result')); press('namesBack', () => screen(lb.namesFrom || 'menu'));
 for (const t of $('tabs').children) t.addEventListener('click', () => { lb.tab = t.dataset.v; drawBoard(); });
 press('share', share); press('go', () => (nameAsk.need() ? nameAsk.show(() => start(startAt, true)) : start(startAt, true))); press('again', () => (state.retry ? rematch() : start(state.from))); press('home', home); press('quit', home); press('resume', resume); press('openSettings', openSettings); press('pause', pause);
-// After a run told to its end, once on a device and a moment after the score has landed: was it enjoyed? To those who say yes,
+// After a run told to its end, once on a device: was it enjoyed? To those who say yes,
 // a request to like the hackathon post on X, which "Sure, will do" opens. Nothing in the game is given for it.
 const POST = 'https://x.com/sid_ai_dev/status/2123244769438777386';
-const likeAsk = { el: $('likeAsk'), timer: 0,
+// It waits for the leaderboard: two seconds after his place has come up on the end screen (or some seconds after the score when the
+// board cannot be reached), and it comes over whichever of the end's screens he is on by then (the result, the board, his card, the
+// names), since his card's Share and this both lead away from the game and this is asked first. A new run or the title lets it go.
+const likeAsk = { el: $('likeAsk'), timer: 0, due: false,
   need: () => !store.get('asked', '') && (!debug || query.has('like')),
-  after() { clearTimeout(likeAsk.timer); if (likeAsk.need()) likeAsk.timer = setTimeout(likeAsk.show, 3200); },
-  show() { if (!likeAsk.need() || ui.result.hidden || !tally.done) return; $('likeQ').hidden = false; $('likeHelp').hidden = true; likeAsk.el.hidden = false; },
+  after(ms = 6000) { clearTimeout(likeAsk.timer); if (!likeAsk.need()) return; likeAsk.due = true; likeAsk.timer = setTimeout(likeAsk.show, ms); },
+  seen() { if (likeAsk.due) likeAsk.after(2000); },
+  show() { if (!likeAsk.due || !likeAsk.need()) return; likeAsk.due = false; if (state.mode !== 'ready' || !tally.done || !ui.menu.hidden) return;
+    $('likeQ').hidden = false; $('likeHelp').hidden = true; likeAsk.el.hidden = false; },
   close(answer) { store.set('asked', answer); likeAsk.el.hidden = true; } };
 press('likeYes', () => { $('likeQ').hidden = true; $('likeHelp').hidden = false; });
 press('likeNo', () => likeAsk.close('no'));
