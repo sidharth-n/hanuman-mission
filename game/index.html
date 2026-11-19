@@ -2,6 +2,35 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+// One address for everyone: the game lives at hanumanmission.com. Opened at an older address (the first public one, the beta, a
+// preview, or with www) the page goes there at once. From the older public addresses, which share the same board, what a player
+// had (his place on the board, his name, his twelve names, his card, his settings) is handed over once, so he is not a stranger
+// at the new one; whether he has seen the story is not, so the story opens for everyone. (?stay or ?debug keeps an address as it is.)
+(function () {
+  var home = 'hanumanmission.com', h = location.hostname, old = h === 'www.' + home || /(^|\.)hanuman-mission\.pages\.dev$/.test(h);
+  if (h === home) {
+    try {
+      var m = /^#hm=(.+)$/.exec(location.hash);
+      if (m) {
+        history.replaceState(null, '', location.pathname + location.search);
+        if (!localStorage.getItem('hm.pid')) { var got = JSON.parse(decodeURIComponent(m[1])); for (var k in got) if (/^[A-Za-z]{1,12}$/.test(k) && k !== 'story' && typeof got[k] === 'string' && got[k].length < 3000) localStorage.setItem('hm.' + k, got[k]); }
+      }
+    } catch (e) { /* he begins anew */ }
+    return;
+  }
+  if (!old || /[?&](stay|debug|fight|explore)\b/.test(location.search)) return;
+  var bag = '';
+  try {
+    if (h === 'www.' + home || h === 'hanuman-mission.pages.dev') {
+      var keep = ['pid', 'name', 'names', 'finishes', 'card', 'best', 'shared', 'smashFight', 'smashTold', 'vib', 'sound', 'gfx'], o = {}, v;
+      for (var i = 0; i < keep.length; i++) { v = localStorage.getItem('hm.' + keep[i]); if (v != null) o[keep[i]] = v; }
+      if (o.pid) bag = '#hm=' + encodeURIComponent(JSON.stringify(o));
+    }
+  } catch (e) { bag = ''; }
+  location.replace('https://' + home + location.pathname + location.search + bag);
+})();
+</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>Hanuman Mission: A Ramayana Action Game</title>
 <meta name="description" content="Play as Hanuman: find Sita in Lanka, face Ravana and set the golden city ablaze. A free 3D Ramayana action game in your browser, on phone or computer.">
