@@ -41,22 +41,26 @@ Made by Sidharth N for the Manycore Aholo Global 3D AI Hackathon (`#Manycorehack
 Every character and every prop of the world began as one picture and was turned into a 3D model with Aholo Lux3D
 (G1 and G1-Turbo), through the workspace and, for batches, through the Aholo API from scripts in `tools/`.
 
-- **The cast:** Hanuman, Lankini, Ravana, Sita and the palace guard. Lux3D made the models; its rigging and animation
-  tools gave Lankini, Ravana, Sita and the guard their skeletons and movement. The cast was then finished in Blender
-  (hands, faces, weights, texture size) with the scripts in `tools/`.
+- **The cast:** Hanuman, Lankini, Ravana, Sita and the palace guard. Lux3D made the models; its auto-rig and animation
+  tools gave Lankini, Ravana and Sita their skeletons and movement, while Hanuman and the guard move with Mixamo
+  carried onto their Lux3D models. The cast was then finished in Blender (hands, faces, weights, texture size) with
+  the scripts in `tools/`.
 - **The world kit:** the Lanka gate, palace, street arch, market stall, cart, brazier, barricade, pots, the Ashoka
   trees, the rakshasa statue, the Shiva and Nandi of Ravana's court, the mace and Sita's hair jewel.
+- **Also tried along the way:** SpatialGen for a night panorama, part split for a Nandi in moving parts, and the Aholo
+  image tool for pictures of the statues.
 - The pictures, the raw results and each step of an asset are kept under `assets/` (`concepts*`, `lux3d`, `library`).
 
 ## Built with
 
 | Tool | Used for |
 |---|---|
-| Aholo Lux3D | characters, rigs, animation, statues and props |
-| Aholo API | picture to model, by script |
+| Aholo Lux3D (G1 and Turbo, auto-rig, animation) | characters, statues and props; skeletons and movement for Sita, Ravana and Lankini |
+| Aholo API, SpatialGen, part split, image tool | picture to model by script; a panorama, a split statue and statue pictures tried on the way |
+| Google Flow image models | concept pictures, from original designs |
 | Three.js, Vite | the game |
 | Blender | finishing the cast |
-| Mixamo | Hanuman's movement |
+| Mixamo | Hanuman's and the guards' movement |
 | ElevenLabs | voices |
 | Freesound and other free libraries | sound effects and parts of the score (see the credits files) |
 | Cloudflare Pages, Pages Functions, D1 | hosting, the scores service, the leaderboard |
