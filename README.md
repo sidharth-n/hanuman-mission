@@ -39,7 +39,7 @@ Made by Sidharth N for the Manycore Aholo Global 3D AI Hackathon (`#Manycorehack
 ## How Aholo Lux3D was used
 
 Every character and every prop of the world began as one picture and was turned into a 3D model with Aholo Lux3D
-(G1 and G1-Turbo), through the workspace and, for batches, through the Aholo API from scripts in `tools/`.
+(G1 and G1-Turbo) through the Aholo API, from scripts in `tools/`.
 
 - **The cast:** Hanuman, Lankini, Ravana, Sita and the palace guard. Lux3D made the models; its auto-rig and animation
   tools gave Lankini, Ravana and Sita their skeletons and movement, while Hanuman and the guard move with Mixamo
