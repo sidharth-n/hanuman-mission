@@ -87,7 +87,16 @@ async function film(request, env, url, name) {
   if (start > end || start >= size) return new Response('', { status: 416, headers: { ...head, 'content-range': `bytes */${size}` } });
   return new Response(request.method === 'HEAD' ? null : buf.slice(start, end + 1), { status: 206, headers: { ...head, 'content-range': `bytes ${start}-${end}/${size}`, 'content-length': String(end - start + 1) } });
 }
-export async function onRequest({ request, env, waitUntil }) {
+// The same game hosted at another address (its ModelScope Studio) keeps its scores here: every answer says any page may read it,
+// and the question a browser asks first from another address (OPTIONS) is answered. Nothing is trusted more for it: a run is still
+// known by its ticket and its signature.
+const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-methods': 'GET, POST, OPTIONS', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400' };
+export async function onRequest(ctx) {
+  if (ctx.request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
+  const res = await answer(ctx); if (new URL(ctx.request.url).pathname.startsWith('/api/film/')) return res;
+  const out = new Response(res.body, res); for (const k in CORS) out.headers.set(k, CORS[k]); return out;
+}
+async function answer({ request, env, waitUntil }) {
   const url = new URL(request.url), path = url.pathname.replace(/^\/api\//, ''), now = Date.now(), db = env.DB;
   if (path.startsWith('film/')) return film(request, env, url, path.slice(5));
   if (!db || !env.SCORE_KEY) return no('not set up', 503);
